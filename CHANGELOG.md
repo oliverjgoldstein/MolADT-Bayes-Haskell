@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] – Changes in the last two weeks
+Changes since V1 as discussed in V3 of the ARXIV paper, most changes being made in the last two weeks.
 
 ### Added
 - Introduced a canonical **benzene molecule example** for clarity and pedagogical strength (#23).  
