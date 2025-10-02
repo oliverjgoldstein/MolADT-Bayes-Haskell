@@ -1,0 +1,236 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.38.1.
+--
+-- see: https://github.com/sol/hpack
+
+name: chemalgprog
+version: 0.1.0.0
+synopsis: Chemical Algorithmic Programming
+description: A library for molecular representation and probabilistic programming.
+category: Development
+author: Oliver Goldstein
+maintainer: oliverjgoldstein@gmail.com, oliver.goldstein@cs.ox.ac.uk, sammarch2@gmail.com
+license: AGPL-3.0-only
+license-file: LICENSE
+build-type: Simple
+extra-source-files:
+    CHANGELOG.md
+    README.md
+
+library
+    exposed-modules:
+        Chem.Dietz
+        Chem.Molecule
+        Chem.Validate
+        LazyPPL
+        Constants
+        Distr
+        Group
+        Orbital
+        SlaterTypeOrbital
+        Chem.IO.SDF
+        Reaction
+        Serialisable
+        SampleMolecules
+        Benzene
+        LogPModel
+    other-modules:
+        ExtraF
+        Chem.Molecule.Coordinate
+    hs-source-dirs:
+        src
+    default-language: Haskell2010
+    build-depends:
+        array,
+        base >=4.13 && <4.21,
+        binary,
+        bytestring,
+        containers,
+        deepseq,
+        directory,
+        filepath,
+        ghc-heap,
+        log-domain,
+        massiv,
+        megaparsec >=9.0 && <10.0,
+        monad-extras,
+        mtl,
+        parallel,
+        random,
+        statistics,
+        text,
+        transformers,
+        vector
+
+executable chemalgprog
+    main-is: Main.hs
+    other-modules:
+        Paths_chemalgprog
+    autogen-modules:
+        Paths_chemalgprog
+    hs-source-dirs:
+        app
+    default-language: Haskell2010
+    build-depends:
+        array,
+        base >=4.13 && <4.21,
+        binary,
+        bytestring,
+        chemalgprog,
+        containers,
+        deepseq,
+        directory,
+        filepath,
+        ghc-heap,
+        log-domain,
+        massiv,
+        megaparsec >=9.0 && <10.0,
+        monad-extras,
+        mtl,
+        parallel,
+        random,
+        statistics,
+        text,
+        transformers,
+        vector
+
+executable parse-molecules
+    main-is: ParseMolecules.hs
+    other-modules:
+        Paths_chemalgprog
+    autogen-modules:
+        Paths_chemalgprog
+    hs-source-dirs:
+        examples
+    default-language: Haskell2010
+    build-depends:
+        array,
+        base >=4.13 && <4.21,
+        binary,
+        bytestring,
+        chemalgprog,
+        containers,
+        deepseq,
+        directory,
+        filepath,
+        ghc-heap,
+        log-domain,
+        massiv,
+        megaparsec >=9.0 && <10.0,
+        monad-extras,
+        mtl,
+        parallel,
+        random,
+        statistics,
+        text,
+        transformers,
+        vector
+
+test-suite edge-properties
+    type: exitcode-stdio-1.0
+    main-is: EdgeProperties.hs
+    other-modules:
+        ParserRoundTrip
+        ValidationProperties
+        Paths_chemalgprog
+    autogen-modules:
+        Paths_chemalgprog
+    hs-source-dirs:
+        test
+    default-language: Haskell2010
+    build-depends:
+        QuickCheck,
+        array,
+        base >=4.13 && <4.21,
+        binary,
+        bytestring,
+        chemalgprog,
+        containers,
+        deepseq,
+        directory,
+        filepath,
+        ghc-heap,
+        log-domain,
+        massiv,
+        megaparsec >=9.0 && <10.0,
+        monad-extras,
+        mtl,
+        parallel,
+        random,
+        statistics,
+        text,
+        transformers,
+        vector
+
+test-suite parser-roundtrip
+    type: exitcode-stdio-1.0
+    main-is: ParserRoundTrip.hs
+    other-modules:
+        EdgeProperties
+        ValidationProperties
+        Paths_chemalgprog
+    autogen-modules:
+        Paths_chemalgprog
+    hs-source-dirs:
+        test
+    default-language: Haskell2010
+    build-depends:
+        array,
+        base >=4.13 && <4.21,
+        binary,
+        bytestring,
+        chemalgprog,
+        containers,
+        deepseq,
+        directory,
+        filepath,
+        ghc-heap,
+        hspec,
+        log-domain,
+        massiv,
+        megaparsec >=9.0 && <10.0,
+        monad-extras,
+        mtl,
+        parallel,
+        random,
+        statistics,
+        text,
+        transformers,
+        vector
+
+test-suite validation-properties
+    type: exitcode-stdio-1.0
+    main-is: ValidationProperties.hs
+    other-modules:
+        EdgeProperties
+        ParserRoundTrip
+        Paths_chemalgprog
+    autogen-modules:
+        Paths_chemalgprog
+    hs-source-dirs:
+        test
+    default-language: Haskell2010
+    build-depends:
+        QuickCheck,
+        array,
+        base >=4.13 && <4.21,
+        binary,
+        bytestring,
+        chemalgprog,
+        containers,
+        deepseq,
+        directory,
+        filepath,
+        ghc-heap,
+        log-domain,
+        massiv,
+        megaparsec >=9.0 && <10.0,
+        monad-extras,
+        mtl,
+        parallel,
+        random,
+        statistics,
+        text,
+        transformers,
+        vector

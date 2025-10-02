@@ -1,21 +1,179 @@
-MIT License
+LicenseRef-MolRep-Commercial
+MolRep Commercial / Source-Available License (Approval Required)
+Version 1.0 — 1 October 2025
 
-Copyright (c) 2025 Oliver J Goldstein
+Licensor: Oliver Jack Goldstein (oliverjgoldstein@gmail.com)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+0. Definitions
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+0.1 “Software” means the Mol‑Rep‑Haskell‑Bayes codebase and associated materials
+as distributed by Licensor, including updates that Licensor provides under this
+License.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+0.2 “Licensee” means the individual or legal entity identified in Licensor’s
+written approval (the “Approval Letter”). If the Approval Letter lists a legal
+entity, “Licensee” includes its Affiliates (defined below) only if expressly
+named or included in that Approval Letter.
+
+0.3 “Affiliate” means any entity that directly or indirectly controls, is
+controlled by, or is under common control with a party, where “control” means
+ownership of more than 50% of the voting interests or the ability to direct the
+management of the entity.
+
+0.4 “Use” means to install, execute, load, run, or otherwise make the Software
+function for Licensee’s internal purposes.
+
+0.5 “Modification” means any change to the Software, including derivative works,
+adaptations, bug fixes, patches or improvements.
+
+0.6 “Non‑Production Use” means Use solely for research, evaluation, academic
+work, experimentation, prototyping, or development, not providing outputs or
+services to third parties for a fee or as part of Licensee’s production
+workloads.
+
+0.7 “Production Use” means Use in or for Licensee’s products, customer‑facing
+services, internal production workloads, or any commercial deployment, whether
+or not for direct fee.
+
+0.8 “Contribution” means any code, documentation, or other material intentionally
+submitted by Licensee to the public Mol‑Rep‑Haskell‑Bayes repository (e.g., via
+pull request, patch, or issue attachment).
+
+1. License Grant; Approval by Affiliation
+
+1.1 Condition Precedent. This License becomes effective only upon Licensor’s
+written Approval Letter that (a) identifies the Licensee (and any covered
+Affiliates) and (b) specifies whether Production Use is authorized. Licensor may
+grant or withhold approval at Licensor’s sole discretion.
+
+1.2 Grant. Subject to the terms below, Licensor grants Licensee a personal,
+non‑exclusive, non‑transferable, non‑sublicensable, worldwide license to:
+   (i) Use the Software,
+   (ii) make Modifications for Licensee’s internal Use, and
+   (iii) create and store reasonable numbers of copies for backup and archival purposes.
+
+1.3 Scope by Default. Unless the Approval Letter expressly authorizes
+“Production Use”, the grant in 1.2 is limited to Non‑Production Use only.
+
+1.4 Fees. Licensor may condition Production Use or any other expanded rights on
+payment of fees specified in the Approval Letter or a separate order form. If no
+fee is specified, the approval is fee‑free.
+
+2. Restrictions
+
+2.1 No Redistribution. Licensee must not distribute, publish, disclose, or make
+the Software or any Modifications available to any third party in source or
+object form, except as permitted in Section 3. (Submitting Contributions
+upstream to Licensor’s public repository is allowed.)
+
+2.2 No Hosting for Third Parties. Licensee must not offer the Software (or
+substantial functionality of it) as a service, platform, or feature to any
+third party, whether for fee or free, unless Production Use is authorized and
+such hosting is expressly allowed in the Approval Letter.
+
+2.3 No Sublicensing or Assignment. Licensee may not sublicense, assign, or
+transfer this License, in whole or part, by operation of law or otherwise,
+without Licensor’s prior written consent. Any attempted transfer is void.
+
+2.4 Notices. Licensee must preserve all copyright, license, and attribution
+notices in the Software and in any Modifications kept internally.
+
+2.5 Third‑Party Code. The Software may include components under separate licenses.
+Those components are governed by their own terms; this License does not alter
+those terms.
+
+3. Contributions; Feedback
+
+3.1 Upstream Contributions. Licensee may submit Contributions to Licensor’s
+public repository. By submitting a Contribution, Licensee represents that it has
+the right to grant, and hereby grants to Licensor, a perpetual, worldwide,
+non‑exclusive, royalty‑free, irrevocable license (with the right to sublicense)
+to use, reproduce, modify, distribute, create derivative works of, publicly
+perform and display the Contribution, and to relicense the Contribution (and any
+derivative works of it) under any terms Licensor chooses, including proprietary
+licenses and open‑source licenses.
+
+3.2 Contributor Identification. Licensee agrees to follow the project’s
+CONTRIBUTING guidelines, including any required Developer Certificate of Origin
+or CLA workflow.
+
+3.3 Feedback. Licensee may provide ideas, suggestions, or reports (“Feedback”).
+Licensor may use Feedback for any purpose without obligation.
+
+4. Intellectual Property; Patents; Trademarks
+
+4.1 Ownership. Except for the limited rights expressly granted, Licensor retains
+all right, title, and interest in and to the Software.
+
+4.2 Patent License from Licensor. To the extent Licensor can do so, Licensor
+grants Licensee a non‑exclusive, royalty‑free patent license to make, use, and
+run the Software as permitted by this License. This patent license does not
+extend to any claims that are infringed only by Modifications made by Licensee
+or combinations with items not supplied by Licensor.
+
+4.3 No Trademark License. Nothing in this License grants rights to use Licensor’s
+names, logos, or trademarks.
+
+5. Compliance and Audit
+
+Upon reasonable written notice, not more than once in any 12‑month period,
+Licensor may request a certification signed by an officer of Licensee that
+Licensee’s Use complies with this License (including whether any Production Use
+has occurred). Licensor and Licensee will cooperate in good faith to resolve any
+credible compliance questions.
+
+6. Term; Termination
+
+6.1 Term. This License is effective from the Approval Letter date until
+terminated as set out here.
+
+6.2 Termination for Breach. Licensor may terminate this License immediately upon
+written notice if Licensee breaches any term and fails to cure within 15 days
+after notice (no cure period for non‑payment, if applicable).
+
+6.3 Effect of Termination. Upon termination, all rights granted to Licensee
+under this License cease and Licensee must promptly stop Using the Software and
+destroy all copies. Sections 2, 3, 4.1, 4.3, 6.3, 7, and 8 survive termination.
+Contributions made prior to termination remain licensed to Licensor under 3.1.
+
+7. Warranty Disclaimer; Limitation of Liability
+
+7.1 THE SOFTWARE IS PROVIDED “AS IS” AND “AS AVAILABLE” WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, ACCURACY, OR NON‑INFRINGEMENT.
+
+7.2 TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR WILL NOT BE LIABLE FOR ANY
+INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, COVER, OR PUNITIVE DAMAGES, OR
+LOSS OF PROFITS, REVENUE, GOODWILL, OR DATA, ARISING OUT OF OR RELATING TO THIS
+LICENSE OR THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+LICENSOR’S AGGREGATE LIABILITY UNDER THIS LICENSE WILL NOT EXCEED THE GREATER OF
+(A) THE AMOUNTS PAID BY LICENSEE (IF ANY) IN THE 12 MONTHS BEFORE THE CLAIM, OR
+(B) USD $100.
+
+8. General
+
+8.1 Export/Compliance. Licensee will comply with applicable export, sanctions,
+and technology control laws.
+
+8.2 Government Use. If Licensee is a government or is using the Software on
+behalf of a government, the Software is “commercial computer software” and use
+is governed solely by this License.
+
+8.3 Governing Law and Venue. The governing law and exclusive venue will be as
+stated in the Approval Letter. If none is specified, this License is governed by
+the laws of the Licensor’s residence, excluding conflict‑of‑law rules, and
+courts located there will have exclusive jurisdiction.
+
+8.4 Entire Agreement; Order of Precedence. This License and any Approval Letter
+(or order form) are the entire agreement for the licensed Use. If there is a
+conflict, the Approval Letter controls, then this License.
+
+8.5 Amendments; Waiver. Any amendment must be in a writing signed by both
+parties. Failure to enforce a provision is not a waiver.
+
+8.6 Severability. If any provision is unenforceable, it will be modified to the
+minimum extent necessary to make it enforceable, and the remainder will remain
+in effect.
+
+Contact: oliverjgoldstein@gmail.com
+End of License

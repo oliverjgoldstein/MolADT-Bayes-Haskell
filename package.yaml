@@ -1,0 +1,102 @@
+name: chemalgprog
+version: 0.1.0.0
+synopsis: Chemical Algorithmic Programming
+description: A library for molecular representation and probabilistic programming.
+category: Development
+author: Oliver Goldstein
+maintainer: oliverjgoldstein@gmail.com, oliver.goldstein@cs.ox.ac.uk, sammarch2@gmail.com
+license: AGPL-3.0-only
+license-file: LICENSE
+extra-source-files:
+  - CHANGELOG.md
+  - README.md
+dependencies:
+  - base >= 4.13 && < 4.21
+  - monad-extras
+  - transformers
+  - mtl
+  - deepseq
+  - containers
+  - ghc-heap
+  - megaparsec >= 9.0 && < 10.0
+  - vector
+  - directory
+  - filepath
+  - bytestring
+  - binary
+  - text
+  - random
+  - log-domain
+  - statistics
+  - array
+  - parallel
+  - massiv
+
+library:
+  source-dirs: src
+  exposed-modules:
+    - Chem.Dietz
+    - Chem.Molecule
+    - Chem.Validate
+    - LazyPPL
+    - Constants
+    - Distr
+    - Group
+    - Orbital
+    - SlaterTypeOrbital
+    - Chem.IO.SDF
+    - Reaction
+    - Serialisable
+    - SampleMolecules
+    - Benzene
+    - LogPModel
+  other-modules:
+    - ExtraF
+    - Chem.Molecule.Coordinate
+  language: Haskell2010
+
+executables:
+  chemalgprog:
+    main: Main.hs
+    source-dirs: app
+    dependencies:
+      - chemalgprog
+      - massiv
+    language: Haskell2010
+  parse-molecules:
+    main: ParseMolecules.hs
+    source-dirs: examples
+    dependencies:
+      - chemalgprog
+      - massiv
+    language: Haskell2010
+
+tests:
+  parser-roundtrip:
+    main: ParserRoundTrip.hs
+    source-dirs: test
+    dependencies:
+      - chemalgprog
+      - hspec
+      - containers
+      - megaparsec >= 9.0 && < 10.0
+      - massiv
+    language: Haskell2010
+  validation-properties:
+    main: ValidationProperties.hs
+    source-dirs: test
+    dependencies:
+      - chemalgprog
+      - QuickCheck
+      - containers
+      - massiv
+    language: Haskell2010
+  edge-properties:
+    main: EdgeProperties.hs
+    source-dirs: test
+    dependencies:
+      - chemalgprog
+      - QuickCheck
+      - containers
+      - massiv
+    language: Haskell2010
