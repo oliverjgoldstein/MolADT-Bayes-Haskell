@@ -14,6 +14,7 @@ import Chem.Dietz
 import Constants (elementAttributes, elementShells)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
+import BenzenePretty (benzenePretty)
 
 -- | Canonical benzene example consisting of six carbons and six hydrogens.
 -- The ring carbons form both a sigma cycle and a delocalised \(\pi\)-system.
@@ -58,10 +59,6 @@ benzene = Molecule
 
     rotate [] = []
     rotate (x:xs) = xs ++ [x]
-
--- | Pre-rendered pretty-print of the benzene structure.
-benzenePretty :: String
-benzenePretty = prettyPrintMolecule benzene
 
 -- | Experimental geometry for the carbon ring (C1–C6) and hydrogens (H7–H12).
 atomsData :: [(Integer, AtomicSymbol, Double, Double, Double)]
