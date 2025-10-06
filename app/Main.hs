@@ -6,7 +6,7 @@ module Main where
 import Chem.IO.SDF (readSDF)
 import Chem.Molecule (prettyPrintMolecule)
 import Chem.Validate (validateMolecule, ValidationWarning(..))
-import LogPModel (runLogPRegression)
+import LogPModel (LogPInferenceMethod(..), runLogPRegressionWith)
 import Text.Megaparsec (errorBundlePretty)
 import Text.Read (readMaybe)
 
@@ -61,9 +61,13 @@ main = do
                   putStrLn "Water invalid:"
                   mapM_ (putStrLn . show) errs2
                 Right _ -> do
-                  putStrLn "Running LogP regression over DB1 and predicting for water and DB2:"
+                  putStrLn "Running LogP regression over DB1 and predicting for water and DB2 (LWIS):"
                   let trackedMolecules =
                         [ ("Benzene", benzene, benzeneActualLogP)
                         , ("Water", water, Nothing)
                         ]
-                  runLogPRegression trackedMolecules 0.3
+                      lwisMethod = UseLWIS 2000
+                      mhMethod   = UseMH 0.9
+                  runLogPRegressionWith lwisMethod trackedMolecules
+                  putStrLn "Running LogP regression over DB1 and predicting for water and DB2 (MH):"
+                  runLogPRegressionWith mhMethod trackedMolecules
