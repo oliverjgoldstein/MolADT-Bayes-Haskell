@@ -358,6 +358,24 @@ scaleParameters s (LogPParameters a b c d e f g h i j k l m n o p q r) =
                  (s * k) (s * l) (s * m) (s * n) (s * o)
                  (s * p) (s * q) (s * r)
 
+data LogPInferenceMethod
+  = UseLWIS { lwisSampleCount :: Int }
+  | UseMH { mhJitter :: Double }
+  deriving (Eq, Show)
+
+describeInferenceMethod :: LogPInferenceMethod -> String
+describeInferenceMethod UseLWIS { lwisSampleCount } =
+  "Likelihood-weighted importance sampling with " ++ show lwisSampleCount ++ " particles"
+describeInferenceMethod UseMH { mhJitter } =
+  "Metropolis-Hastings with jitter " ++ show mhJitter
+
+logPModelWith :: LogPInferenceMethod -> [(Molecule, Double)] -> IO [LogPParameters]
+logPModelWith UseLWIS { lwisSampleCount } observedData =
+  lwis lwisSampleCount (logPModel observedData)
+logPModelWith UseMH { mhJitter } observedData = do
+  samples <- mh mhJitter (logPModel observedData)
+  pure (map fst samples)
+
 -- | Predict logP for a set of molecular descriptors.
 predictLogP :: LogPParameters -> MolecularDescriptors -> Double
 predictLogP params descriptors =
@@ -453,13 +471,12 @@ logPModel observedData = do
 inferLogP :: [(Molecule, Double)] -> Meas LogPParameters
 inferLogP = logPModel
 
--- | Predict logP for DB2 molecules with a long burn-in to reduce bias.  The
 -- optional 'Maybe Int' parameter limits how many molecules are parsed from
 -- each SDF file. Use 'Nothing' to parse all available molecules.  The list of
 -- tracked molecules is used to provide periodic progress updates during
 -- sampling so the caller can monitor convergence behaviour.
-runLogPRegression :: [(String, Molecule, Maybe Double)] -> Double -> IO ()
-runLogPRegression probes jitter = do
+runLogPRegressionWith :: LogPInferenceMethod -> [(String, Molecule, Maybe Double)] -> IO ()
+runLogPRegressionWith method probes = do
     let mLimit          = Just 300  -- Limit to first 500 molecules for faster testing
         burnIn          = 200000
         sampleSize      = 20
@@ -489,10 +506,11 @@ runLogPRegression probes jitter = do
                            (\actual -> " (actual logP " ++ show actual ++ ")")
                            mActual
 
-    inferredSamples <- mh jitter (inferLogP db1Molecules)
+    putStrLn $ "Inference method: " ++ describeInferenceMethod method
 
-    let parameterSamples    = map fst inferredSamples
-        limitedSampleParams = zip [1..totalSamples] (take totalSamples parameterSamples)
+    parameterSamples <- logPModelWith method db1Molecules
+
+    let limitedSampleParams = zip [1..totalSamples] (take totalSamples parameterSamples)
 
     (collectedSamples, posteriorSum) <-
       foldM (progressStep burnIn burnInInterval sampleInterval probes sampleSize)
@@ -636,3 +654,7 @@ runLogPRegression probes jitter = do
                  ", weight coefficient: " ++ show (paramWeightCoeff meanParams) ++
                  ", polar coefficient: " ++ show (paramPolarCoeff meanParams) ++
                  ", linear scale: " ++ show (paramLinearScale meanParams)
+
+runLogPRegression :: [(String, Molecule, Maybe Double)] -> Double -> IO ()
+runLogPRegression probes jitter =
+  runLogPRegressionWith (UseMH jitter) probes
