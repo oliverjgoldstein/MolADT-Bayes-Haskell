@@ -121,6 +121,13 @@ nominalValence symbol = case symbol of
     I  -> (2, 2)
     Na -> (2, 2)
 
+-- | Maximum number of bonds typically formed by an element, derived from the
+-- upper electron count in 'nominalValence'.
+getMaxBondsSymbol :: AtomicSymbol -> Double
+getMaxBondsSymbol sym =
+    let (_, maxElectrons) = nominalValence sym
+    in fromIntegral maxElectrons / 2.0
+
 -- | Tabulate atomic numbers and atomic weights for the supported elements.
 elementAttributes O = ElementAttributes O 8 15.999
 elementAttributes H = ElementAttributes H 1 1.008
