@@ -5,7 +5,7 @@ module Main where
 
 import Chem.IO.SDF (readSDF)
 import Chem.Molecule (prettyPrintMolecule)
-import Chem.Validate (validateMolecule, ValidationWarning(..))
+import Chem.Validate (validateMolecule)
 import LogPModel (LogPInferenceMethod(..), runLogPRegressionWith)
 import Text.Megaparsec (errorBundlePretty)
 import Text.Read (readMaybe)
@@ -39,11 +39,10 @@ main = do
     Left err -> putStrLn (errorBundlePretty err)
     Right benzene ->
       case validateMolecule benzene of
-        Left errs -> do
+        Left err -> do
           putStrLn "Benzene invalid:"
-          mapM_ (putStrLn . show) errs
-        Right (_, warns) -> do
-          mapM_ (putStrLn . ("Warning: " ++) . show) warns
+          putStrLn err
+        Right _ -> do
           putStrLn (prettyPrintMolecule benzene)
           benzeneActualLogP <- readSDFDoubleProperty "molecules/benzene.sdf" "PUBCHEM_XLOGP3"
           case benzeneActualLogP of
@@ -57,9 +56,9 @@ main = do
             Left err -> putStrLn (errorBundlePretty err)
             Right water ->
               case validateMolecule water of
-                Left errs2 -> do
+                Left err2 -> do
                   putStrLn "Water invalid:"
-                  mapM_ (putStrLn . show) errs2
+                  putStrLn err2
                 Right _ -> do
                   putStrLn "Running LogP regression over DB1 and predicting for water and DB2 (LWIS):"
                   let trackedMolecules =
