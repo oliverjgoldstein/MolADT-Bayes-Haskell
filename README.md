@@ -43,7 +43,7 @@ Author: Oliver Goldstein (oliverjgoldstein@gmail.com)
 
 ## License
 
-Distributed under the terms of the GNU Affero General Public License v3.0 only. See [LICENSE](LICENSE) for details.
+Distributed under the terms of the MolRep Commercial / Source-Available License (Approval Required). See [LICENSE](LICENSE) for details.
 
 ## LazyPPL Disclaimer
 
