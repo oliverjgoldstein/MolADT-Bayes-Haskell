@@ -35,6 +35,13 @@ dependencies:
 library:
   source-dirs: src
   exposed-modules:
+    - MolADT
+    - MolADT.Parse
+    - MolADT.Molecule
+    - MolADT.Validate
+    - MolADT.LogP
+    - MolADT.Serialization
+    - MolADT.Samples
     - Chem.Dietz
     - Chem.Molecule
     - Chem.Validate
@@ -57,14 +64,21 @@ library:
 
 executables:
   chemalgprog:
-    main: Main.hs
-    source-dirs: app
+    main: RunLogP.hs
+    source-dirs: examples
     dependencies:
       - chemalgprog
       - massiv
     language: Haskell2010
   parse-molecules:
     main: ParseMolecules.hs
+    source-dirs: examples
+    dependencies:
+      - chemalgprog
+      - massiv
+    language: Haskell2010
+  serialize-molecule:
+    main: Serialize.hs
     source-dirs: examples
     dependencies:
       - chemalgprog
