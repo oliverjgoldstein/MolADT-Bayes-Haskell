@@ -2,12 +2,11 @@
 -- files before pretty-printing them.
 module Main where
 
-import Chem.IO.SDF (readSDF)
+import MolADT.Molecule (prettyPrintMolecule)
+import MolADT.Parse (readSDF)
+import MolADT.Validate (validateMolecule)
 
-import Chem.Molecule (prettyPrintMolecule)
-import Chem.Dietz ()
 import Text.Megaparsec (errorBundlePretty)
-import Chem.Validate (validateMolecule)
 
 -- | Parse and validate the provided benzene and water SDF files, printing any
 -- warnings emitted by the validator before rendering the molecules.

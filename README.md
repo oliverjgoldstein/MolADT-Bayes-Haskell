@@ -10,26 +10,22 @@ This is a datatype for molecules, complete with orbitals, reaction dynamics and 
 
    `package.yaml` is processed by `hpack` to generate `chemalgprog.cabal`.
 
-2. **Run the demonstration program**
+2. **Explore the curated MolADT façade**
+
+   The primary examples live under `examples/` and exercise the new façade
+   modules:
 
    ```bash
-   stack exec chemalgprog
+   stack exec parse-molecules        # Parse + validate sample SDF files
+   stack exec serialize-molecule     # Serialise methane using Binary
+   stack exec chemalgprog            # Full logP regression demo
    ```
 
-   This executable:
-
-   - Parses and validates `molecules/benzene.sdf`, printing the structure as a sanity check.
-   - Parses `molecules/water.sdf` and uses it as a test molecule.
-   - Performs a Metropolis–Hastings regression on the molecules in `logp/DB1.sdf` to learn coefficients that predict the partition coefficient (logP).
-   - Applies the learned model to predict the logP of water and then prints predicted and observed values for each molecule in `logp/DB2.sdf`.
-
-3. **Parse molecules independently (optional)**
-
-   ```bash
-   stack exec parse-molecules
-   ```
-
-   The example pretty-prints the contents of `molecules/benzene.sdf` and `molecules/water.sdf` using the library parser.
+   Each executable imports from `MolADT.*`, so they double as references for
+   building your own applications on top of the façade. The logP demo parses
+   and validates benzene and water before inferring coefficients from
+   `logp/DB1.sdf` and predicting the partition coefficients of molecules in the
+   held-out dataset.
 
 Sample SDF files for these experiments are provided in `molecules/` and `logp/`.
 
@@ -51,6 +47,9 @@ The probabilistic programming components (`LazyPPL.hs` and `Distr.hs`) are taken
 
 ## What the Program Does
 
-The `chemalgprog` executable parses the sample benzene molecule (`molecules/benzene.sdf`) to showcase structural validation, then loads `molecules/water.sdf` as the test molecule for the regression. Coefficients are inferred from the training set `logp/DB1.sdf`, the logP of water is predicted from these coefficients, and predicted versus observed values for all molecules in `logp/DB2.sdf` are printed. The `parse-molecules` example demonstrates parsing and validating multiple SDF files.
+The `chemalgprog` executable parses the sample benzene molecule (`molecules/benzene.sdf`) to showcase structural validation, then loads `molecules/water.sdf` as the test molecule for the regression. Coefficients are inferred from the training set `logp/DB1.sdf`, the logP of water is predicted from these coefficients, and predicted versus observed values for all molecules in `logp/DB2.sdf` are printed. The additional `serialize-molecule` example demonstrates persisting molecules via the façade API.
+
+See [`docs/getting-started.md`](docs/getting-started.md) for a guided tour of
+the façade, including details on how each example uses the curated modules.
 
 
