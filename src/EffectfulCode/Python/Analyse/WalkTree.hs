@@ -97,14 +97,17 @@ resourceExcept Handler{handlerName = name, handlerEffects = effs, handlerNested 
           scoped     = scopedEffects nestedPath innerEffects
       in mergeEffects acc scoped
 
--- | Fold over the exception handlers associated with a Python "try" statement
--- and collect both their combined effect environment and a list of intermediate
--- states.  Recent versions of @language-python@ renamed the AST type for
--- handlers from 'ExceptClause' to 'Handler'.  The analyser now consumes the
--- modern representation directly while preserving scope-sensitive effect
--- accounting so it remains compatible with more elaborate analyses.
+-- handlers from 'ExceptClause' to 'Handler'.  The analyser used to convert the
+-- new representation back into the old name, which broke as soon as the library
+-- stopped exporting 'ExceptClause'.  The logic below consumes the new
+-- 'Handler' type directly and therefore builds with modern releases.
 accumulateHandlers :: HandlerBase -> [Handler] -> (EffectMap, [HandlerState])
 accumulateHandlers handlerBase handlers =
-  let states = fmap (`resourceExcept` handlerBase) handlers
-      totalEffects = foldl' (\acc st -> mergeEffects acc (stateEffectMap st)) emptyEffects states
-  in (totalEffects, states)
+  let (effHandlers, handlerStatesRev) =
+        foldl'
+          (\(effAcc, statesAcc) handler ->
+             let (effHandler, stHandler) = resourceExcept handler handlerBase
+             in (mergeEffects effAcc effHandler, stHandler : statesAcc))
+          (emptyEffects, [])
+          handlers
+  in (effHandlers, reverse handlerStatesRev)
