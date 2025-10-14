@@ -8,7 +8,7 @@ This is a datatype for molecules, complete with orbitals, reaction dynamics and 
    stack build
    ```
 
-   `package.yaml` is processed by `hpack` to generate `chemalgprog.cabal`.
+   `package.yaml` is processed by `hpack` to generate `moladtbayes.cabal`.
 
 2. **Run the demonstration program**
 

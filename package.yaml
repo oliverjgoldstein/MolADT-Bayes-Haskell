@@ -1,4 +1,4 @@
-name: chemalgprog
+name: moladtbayes
 version: 0.1.0.0
 synopsis: Chemical Algorithmic Programming
 description: A library for molecular representation and probabilistic programming.
@@ -49,6 +49,8 @@ library:
     - Serialisable
     - SampleMolecules
     - Benzene
+    - BenzenePretty
+    - PrettyBenzene
     - LogPModel
   other-modules:
     - ExtraF
@@ -60,14 +62,14 @@ executables:
     main: Main.hs
     source-dirs: app
     dependencies:
-      - chemalgprog
+      - moladtbayes
       - massiv
     language: Haskell2010
   parse-molecules:
     main: ParseMolecules.hs
     source-dirs: examples
     dependencies:
-      - chemalgprog
+      - moladtbayes
       - massiv
     language: Haskell2010
 
@@ -76,7 +78,7 @@ tests:
     main: ParserRoundTrip.hs
     source-dirs: test
     dependencies:
-      - chemalgprog
+      - moladtbayes
       - hspec
       - containers
       - megaparsec >= 9.0 && < 10.0
@@ -86,7 +88,7 @@ tests:
     main: ValidationProperties.hs
     source-dirs: test
     dependencies:
-      - chemalgprog
+      - moladtbayes
       - QuickCheck
       - containers
       - massiv
@@ -95,7 +97,7 @@ tests:
     main: EdgeProperties.hs
     source-dirs: test
     dependencies:
-      - chemalgprog
+      - moladtbayes
       - QuickCheck
       - containers
       - massiv

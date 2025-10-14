@@ -4,7 +4,7 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 
-name: chemalgprog
+name: moladtbayes
 version: 0.1.0.0
 synopsis: Chemical Algorithmic Programming
 description: A library for molecular representation and probabilistic programming.
@@ -35,6 +35,7 @@ library
         SampleMolecules
         Benzene
         BenzenePretty
+        PrettyBenzene
         LogPModel
     other-modules:
         ExtraF
@@ -67,9 +68,9 @@ library
 executable moladtbayes
     main-is: Main.hs
     other-modules:
-        Paths_chemalgprog
+        Paths_moladtbayes
     autogen-modules:
-        Paths_chemalgprog
+        Paths_moladtbayes
     hs-source-dirs:
         app
     default-language: Haskell2010
@@ -78,7 +79,7 @@ executable moladtbayes
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        chemalgprog,
+        moladtbayes,
         containers,
         deepseq,
         directory,
@@ -99,9 +100,9 @@ executable moladtbayes
 executable parse-molecules
     main-is: ParseMolecules.hs
     other-modules:
-        Paths_chemalgprog
+        Paths_moladtbayes
     autogen-modules:
-        Paths_chemalgprog
+        Paths_moladtbayes
     hs-source-dirs:
         examples
     default-language: Haskell2010
@@ -110,7 +111,7 @@ executable parse-molecules
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        chemalgprog,
+        moladtbayes,
         containers,
         deepseq,
         directory,
@@ -134,9 +135,9 @@ test-suite edge-properties
     other-modules:
         ParserRoundTrip
         ValidationProperties
-        Paths_chemalgprog
+        Paths_moladtbayes
     autogen-modules:
-        Paths_chemalgprog
+        Paths_moladtbayes
     hs-source-dirs:
         test
     default-language: Haskell2010
@@ -146,7 +147,7 @@ test-suite edge-properties
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        chemalgprog,
+        moladtbayes,
         containers,
         deepseq,
         directory,
@@ -170,9 +171,9 @@ test-suite parser-roundtrip
     other-modules:
         EdgeProperties
         ValidationProperties
-        Paths_chemalgprog
+        Paths_moladtbayes
     autogen-modules:
-        Paths_chemalgprog
+        Paths_moladtbayes
     hs-source-dirs:
         test
     default-language: Haskell2010
@@ -181,7 +182,7 @@ test-suite parser-roundtrip
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        chemalgprog,
+        moladtbayes,
         containers,
         deepseq,
         directory,
@@ -206,9 +207,9 @@ test-suite validation-properties
     other-modules:
         EdgeProperties
         ParserRoundTrip
-        Paths_chemalgprog
+        Paths_moladtbayes
     autogen-modules:
-        Paths_chemalgprog
+        Paths_moladtbayes
     hs-source-dirs:
         test
     default-language: Haskell2010
@@ -218,7 +219,7 @@ test-suite validation-properties
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        chemalgprog,
+        moladtbayes,
         containers,
         deepseq,
         directory,
