@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 -- | Probabilistic regression model that learns quantitative structure-property
 -- relationships (logP) from SDF datasets.  The module contains both feature
 -- extraction helpers and the inference driver used by the executable demo.
