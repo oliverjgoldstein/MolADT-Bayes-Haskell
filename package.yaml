@@ -35,31 +35,34 @@ dependencies:
 library:
   source-dirs: src
   exposed-modules:
-    - MolADT
-    - MolADT.Parse
-    - MolADT.Molecule
-    - MolADT.Validate
-    - MolADT.LogP
-    - MolADT.Serialization
-    - MolADT.Samples
-    - Chem.Dietz
-    - Chem.Molecule
-    - Chem.Validate
-    - LazyPPL
     - Constants
-    - Distr
-    - Group
-    - Orbital
-    - SlaterTypeOrbital
-    - Chem.IO.SDF
-    - Reaction
-    - Serialisable
-    - SampleMolecules
-    - Benzene
     - LogPModel
+    - PrettyBenzene
   other-modules:
-    - ExtraF
+    - Benzene
+    - Chem.Dietz
+    - Chem.IO.SDF
+    - Chem.Molecule
     - Chem.Molecule.Coordinate
+    - Chem.Validate
+    - Distr
+    - EffectfulCode.Python.Analyse.WalkTree
+    - EffectfulCode.Python.Analyse.WalkTree.Compat
+    - ExtraF
+    - Group
+    - LazyPPL
+    - MolADT
+    - MolADT.LogP
+    - MolADT.Molecule
+    - MolADT.Parse
+    - MolADT.Samples
+    - MolADT.Serialization
+    - MolADT.Validate
+    - Orbital
+    - Reaction
+    - SampleMolecules
+    - Serialisable
+    - SlaterTypeOrbital
   language: Haskell2010
 
 executables:

@@ -1,4 +1,4 @@
-module BenzenePretty (benzenePretty) where
+module PrettyBenzene (benzenePretty) where
 
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S

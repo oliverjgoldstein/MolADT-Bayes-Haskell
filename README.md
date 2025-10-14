@@ -31,6 +31,15 @@ Sample SDF files for these experiments are provided in `molecules/` and `logp/`.
 
 An example Haskell representation of a molecule is available in `src/Benzene.hs`, which defines the `benzene` structure programmatically.
 
+## Open vs. closed components
+
+Only the `Constants`, `LogPModel`, and `PrettyBenzene` modules are now exposed
+in the public library interface.  All other modules are treated as internal
+dependencies that can be compiled and distributed separately as proprietary
+artifacts.  See [`docs/binary-packaging.md`](docs/binary-packaging.md) for a
+step-by-step guide to producing those binaries and linking them with the open
+modules when preparing a release.
+
 ## Array backend
 
 The logP regression pipeline now relies on the [`massiv`](https://hackage.haskell.org/package/massiv) array library for parallel-friendly map and fold operations. No manual flags are required—running `stack build` will automatically pull in the Massiv dependency declared in `package.yaml`.
