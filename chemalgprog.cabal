@@ -64,7 +64,7 @@ library
         transformers,
         vector
 
-executable chemalgprog
+executable moladtbayes
     main-is: Main.hs
     other-modules:
         Paths_chemalgprog

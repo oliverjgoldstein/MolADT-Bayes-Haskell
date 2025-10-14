@@ -13,7 +13,7 @@ This is a datatype for molecules, complete with orbitals, reaction dynamics and 
 2. **Run the demonstration program**
 
    ```bash
-   stack exec chemalgprog
+   stack exec moladtbayes
    ```
 
    This executable:
@@ -51,6 +51,6 @@ The probabilistic programming components (`LazyPPL.hs` and `Distr.hs`) are taken
 
 ## What the Program Does
 
-The `chemalgprog` executable parses the sample benzene molecule (`molecules/benzene.sdf`) to showcase structural validation, then loads `molecules/water.sdf` as the test molecule for the regression. Coefficients are inferred from the training set `logp/DB1.sdf`, the logP of water is predicted from these coefficients, and predicted versus observed values for all molecules in `logp/DB2.sdf` are printed. The `parse-molecules` example demonstrates parsing and validating multiple SDF files.
+The `moladtbayes` executable parses the sample benzene molecule (`molecules/benzene.sdf`) to showcase structural validation, then loads `molecules/water.sdf` as the test molecule for the regression. Coefficients are inferred from the training set `logp/DB1.sdf`, the logP of water is predicted from these coefficients, and predicted versus observed values for all molecules in `logp/DB2.sdf` are printed. The `parse-molecules` example demonstrates parsing and validating multiple SDF files.
 
 

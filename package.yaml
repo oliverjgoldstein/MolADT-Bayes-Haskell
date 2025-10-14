@@ -56,7 +56,7 @@ library:
   language: Haskell2010
 
 executables:
-  chemalgprog:
+  moladtbayes:
     main: Main.hs
     source-dirs: app
     dependencies:
