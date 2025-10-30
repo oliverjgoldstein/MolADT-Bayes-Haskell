@@ -16,6 +16,8 @@ module InstructionsForBlockchain.Minimal
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import           System.Directory (createDirectoryIfMissing)
+import           System.FilePath ((</>))
 
 import           InstructionsForBlockchain.ChemputerProgram
                    ( ChemputerProgram(..)
@@ -80,8 +82,16 @@ prettyMinimalScript = T.intercalate "\n\n" (map renderMinimalInstruction minimal
 -- followed by the pretty-printed instruction script.
 runMinimalDemo :: IO ()
 runMinimalDemo = do
+  let script     = prettyMinimalScript
+      outputDir  = "logs"
+      outputFile = outputDir </> "minimal-ledger.txt"
+
   putStrLn "--- Minimal chemputer instruction demo ---"
-  T.putStrLn prettyMinimalScript
+  T.putStrLn script
+
+  createDirectoryIfMissing True outputDir
+  T.writeFile outputFile script
+  putStrLn $ "Instruction log written to " ++ outputFile
 
 -- Internal helpers ---------------------------------------------------------
 

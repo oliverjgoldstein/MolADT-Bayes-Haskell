@@ -12,7 +12,8 @@ import Distr
 import LazyPPL
 import Control.Monad
 import Control.Parallel.Strategies (parMap, rdeepseq)
-import Data.List (foldl')
+import Data.List (foldl', sortOn)
+import Data.Ord (Down(..))
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Data.ByteString as BS
@@ -343,7 +344,16 @@ zeroParameters :: LogPParameters
 zeroParameters =
   LogPParameters 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
-type ProgressProbe = (String, Molecule, Maybe Double)
+data SamplingConfig = SamplingConfig
+  { burnInIterations :: !Int
+  , posteriorSamples :: !Int
+  }
+
+defaultSamplingConfig :: SamplingConfig
+defaultSamplingConfig = SamplingConfig
+  { burnInIterations = 200000
+  , posteriorSamples = 20
+  }
 
 addParameters :: LogPParameters -> LogPParameters -> LogPParameters
 addParameters (LogPParameters a1 b1 c1 d1 e1 f1 g1 h1 i1 j1 k1 l1 m1 n1 o1 p1 q1 r1)
@@ -477,15 +487,18 @@ inferLogP = logPModel
 -- each SDF file. Use 'Nothing' to parse all available molecules.  The list of
 -- tracked molecules is used to provide periodic progress updates during
 -- sampling so the caller can monitor convergence behaviour.
-runLogPRegressionWith :: LogPInferenceMethod -> [(String, Molecule, Maybe Double)] -> IO ()
-runLogPRegressionWith method probes = do
-    let mLimit          = Just 300  -- Limit to first 500 molecules for faster testing
-        burnIn          = 200000
-        sampleSize      = 20
-        totalSamples    = burnIn + sampleSize
-        burnInInterval  = max 1 (burnIn `div` 10)
-        sampleInterval  = max 1 (sampleSize `div` 10)
-        db1FilePath     = "./logp/DB1.sdf"
+runLogPRegressionWith :: SamplingConfig
+                      -> LogPInferenceMethod
+                      -> [(String, Molecule, Maybe Double)]
+                      -> IO ()
+runLogPRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
+                      method probes = do
+    let mLimit      = Just 300  -- Limit size of the demo datasets for faster testing
+        db1FilePath = "./logp/DB1.sdf"
+        (burnIn, sampleTarget) =
+          case method of
+            UseLWIS {} -> (0, max 1 posteriorSamples)
+            UseMH {}   -> (max 0 burnInIterations, max 1 posteriorSamples)
 
     db1Molecules <- parseLogPFile db1FilePath mLimit
     let db1Count = length db1Molecules
@@ -512,14 +525,20 @@ runLogPRegressionWith method probes = do
 
     parameterSamples <- logPModelWith method db1Molecules
 
-    let limitedSampleParams = zip [1..totalSamples] (take totalSamples parameterSamples)
+    let (skippedBurnIn, postBurnSamples) = splitAt burnIn parameterSamples
+        actualBurnIn = length skippedBurnIn
+    when (burnIn > 0 && actualBurnIn < burnIn) $ do
+      putStrLn $ "Warning: only " ++ show actualBurnIn ++ " burn-in samples were available"
+              ++ " out of the requested " ++ show burnIn ++ "."
 
-    (collectedSamples, posteriorSum) <-
-      foldM (progressStep burnIn burnInInterval sampleInterval probes sampleSize)
-            (0, zeroParameters)
-            limitedSampleParams
+    let posteriorSamplesList = take sampleTarget postBurnSamples
+        collectedSamples     = length posteriorSamplesList
 
-    let means
+    when (collectedSamples == 0) $ do
+      putStrLn "Warning: no posterior samples collected; falling back to zeros."
+
+    let posteriorSum = foldl' addParameters zeroParameters posteriorSamplesList
+        means
           | collectedSamples == 0 = zeroParameters
           | otherwise =
               scaleParameters (1 / fromIntegral collectedSamples) posteriorSum
@@ -544,27 +563,21 @@ runLogPRegressionWith method probes = do
                        , paramDescriptorScale = descriptorScale
                        } = means
 
-    putStrLn $ "Mean Intercept: " ++ show intercept
-    putStrLn $ "Mean Weight Coefficient: " ++ show weightCoeff
-    putStrLn $ "Mean Polar Coefficient: " ++ show polarCoeff
-    putStrLn $ "Mean Surface Coefficient: " ++ show surfaceCoeff
-    putStrLn $ "Mean Bond-Order Coefficient: " ++ show bondCoeff
-    putStrLn $ "Mean log(Heavy Atoms + 1) Coefficient: " ++ show heavyCoeff
-    putStrLn $ "Mean log(Halogens + 1) Coefficient: " ++ show halogenCoeff
-    putStrLn $ "Mean log(Aromatic Rings + 1) Coefficient: " ++ show aromaticRingCoeff
-    putStrLn $ "Mean Aromatic Fraction Coefficient: " ++ show aromaticFractionCoeff
-    putStrLn $ "Mean log(Rotatable + 1) Coefficient: " ++ show rotatableCoeff
-    putStrLn $ "Mean Weight^2 Coefficient: " ++ show weightSqCoeff
-    putStrLn $ "Mean Polar^2 Coefficient: " ++ show polarSqCoeff
-    putStrLn $ "Mean Surface^2 Coefficient: " ++ show surfaceSqCoeff
-    putStrLn $ "Mean Weight*Polar Coefficient: " ++ show interactionWP
-    putStrLn $ "Mean Weight*Surface Coefficient: " ++ show interactionWS
-    putStrLn $ "Mean Linear Scale: " ++ show linearScale
-    putStrLn $ "Mean Quadratic Scale: " ++ show quadraticScale
-    putStrLn $ "Mean Descriptor Scale: " ++ show descriptorScale
+    putStrLn "Posterior mean coefficients (selected):"
+    mapM_ putStrLn
+      [ "  Intercept: " ++ show intercept
+      , "  Weight: " ++ show weightCoeff
+      , "  Polar: " ++ show polarCoeff
+      , "  Surface: " ++ show surfaceCoeff
+      , "  Bond order: " ++ show bondCoeff
+      , "  log(Heavy atoms + 1): " ++ show heavyCoeff
+      , "  log(Halogens + 1): " ++ show halogenCoeff
+      , "  Aromatic fraction: " ++ show aromaticFractionCoeff
+      , "  log(Rotatable + 1): " ++ show rotatableCoeff
+      ]
 
     unless (null probes) $ do
-      putStrLn "Posterior mean predictions for tracked molecules:"
+      putStrLn "Tracked molecule predictions:"
       forM_ probes $ \(name, mol, mActual) -> do
         let predictedLogP = predictMolecule means mol
         case mActual of
@@ -589,23 +602,14 @@ runLogPRegressionWith method probes = do
                    ", max: " ++ show maxLogP ++
                    ", mean: " ++ show meanLogP
 
-    putStrLn "Predicted and Actual LogP values for DB2 molecules:"
-
     let db2Predictions =
           parMap rdeepseq
             (\(mol, actualLogP) ->
                let predictedLogP' = predictMolecule means mol
                    residual       = predictedLogP' - actualLogP
-               in (mol, predictedLogP', actualLogP, residual))
+                   atomCount       = M.size (atoms mol)
+               in (atomCount, predictedLogP', actualLogP, residual))
             db2Molecules
-
-    forM_ db2Predictions $ \(mol, predictedLogP', actualLogP, residual) -> do
-        putStrLn "Molecule:"
-        putStrLn (prettyPrintMolecule mol)
-        putStrLn $ "Predicted LogP: " ++ show predictedLogP'
-        putStrLn $ "Actual LogP: " ++ show actualLogP
-        putStrLn $ "Residual (Predicted - Actual): " ++ show residual
-        putStrLn ""
 
     let residuals = [ r | (_, _, _, r) <- db2Predictions ]
         nPred     = length residuals
@@ -613,50 +617,21 @@ runLogPRegressionWith method probes = do
         let invN = 1 / fromIntegral nPred
             mae  = invN * foldl' (\acc r -> acc + abs r) 0.0 residuals
             mse  = invN * foldl' (\acc r -> acc + r * r) 0.0 residuals
-        putStrLn $ "DB2 Mean Absolute Error: " ++ show mae
-        putStrLn $ "DB2 Root Mean Squared Error: " ++ show (sqrt mse)
-  where
-    progressStep :: Int -> Int -> Int -> [ProgressProbe] -> Int
-                 -> (Int, LogPParameters)
-                 -> (Int, LogPParameters)
-                 -> IO (Int, LogPParameters)
-    progressStep burnIn burnInterval sampleInterval tracked sampleTarget (collected, acc) (idx, sampleParams)
-      | idx <= burnIn = do
-          when (idx `mod` burnInterval == 0 || idx == burnIn) $
-            putStrLn $ "Burn-in progress: " ++ show idx ++ "/" ++ show burnIn
-          when (idx == burnIn) $
-            putStrLn "Burn-in complete. Starting to collect posterior samples."
-          pure (collected, acc)
-      | otherwise = do
-          let collected'   = collected + 1
-              acc'         = addParameters acc sampleParams
-              shouldReport = collected' == 1
-                           || collected' == sampleTarget
-                           || collected' `mod` sampleInterval == 0
-          when shouldReport $ do
-            let meanParams = scaleParameters (1 / fromIntegral collected') acc'
-            reportPosteriorProgress sampleTarget tracked collected' meanParams
-          pure (collected', acc')
-
-    reportPosteriorProgress :: Int -> [ProgressProbe] -> Int -> LogPParameters -> IO ()
-    reportPosteriorProgress sampleTarget tracked collected meanParams = do
-      putStrLn $ "Posterior sampling progress: " ++ show collected ++ "/" ++ show sampleTarget
-      unless (null tracked) $ do
-        putStrLn "  - Running estimates for monitored molecules:"
-        forM_ tracked $ \(name, mol, mActual) -> do
-          let predicted = predictMolecule meanParams mol
-          case mActual of
-            Just actual ->
-              putStrLn $ "    - " ++ name ++ ": predicted " ++ show predicted ++
-                         ", actual " ++ show actual ++
-                         ", residual " ++ show (predicted - actual)
-            Nothing ->
-              putStrLn $ "    - " ++ name ++ ": predicted " ++ show predicted
-      putStrLn $ "    Current intercept: " ++ show (paramIntercept meanParams) ++
-                 ", weight coefficient: " ++ show (paramWeightCoeff meanParams) ++
-                 ", polar coefficient: " ++ show (paramPolarCoeff meanParams) ++
-                 ", linear scale: " ++ show (paramLinearScale meanParams)
-
-runLogPRegression :: [(String, Molecule, Maybe Double)] -> Double -> IO ()
-runLogPRegression probes jitter =
-  runLogPRegressionWith (UseMH jitter) probes
+            extractResidual (_, _, _, r) = r
+            ranked = take 3 $ sortOn (Down . abs . extractResidual . snd)
+                               (zip [1..] db2Predictions)
+            formatEntry (idx, (atomCount, predicted, actual, residual)) =
+              "  - Entry " ++ show idx ++
+              " (" ++ show atomCount ++ " atoms): predicted " ++
+              show predicted ++ ", actual " ++ show actual ++
+              ", residual " ++ show residual
+        putStrLn "DB2 evaluation:"
+        putStrLn $ "  MAE:  " ++ show mae
+        putStrLn $ "  RMSE: " ++ show (sqrt mse)
+        unless (null ranked) $ do
+          putStrLn "  Largest residuals:"
+          mapM_ (putStrLn . formatEntry) ranked
+ 
+runLogPRegression :: SamplingConfig -> [(String, Molecule, Maybe Double)] -> Double -> IO ()
+runLogPRegression config probes jitter =
+  runLogPRegressionWith config (UseMH jitter) probes
