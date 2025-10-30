@@ -4,9 +4,11 @@ module InstructionsForBlockchain
   , module InstructionsForBlockchain.MoleculeBlueprint
   , module InstructionsForBlockchain.ChemputerProgram
   , module InstructionsForBlockchain.Example
+  , module InstructionsForBlockchain.Minimal
   ) where
 
 import InstructionsForBlockchain.Hash
 import InstructionsForBlockchain.MoleculeBlueprint
 import InstructionsForBlockchain.ChemputerProgram
 import InstructionsForBlockchain.Example
+import InstructionsForBlockchain.Minimal
