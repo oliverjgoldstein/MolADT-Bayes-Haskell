@@ -60,7 +60,9 @@ The `InstructionsForBlockchain/` tree extends the original probabilistic modelli
    stack exec moladtbayes
    ```
 
-   After the existing regression diagnostics print, the program emits the minimal blockchain instruction script. `stack exec` simply runs the compiled `moladtbayes` binary, so the console output you see is exactly what would be persisted on-chain: each numbered chemputer step, its deterministic blueprint hash, and the accompanying human-readable note.
+
+  After the existing regression diagnostics print, the program emits the minimal blockchain instruction script. `stack exec` simply runs the compiled `moladtbayes` binary, so the console output you see is exactly what would be persisted on-chain: each numbered chemputer step, its deterministic blueprint hash, and the accompanying human-readable note. The same script is also written to `logs/minimal-ledger.txt` so you have a ready-made artefact to hand to an external ledger or archive for later inspection.
+
 
 3. **Explore the richer example in GHCi**:
 
