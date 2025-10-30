@@ -13,10 +13,13 @@ module InstructionsForBlockchain.Minimal
   , runMinimalDemo
   ) where
 
+import           Control.Monad (when)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import           System.Directory (createDirectoryIfMissing)
+import           Data.Time (UTCTime, getCurrentTime)
+import           Data.Time.Format (defaultTimeLocale, formatTime)
+import           System.Directory (createDirectoryIfMissing, doesFileExist)
 import           System.FilePath ((</>))
 
 import           InstructionsForBlockchain.ChemputerProgram
@@ -78,20 +81,44 @@ renderMinimalInstruction instruction =
 prettyMinimalScript :: Text
 prettyMinimalScript = T.intercalate "\n\n" (map renderMinimalInstruction minimalInstructions)
 
+-- | Friendly explanation of what the scripted output represents.
+laymanOverview :: Text
+laymanOverview = T.unlines
+  [ "This walkthrough shows how a chemputer experiment could be notarised on a blockchain."
+  , "Blockchain assumption: we rely on an append-only, tamper-evident ledger where every new instruction is permanently recorded."
+  , "Each hash below is a digital fingerprint that lets anyone prove the blueprint or product record was not altered."
+  , "Read the numbered steps to follow the lab actions that generate those fingerprints."
+  ]
+
+-- | Render the banner, explanation, and instruction script together for console
+-- output.
+renderMinimalDemoTranscript :: Text
+renderMinimalDemoTranscript =
+  T.intercalate "\n\n" [laymanOverview, prettyMinimalScript]
+
 -- | Convenience helper used from the @main@ executable.  Prints a short banner
 -- followed by the pretty-printed instruction script.
 runMinimalDemo :: IO ()
 runMinimalDemo = do
-  let script     = prettyMinimalScript
-      outputDir  = "logs"
+  let script     = renderMinimalDemoTranscript
+      outputDir  = "blockchain-logs"
       outputFile = outputDir </> "minimal-ledger.txt"
 
   putStrLn "--- Minimal chemputer instruction demo ---"
   T.putStrLn script
 
   createDirectoryIfMissing True outputDir
-  T.writeFile outputFile script
-  putStrLn $ "Instruction log written to " ++ outputFile
+
+  fileExists <- doesFileExist outputFile
+  when (not fileExists) $ T.writeFile outputFile (laymanOverview <> "\n\n")
+
+  timestamp <- getCurrentTime
+  let runHeader   = "Run logged at " <> renderTimestamp timestamp
+      hashEntries = labeledHashes minimalInstructions
+      runBlock    = T.unlines (runHeader : map ("  " <>) hashEntries) <> "\n"
+
+  T.appendFile outputFile runBlock
+  putStrLn $ "Blockchain hash log appended to " ++ outputFile
 
 -- Internal helpers ---------------------------------------------------------
 
@@ -115,14 +142,24 @@ describeOperation (EmitNote note) =
 
 operationDetails :: Operation -> [Text]
 operationDetails (RegisterBlueprint blueprint) =
-  ["hash: " <> renderHash (blueprintHash blueprint)]
+  [ "hash: "
+    <> renderHash (blueprintHash blueprint)
+    <> " (digital fingerprint of the "
+    <> blueprintName blueprint
+    <> " blueprint)"
+  ]
 operationDetails (VerifyMolecule _ _) = []
 operationDetails (Dose _ _) = []
 operationDetails (AdjustTemperature _) = []
 operationDetails (AdjustPressure _) = []
 operationDetails (HoldForRate _) = []
 operationDetails (RecordProduct blueprint _) =
-  ["hash: " <> renderHash (blueprintHash blueprint)]
+  [ "hash: "
+    <> renderHash (blueprintHash blueprint)
+    <> " (fingerprint proving the captured "
+    <> blueprintName blueprint
+    <> " product)"
+  ]
 operationDetails (EmitNote _) = []
 
 renderTag :: ProvenanceTag -> Text
@@ -134,3 +171,27 @@ renderTag (ExternalReference ref) = ref
 
 showDouble :: Double -> Text
 showDouble = T.pack . show
+
+renderTimestamp :: UTCTime -> Text
+renderTimestamp = T.pack . formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S UTC"
+
+labeledHashes :: [Instruction] -> [Text]
+labeledHashes = concatMap renderHashEntry
+  where
+    renderHashEntry instruction =
+      case instructionOp instruction of
+        RegisterBlueprint blueprint ->
+          [ "register-blueprint: "
+            <> blueprintName blueprint
+            <> " -> "
+            <> renderHash (blueprintHash blueprint)
+            <> " (blueprint fingerprint)"
+          ]
+        RecordProduct blueprint _ ->
+          [ "record-product: "
+            <> blueprintName blueprint
+            <> " -> "
+            <> renderHash (blueprintHash blueprint)
+            <> " (product fingerprint)"
+          ]
+        _ -> []
