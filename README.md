@@ -22,6 +22,7 @@ This is a datatype for molecules, complete with orbitals, reaction dynamics and 
    - Parses `molecules/water.sdf` and uses it as a test molecule.
    - Performs a Metropolis–Hastings regression on the molecules in `logp/DB1.sdf` to learn coefficients that predict the partition coefficient (logP).
    - Applies the learned model to predict the logP of water and then prints predicted and observed values for each molecule in `logp/DB2.sdf`.
+   - Streams the minimal on-chain synthesis workflow from `InstructionsForBlockchain.Minimal`, illustrating how the chemputer instructions would be emitted to a ledger once the regression step finishes.
 
 3. **Parse molecules independently (optional)**
 
@@ -59,7 +60,7 @@ The `InstructionsForBlockchain/` tree extends the original probabilistic modelli
    stack exec moladtbayes
    ```
 
-   After the existing regression diagnostics print, the program emits the minimal blockchain instruction script. You will see each numbered step with its operation, deterministic blueprint hash, and human-readable note.
+  After the existing regression diagnostics print, the program emits the minimal blockchain instruction script. `stack exec` simply runs the compiled `moladtbayes` binary, so the console output you see is exactly what would be persisted on-chain: each numbered chemputer step, its deterministic blueprint hash, and the accompanying human-readable note. The same script is also written to `logs/minimal-ledger.txt` so you have a ready-made artefact to hand to an external ledger or archive for later inspection.
 
 3. **Explore the richer example in GHCi**:
 
