@@ -546,10 +546,6 @@ runLogPRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
     when (collectedSamples == 0) $ do
       putStrLn "Warning: no posterior samples collected; falling back to zeros."
 
-    when (collectedSamples > 0 && collectedSamples < sampleTarget) $ do
-      putStrLn $ "Note: collected only " ++ show collectedSamples ++
-                 " posterior samples (requested " ++ show sampleTarget ++ ")."
-
     let posteriorSum = foldl' addParameters zeroParameters posteriorSamplesList
         means
           | collectedSamples == 0 = zeroParameters
@@ -576,24 +572,21 @@ runLogPRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
                        , paramDescriptorScale = descriptorScale
                        } = means
 
-    putStrLn ""
-    putStrLn "Posterior mean coefficients (selected descriptors):"
+    putStrLn "Posterior mean coefficients (selected):"
     mapM_ putStrLn
-      [ "  Intercept:             " ++ formatDouble intercept
-      , "  Weight:                " ++ formatDouble weightCoeff
-      , "  Polar:                 " ++ formatDouble polarCoeff
-      , "  Surface:               " ++ formatDouble surfaceCoeff
-      , "  Bond order:            " ++ formatDouble bondCoeff
-      , "  log(Heavy atoms + 1): " ++ formatDouble heavyCoeff
-      , "  log(Halogens + 1):    " ++ formatDouble halogenCoeff
-      , "  Aromatic fraction:    " ++ formatDouble aromaticFractionCoeff
-      , "  log(Rotatable + 1):   " ++ formatDouble rotatableCoeff
+      [ "  Intercept: " ++ show intercept
+      , "  Weight: " ++ show weightCoeff
+      , "  Polar: " ++ show polarCoeff
+      , "  Surface: " ++ show surfaceCoeff
+      , "  Bond order: " ++ show bondCoeff
+      , "  log(Heavy atoms + 1): " ++ show heavyCoeff
+      , "  log(Halogens + 1): " ++ show halogenCoeff
+      , "  Aromatic fraction: " ++ show aromaticFractionCoeff
+      , "  log(Rotatable + 1): " ++ show rotatableCoeff
       ]
 
     unless (null probes) $ do
-      putStrLn ""
-      putStrLn "Tracked molecule predictions (posterior mean):"
-      putStrLn "  These checkpoints help gauge how the model behaves while sampling."
+      putStrLn "Tracked molecule predictions:"
       forM_ probes $ \(name, mol, mActual) -> do
         let predictedLogP = predictMolecule means mol
         case mActual of
@@ -618,16 +611,16 @@ runLogPRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
             minLogP   = minimum db2LogPs
             maxLogP   = maximum db2LogPs
             meanLogP  = totalLogP / fromIntegral db2Count
-        putStrLn "  Observed logP statistics:"
-        putStrLn $ "    Range: " ++ formatDouble minLogP ++ " – " ++ formatDouble maxLogP
-        putStrLn $ "    Mean:  " ++ formatDouble meanLogP
+        putStrLn $ "DB2 logP summary — min: " ++ show minLogP ++
+                   ", max: " ++ show maxLogP ++
+                   ", mean: " ++ show meanLogP
 
     let db2Predictions =
           parMap rdeepseq
             (\(mol, actualLogP) ->
                let predictedLogP' = predictMolecule means mol
                    residual       = predictedLogP' - actualLogP
-                   atomCount      = M.size (atoms mol)
+                   atomCount       = M.size (atoms mol)
                in (atomCount, predictedLogP', actualLogP, residual))
             db2Molecules
 
@@ -641,28 +634,17 @@ runLogPRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
             ranked = take 3 $ sortOn (Down . abs . extractResidual . snd)
                                (zip [1..] db2Predictions)
             formatEntry (idx, (atomCount, predicted, actual, residual)) =
-              unlines
-                [ "    Entry " ++ show idx ++ " (" ++ show atomCount ++ " atoms):"
-                , "      predicted: " ++ formatDouble predicted
-                , "      actual:    " ++ formatDouble actual
-                , "      residual:  " ++ formatDouble residual
-                ]
-        putStrLn ""
-        putStrLn "Prediction error summary:"
-        putStrLn "  Mean absolute error (MAE) approximates the typical absolute deviation."
-        putStrLn "  Root mean squared error (RMSE) emphasises larger mistakes."
-        putStrLn $ "    MAE:  " ++ formatDouble mae
-        putStrLn $ "    RMSE: " ++ formatDouble (sqrt mse)
+              "  - Entry " ++ show idx ++
+              " (" ++ show atomCount ++ " atoms): predicted " ++
+              show predicted ++ ", actual " ++ show actual ++
+              ", residual " ++ show residual
+        putStrLn "DB2 evaluation:"
+        putStrLn $ "  MAE:  " ++ show mae
+        putStrLn $ "  RMSE: " ++ show (sqrt mse)
         unless (null ranked) $ do
-          putStrLn ""
-          putStrLn "  Largest residuals (first few entries):"
-          putStrLn "    High residuals indicate molecules the model struggles with most."
-          let detailedLines = concatMap (\entry -> lines (formatEntry entry) ++ [""]) ranked
-          mapM_ putStrLn detailedLines
+          putStrLn "  Largest residuals:"
+          mapM_ (putStrLn . formatEntry) ranked
  
 runLogPRegression :: SamplingConfig -> [(String, Molecule, Maybe Double)] -> Double -> IO ()
 runLogPRegression config probes jitter =
   runLogPRegressionWith config (UseMH jitter) probes
-
-formatDouble :: Double -> String
-formatDouble = printf "%.4f"

@@ -78,7 +78,6 @@ main = do
                       lwisMethod = UseLWIS (posteriorSamples samplingConfig)
                       mhMethod   = UseMH 0.9
                   runLogPRegressionWith samplingConfig lwisMethod trackedMolecules
-                  putStrLn ""
                   putStrLn "Running LogP regression over DB1 and predicting for water and DB2 (MH):"
                   runLogPRegressionWith samplingConfig mhMethod trackedMolecules
                   putStrLn ""
