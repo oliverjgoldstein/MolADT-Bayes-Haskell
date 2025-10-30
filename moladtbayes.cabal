@@ -69,7 +69,8 @@ library
         statistics,
         text,
         transformers,
-        vector
+        vector,
+        time
 
 executable moladtbayes
     main-is: Main.hs
