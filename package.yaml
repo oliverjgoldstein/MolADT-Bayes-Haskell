@@ -52,6 +52,12 @@ library:
     - BenzenePretty
     - PrettyBenzene
     - LogPModel
+    - InstructionsForBlockchain
+    - InstructionsForBlockchain.Hash
+    - InstructionsForBlockchain.MoleculeBlueprint
+    - InstructionsForBlockchain.ChemputerProgram
+    - InstructionsForBlockchain.Example
+    - InstructionsForBlockchain.Minimal
   other-modules:
     - ExtraF
     - Chem.Molecule.Coordinate
