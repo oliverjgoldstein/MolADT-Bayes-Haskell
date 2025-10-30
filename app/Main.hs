@@ -6,6 +6,7 @@ module Main where
 import Chem.IO.SDF (readSDF)
 import Chem.Molecule (prettyPrintMolecule)
 import Chem.Validate (validateMolecule)
+import InstructionsForBlockchain.Minimal (runMinimalDemo)
 import LogPModel (LogPInferenceMethod(..), runLogPRegressionWith)
 import Text.Megaparsec (errorBundlePretty)
 import Text.Read (readMaybe)
@@ -70,3 +71,5 @@ main = do
                   runLogPRegressionWith lwisMethod trackedMolecules
                   putStrLn "Running LogP regression over DB1 and predicting for water and DB2 (MH):"
                   runLogPRegressionWith mhMethod trackedMolecules
+                  putStrLn ""
+                  runMinimalDemo
