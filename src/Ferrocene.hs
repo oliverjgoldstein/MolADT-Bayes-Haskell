@@ -15,6 +15,27 @@
 --   https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/7611/record/SDF?record_type=3d
 -- (CID 7611 is ferrocene on PubChem).
 
+module Ferrocene (ferrocenePretty) where
+
+import qualified Data.Map.Strict as M
+import qualified Data.Set as S
+
+import Chem.Dietz
+  ( AtomId(..)
+  , SystemId(..)
+  , NonNegative(..)
+  , mkEdge
+  , mkBondingSystem
+  )
+import Chem.Molecule
+  ( AtomicSymbol(..)
+  , Molecule(..)
+  , Atom(..)
+  , Coordinate(..)
+  , mkAngstrom
+  )
+import Constants (elementAttributes, elementShells)
+
 ferrocenePretty :: Molecule
 ferrocenePretty = Molecule
   { atoms      = atomTable

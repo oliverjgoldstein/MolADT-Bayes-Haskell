@@ -36,6 +36,8 @@ library
         Benzene
         BenzenePretty
         PrettyBenzene
+        Diborane
+        Ferrocene
         LogPModel
         InstructionsForBlockchain
         InstructionsForBlockchain.Hash
@@ -68,9 +70,9 @@ library
         random,
         statistics,
         text,
+        time,
         transformers,
-        vector,
-        time
+        vector
 
 executable moladtbayes
     main-is: Main.hs
@@ -86,7 +88,6 @@ executable moladtbayes
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        moladtbayes,
         containers,
         deepseq,
         directory,
@@ -95,12 +96,14 @@ executable moladtbayes
         log-domain,
         massiv,
         megaparsec >=9.0 && <10.0,
+        moladtbayes,
         monad-extras,
         mtl,
         parallel,
         random,
         statistics,
         text,
+        time,
         transformers,
         vector
 
@@ -118,7 +121,6 @@ executable parse-molecules
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        moladtbayes,
         containers,
         deepseq,
         directory,
@@ -127,12 +129,14 @@ executable parse-molecules
         log-domain,
         massiv,
         megaparsec >=9.0 && <10.0,
+        moladtbayes,
         monad-extras,
         mtl,
         parallel,
         random,
         statistics,
         text,
+        time,
         transformers,
         vector
 
@@ -154,7 +158,6 @@ test-suite edge-properties
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        moladtbayes,
         containers,
         deepseq,
         directory,
@@ -163,12 +166,14 @@ test-suite edge-properties
         log-domain,
         massiv,
         megaparsec >=9.0 && <10.0,
+        moladtbayes,
         monad-extras,
         mtl,
         parallel,
         random,
         statistics,
         text,
+        time,
         transformers,
         vector
 
@@ -189,7 +194,6 @@ test-suite parser-roundtrip
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        moladtbayes,
         containers,
         deepseq,
         directory,
@@ -199,12 +203,14 @@ test-suite parser-roundtrip
         log-domain,
         massiv,
         megaparsec >=9.0 && <10.0,
+        moladtbayes,
         monad-extras,
         mtl,
         parallel,
         random,
         statistics,
         text,
+        time,
         transformers,
         vector
 
@@ -226,7 +232,6 @@ test-suite validation-properties
         base >=4.13 && <4.21,
         binary,
         bytestring,
-        moladtbayes,
         containers,
         deepseq,
         directory,
@@ -235,11 +240,13 @@ test-suite validation-properties
         log-domain,
         massiv,
         megaparsec >=9.0 && <10.0,
+        moladtbayes,
         monad-extras,
         mtl,
         parallel,
         random,
         statistics,
         text,
+        time,
         transformers,
         vector

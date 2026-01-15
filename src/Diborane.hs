@@ -9,6 +9,27 @@
 --   https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/12544637/record/SDF?record_type=3d
 -- (CID 12544637 is diborane on PubChem).
 
+module Diborane (diboranePretty) where
+
+import qualified Data.Map.Strict as M
+import qualified Data.Set as S
+
+import Chem.Dietz
+  ( AtomId(..)
+  , SystemId(..)
+  , NonNegative(..)
+  , mkEdge
+  , mkBondingSystem
+  )
+import Chem.Molecule
+  ( AtomicSymbol(..)
+  , Molecule(..)
+  , Atom(..)
+  , Coordinate(..)
+  , mkAngstrom
+  )
+import Constants (elementAttributes, elementShells)
+
 diboranePretty :: Molecule
 diboranePretty = Molecule
   { atoms      = atomTable
