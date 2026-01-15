@@ -2,6 +2,8 @@ This is a datatype for molecules, complete with orbitals, reaction dynamics and 
 
 ## Quick Start
 
+First install GHC, Stack etc here: https://www.haskell.org/ghcup/
+
 1. **Build the project**
 
    ```bash
