@@ -36,7 +36,7 @@ First install GHC, Stack etc here: https://www.haskell.org/ghcup/
 
 Sample SDF files for these experiments are provided in `molecules/` and `logp/`.
 
-An example Haskell representation of a molecule is available in `src/Benzene.hs`, which defines the `benzene` structure programmatically.
+An example Haskell representation of a molecule is available in `src/ExampleMolecules/Benzene.hs`, which defines the `benzene` structure programmatically.
 
 ## Blockchain Instruction Toolkit
 
@@ -93,4 +93,3 @@ The probabilistic programming components (`LazyPPL.hs` and `Distr.hs`) are taken
 ## What the Program Does
 
 The `moladtbayes` executable parses the sample benzene molecule (`molecules/benzene.sdf`) to showcase structural validation, then loads `molecules/water.sdf` as the test molecule for the regression. Coefficients are inferred from the training set `logp/DB1.sdf`, the logP of water is predicted from these coefficients, and predicted versus observed values for all molecules in `logp/DB2.sdf` are printed. The `parse-molecules` example demonstrates parsing and validating multiple SDF files.
-

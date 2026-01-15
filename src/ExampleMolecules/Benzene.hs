@@ -4,7 +4,7 @@
 -- module is pedagogy as much as correctness, so we deliberately trade a few
 -- extra lines of code for clearer naming and a more direct mirroring of the
 -- chemical structure.
-module Benzene
+module ExampleMolecules.Benzene
   ( benzene
   , benzenePretty
   ) where
@@ -14,7 +14,7 @@ import Chem.Dietz
 import Constants (elementAttributes, elementShells)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
-import BenzenePretty (benzenePretty)
+import ExampleMolecules.BenzenePretty (benzenePretty)
 
 -- | Canonical benzene example consisting of six carbons and six hydrogens.
 -- The ring carbons form both a sigma cycle and a delocalised \(\pi\)-system.

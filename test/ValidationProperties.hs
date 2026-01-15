@@ -5,7 +5,7 @@
 module Main (main) where
 
 import Test.QuickCheck
-import Benzene (benzene)
+import ExampleMolecules.Benzene (benzene)
 import Chem.Molecule
 import Chem.Dietz
 import Chem.Validate (validateMolecule, usedElectronsAt)
