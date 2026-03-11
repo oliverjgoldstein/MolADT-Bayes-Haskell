@@ -84,7 +84,7 @@ Author: Oliver Goldstein (oliverjgoldstein@gmail.com)
 
 ## License
 
-Distributed under the terms of the MolRep Commercial / Source-Available License (Approval Required). See [LICENSE](LICENSE) for details.
+Distributed under AGPL-3.0. See [LICENSE](LICENSE) for details.
 
 ## LazyPPL Disclaimer
 
