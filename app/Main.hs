@@ -6,7 +6,6 @@ module Main where
 import Chem.IO.SDF (readSDF)
 import Chem.Molecule (atoms)
 import Chem.Validate (validateMolecule)
-import InstructionsForBlockchain.Minimal (runMinimalDemo)
 import LogPModel
   ( LogPInferenceMethod(..)
   , SamplingConfig(..)
@@ -80,8 +79,6 @@ main = do
                   runLogPRegressionWith samplingConfig lwisMethod trackedMolecules
                   putStrLn "Running LogP regression over DB1 and predicting for water and DB2 (MH):"
                   runLogPRegressionWith samplingConfig mhMethod trackedMolecules
-                  putStrLn ""
-                  runMinimalDemo
 
 promptSamplingConfig :: IO SamplingConfig
 promptSamplingConfig = do

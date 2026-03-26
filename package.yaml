@@ -55,12 +55,6 @@ library:
     - ExampleMolecules.Ferrocene
     - PrettyBenzene
     - LogPModel
-    - InstructionsForBlockchain
-    - InstructionsForBlockchain.Hash
-    - InstructionsForBlockchain.MoleculeBlueprint
-    - InstructionsForBlockchain.ChemputerProgram
-    - InstructionsForBlockchain.Example
-    - InstructionsForBlockchain.Minimal
   other-modules:
     - ExtraF
     - Chem.Molecule.Coordinate
@@ -84,8 +78,8 @@ executables:
 
 tests:
   parser-roundtrip:
-    main: ParserRoundTrip.hs
-    source-dirs: test
+    main: Main.hs
+    source-dirs: test/parser-roundtrip
     dependencies:
       - moladtbayes
       - hspec
@@ -94,8 +88,8 @@ tests:
       - massiv
     language: Haskell2010
   validation-properties:
-    main: ValidationProperties.hs
-    source-dirs: test
+    main: Main.hs
+    source-dirs: test/validation-properties
     dependencies:
       - moladtbayes
       - QuickCheck
@@ -103,8 +97,8 @@ tests:
       - massiv
     language: Haskell2010
   edge-properties:
-    main: EdgeProperties.hs
-    source-dirs: test
+    main: Main.hs
+    source-dirs: test/edge-properties
     dependencies:
       - moladtbayes
       - QuickCheck

@@ -39,12 +39,6 @@ library
         ExampleMolecules.Ferrocene
         PrettyBenzene
         LogPModel
-        InstructionsForBlockchain
-        InstructionsForBlockchain.Hash
-        InstructionsForBlockchain.MoleculeBlueprint
-        InstructionsForBlockchain.ChemputerProgram
-        InstructionsForBlockchain.Example
-        InstructionsForBlockchain.Minimal
     other-modules:
         ExtraF
         Chem.Molecule.Coordinate
@@ -142,15 +136,13 @@ executable parse-molecules
 
 test-suite edge-properties
     type: exitcode-stdio-1.0
-    main-is: EdgeProperties.hs
+    main-is: Main.hs
     other-modules:
-        ParserRoundTrip
-        ValidationProperties
         Paths_moladtbayes
     autogen-modules:
         Paths_moladtbayes
     hs-source-dirs:
-        test
+        test/edge-properties
     default-language: Haskell2010
     build-depends:
         QuickCheck,
@@ -179,15 +171,13 @@ test-suite edge-properties
 
 test-suite parser-roundtrip
     type: exitcode-stdio-1.0
-    main-is: ParserRoundTrip.hs
+    main-is: Main.hs
     other-modules:
-        EdgeProperties
-        ValidationProperties
         Paths_moladtbayes
     autogen-modules:
         Paths_moladtbayes
     hs-source-dirs:
-        test
+        test/parser-roundtrip
     default-language: Haskell2010
     build-depends:
         array,
@@ -216,15 +206,13 @@ test-suite parser-roundtrip
 
 test-suite validation-properties
     type: exitcode-stdio-1.0
-    main-is: ValidationProperties.hs
+    main-is: Main.hs
     other-modules:
-        EdgeProperties
-        ParserRoundTrip
         Paths_moladtbayes
     autogen-modules:
         Paths_moladtbayes
     hs-source-dirs:
-        test
+        test/validation-properties
     default-language: Haskell2010
     build-depends:
         QuickCheck,

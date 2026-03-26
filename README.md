@@ -24,7 +24,6 @@ First install GHC, Stack etc here: https://www.haskell.org/ghcup/
    - Parses `molecules/water.sdf` and uses it as a test molecule.
    - Performs a Metropolis–Hastings regression on the molecules in `logp/DB1.sdf` to learn coefficients that predict the partition coefficient (logP).
    - Applies the learned model to predict the logP of water and then prints predicted and observed values for each molecule in `logp/DB2.sdf`.
-   - Streams the minimal on-chain synthesis workflow from `InstructionsForBlockchain.Minimal`, illustrating how the chemputer instructions would be emitted to a ledger once the regression step finishes.
 
 3. **Parse molecules independently (optional)**
 
@@ -37,44 +36,6 @@ First install GHC, Stack etc here: https://www.haskell.org/ghcup/
 Sample SDF files for these experiments are provided in `molecules/` and `logp/`.
 
 An example Haskell representation of a molecule is available in `src/ExampleMolecules/Benzene.hs`, which defines the `benzene` structure programmatically.
-
-## Blockchain Instruction Toolkit
-
-The `InstructionsForBlockchain/` tree extends the original probabilistic modelling code with a self-contained toolkit for describing chemputer-ready, on-chain synthesis programs. It is layered around four core pieces:
-
-1. **Deterministic blueprint hashing.** `InstructionsForBlockchain.Hash` serialises arbitrary payloads and produces 64-bit FNV-1a digests so that molecules and reactions can be anchored immutably on a ledger.
-
-2. **Molecule blueprints.** `InstructionsForBlockchain.MoleculeBlueprint` converts `Chem.Molecule` values into transportable descriptions, verifies neighbourhood consistency, and emits provenance tags (hash, atom count, charge distribution) required by an automated chemputer.
-
-3. **Chemputer instruction monad.** `InstructionsForBlockchain.ChemputerProgram` defines a `ChemputerProgram` monad that sequences primitive operations (`registerBlueprint`, `dose`, `adjustTemperature`, `captureProduct`, etc.) while accumulating structured `Instruction` records ready for blockchain storage or auditing.
-
-4. **Demonstration scripts.**
-   - `InstructionsForBlockchain.Example` walks through a full hydrogen-combustion scenario, compiling 13 instructions and providing pretty-printers for humans and hashes for contracts.
-   - `InstructionsForBlockchain.Minimal` trims this down to a minimal water synthesis demo. The helper `runMinimalDemo` renders the instruction log, and `Main` executes it automatically when you run `stack exec moladtbayes`.
-
-### Running the demos
-
-1. **Build the library** using `stack build` (or `cabal build`). This ensures the blockchain modules compile alongside the original regression pipeline.
-
-2. **Run the executable demo**:
-
-   ```bash
-   stack exec moladtbayes
-   ```
-
-
-  After the existing regression diagnostics print, the program emits the minimal blockchain instruction script. `stack exec` simply runs the compiled `moladtbayes` binary, so the console output you see is exactly what would be persisted on-chain: each numbered chemputer step, its deterministic blueprint hash, and the accompanying human-readable note. The same script is also written to `logs/minimal-ledger.txt` so you have a ready-made artefact to hand to an external ledger or archive for later inspection.
-
-
-3. **Explore the richer example in GHCi**:
-
-   ```haskell
-   stack repl
-   > import InstructionsForBlockchain.Example
-   > putStrLn (Data.Text.unpack prettyCombustionScript)
-   ```
-
-   This shows the extended combustion walk-through along with the provenance metadata that would be persisted on-chain.
 
 ## Array backend
 
