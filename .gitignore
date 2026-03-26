@@ -1,3 +1,32 @@
-./.DS_Store
+.DS_Store
+
+# Haskell build output
+.stack-work/
+dist/
+dist-*/
 dist-newstyle/
-.stack-work/*
+cabal-dev/
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+*.prof
+*.aux
+*.hp
+*.eventlog
+.hpc/
+.ghc.environment.*
+.hie/
+
+# Nix build output
+result
+result-*
+
+# Local environment / editor state
+.direnv/
+.envrc.local
+.vscode/
+.idea/
+
+# Generated repository-local cache/output
+/logs/
