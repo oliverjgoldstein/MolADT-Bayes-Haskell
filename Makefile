@@ -2,6 +2,8 @@ DATASET_PREFIX ?= freesolv_smiles
 METHOD ?= lwis
 ROW_LIMIT ?= 128
 PROCESSED_DATA_DIR ?= ../MolADT-Bayes-Python/data/processed
+TESTED_GHC := 9.6.5
+TESTED_STACK_RESOLVER := lts-22.25
 
 .PHONY: help haskell-build haskell-test haskell-demo haskell-infer-benchmark haskell-parse haskell-parse-smiles haskell-to-smiles
 
@@ -20,7 +22,10 @@ help:
 	"  processed_data_dir=$(PROCESSED_DATA_DIR)" \
 	"  dataset_prefix=$(DATASET_PREFIX)" \
 	"  method=$(METHOD)" \
-	"  row_limit=$(ROW_LIMIT)"
+	"  row_limit=$(ROW_LIMIT)" \
+	"" \
+	"Tested toolchain versions:" \
+	"  GHC=$(TESTED_GHC) Stack resolver=$(TESTED_STACK_RESOLVER)"
 
 haskell-build:
 	stack build
