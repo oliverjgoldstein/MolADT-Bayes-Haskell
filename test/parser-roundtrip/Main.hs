@@ -6,6 +6,7 @@ module Main (main) where
 
 import Test.Hspec
 import Chem.IO.SDF (readSDF, parseSDF)
+import Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
 import Chem.Molecule
 import Chem.Dietz
 import qualified Data.Map.Strict as M
@@ -44,6 +45,54 @@ spec = do
         Left err -> expectationFailure (errorBundlePretty err)
         Right mol -> length (systems mol) `shouldBe` 1
 
+  describe "SMILES boundary" $ do
+    it "recovers a pi ring from aromatic benzene SMILES" $ do
+      case parseSMILES "c1ccccc1" of
+        Left err -> expectationFailure err
+        Right mol -> do
+          M.size (atoms mol) `shouldBe` 6
+          S.size (localBonds mol) `shouldBe` 6
+          length (systems mol) `shouldBe` 1
+
+    it "renders water as bracketed SMILES and parses it back" $ do
+      case moleculeToSMILES water of
+        Left err -> expectationFailure err
+        Right smilesText -> do
+          smilesText `shouldBe` "[OH2]"
+          case parseSMILES smilesText of
+            Left err -> expectationFailure err
+            Right mol -> do
+              M.size (atoms mol) `shouldBe` 3
+              S.size (localBonds mol) `shouldBe` 2
+
+    it "renders methane as bracketed SMILES and parses it back" $ do
+      case moleculeToSMILES methane of
+        Left err -> expectationFailure err
+        Right smilesText -> do
+          smilesText `shouldBe` "[CH4]"
+          case parseSMILES smilesText of
+            Left err -> expectationFailure err
+            Right mol -> do
+              M.size (atoms mol) `shouldBe` 5
+              S.size (localBonds mol) `shouldBe` 4
+
+    it "renders benzene as a deterministic Kekule string and recovers the pi ring" $ do
+      parsed <- readSDF "molecules/benzene.sdf"
+      case parsed of
+        Left err -> expectationFailure (errorBundlePretty err)
+        Right mol ->
+          case moleculeToSMILES mol of
+            Left err -> expectationFailure err
+            Right smilesText -> do
+              smilesText `shouldBe` "[CH]1=[CH][CH]=[CH][CH]=[CH]1"
+              case parseSMILES smilesText of
+                Left err -> expectationFailure err
+                Right mol' -> do
+                  countSymbol C mol' `shouldBe` 6
+                  countSymbol H mol' `shouldBe` 6
+                  S.size (localBonds mol') `shouldBe` 12
+                  length (systems mol') `shouldBe` 1
+
   describe "LogPModel inference" $ do
     it "uses a single coefficient sample for the entire dataset" $ do
       let datasetOne = [(water, 0.0)]
@@ -79,3 +128,11 @@ runInference tree observations =
   let Meas program       = inferLogP observations
       (params, weightM)  = runProb (runWriterT program) tree
   in (params, getProduct weightM)
+
+countSymbol :: AtomicSymbol -> Molecule -> Int
+countSymbol sym mol =
+  length
+    [ ()
+    | atom <- M.elems (atoms mol)
+    , symbol (attributes atom) == sym
+    ]

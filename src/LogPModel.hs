@@ -577,16 +577,30 @@ runLogPRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
       ]
 
     unless (null probes) $ do
-      putStrLn "Tracked molecule predictions:"
-      forM_ probes $ \(name, mol, mActual) -> do
-        let predictedLogP = predictMolecule means mol
-        case mActual of
-          Just actual ->
-            putStrLn $ "  - " ++ name ++ ": predicted " ++ show predictedLogP ++
-                       ", actual " ++ show actual ++
-                       ", residual " ++ show (predictedLogP - actual)
-          Nothing ->
-            putStrLn $ "  - " ++ name ++ ": predicted " ++ show predictedLogP
+      let trackedPredictions =
+            [ (name, predictedLogP, mActual, fmap (\actual -> predictedLogP - actual) mActual)
+            | (name, mol, mActual) <- probes
+            , let predictedLogP = predictMolecule means mol
+            ]
+      putStrLn "Test-set predictions:"
+      forM_ trackedPredictions $ \(name, predictedLogP, mActual, mResidual) ->
+        case (mActual, mResidual) of
+          (Just actual, Just residual) ->
+            putStrLn $ "  - " ++ name ++ ": predicted=" ++ show predictedLogP ++
+                       ", actual=" ++ show actual ++
+                       ", residual=" ++ show residual
+          _ ->
+            putStrLn $ "  - " ++ name ++ ": predicted=" ++ show predictedLogP ++
+                       ", actual=(unknown)"
+      let trackedResiduals = [ residual | (_, _, _, Just residual) <- trackedPredictions ]
+          trackedCount = length trackedResiduals
+      when (trackedCount > 0) $ do
+        let invN = 1 / fromIntegral trackedCount
+            trackedMae = invN * foldl' (\acc r -> acc + abs r) 0.0 trackedResiduals
+            trackedMse = invN * foldl' (\acc r -> acc + r * r) 0.0 trackedResiduals
+        putStrLn $ "Test-set metrics: MAE=" ++ show trackedMae
+                ++ ", RMSE=" ++ show (sqrt trackedMse)
+                ++ ", n=" ++ show trackedCount
 
     let db2FilePath = "./logp/DB2.sdf"
     db2Molecules <- parseLogPFile db2FilePath mLimit
@@ -622,14 +636,15 @@ runLogPRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
                                (zip [1..] db2Predictions)
             formatEntry (idx, (atomCount, predicted, actual, residual)) =
               "  - Entry " ++ show idx ++
-              " (" ++ show atomCount ++ " atoms): predicted " ++
-              show predicted ++ ", actual " ++ show actual ++
-              ", residual " ++ show residual
+              " (" ++ show atomCount ++ " atoms): predicted=" ++
+              show predicted ++ ", actual=" ++ show actual ++
+              ", residual=" ++ show residual
         putStrLn "DB2 evaluation:"
-        putStrLn $ "  MAE:  " ++ show mae
-        putStrLn $ "  RMSE: " ++ show (sqrt mse)
+        putStrLn $ "  MAE=" ++ show mae
+        putStrLn $ "  RMSE=" ++ show (sqrt mse)
+        putStrLn $ "  n=" ++ show nPred
         unless (null ranked) $ do
-          putStrLn "  Largest residuals:"
+          putStrLn "  Predicted vs actual (largest residuals):"
           mapM_ (putStrLn . formatEntry) ranked
  
 runLogPRegression :: SamplingConfig -> [(String, Molecule, Maybe Double)] -> Double -> IO ()

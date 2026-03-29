@@ -1,46 +1,49 @@
--- | Executable entry point used for quick smoke-testing of the library.
--- The program exercises the parser, validator and logP regression in one
--- go so that running the binary gives a concise integration test.
 module Main where
 
-import Chem.IO.SDF (readSDF)
-import Chem.Molecule (atoms)
-import Chem.Validate (validateMolecule)
-import LogPModel
-  ( LogPInferenceMethod(..)
-  , SamplingConfig(..)
+import           BenchmarkModel
+  ( BenchmarkInferenceMethod(..)
+  , defaultProcessedDataDir
   , defaultSamplingConfig
-  , runLogPRegressionWith
+  , parseInferenceMethod
+  , posteriorSamples
+  , runBenchmarkRegressionWith
   )
-import System.IO (hFlush, stdout)
-import Text.Megaparsec (errorBundlePretty)
-import Text.Read (readMaybe)
-import Data.Char (isSpace)
-import Data.List (dropWhileEnd)
+import           Chem.IO.SDF (readSDF)
+import           Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
+import           Chem.Molecule (Molecule, atoms, prettyPrintMolecule)
+import           Chem.Validate (validateMolecule)
+import           System.Environment (getArgs)
+import           Text.Megaparsec (errorBundlePretty)
+import           Text.Read (readMaybe)
 
--- | Read a numeric property from an SDF file by name.  The parser is
--- intentionally lightweight since the demo files are tiny and only a handful
--- of properties are needed.
-readSDFDoubleProperty :: FilePath -> String -> IO (Maybe Double)
-readSDFDoubleProperty fp propName = do
-  contents <- readFile fp
-  let target = "> <" ++ propName ++ ">"
-      ls     = lines contents
-  pure $ case dropWhile (/= target) ls of
-           (_:val:_) -> readMaybe val
-           _         -> Nothing
-
--- | Parse and validate benzene for demonstration,
--- then predict the logP of water using the learned model.
--- | Drive the minimal demo workflow:
---
---   * parse the example benzene molecule from disk
---   * validate its structure and pretty-print it
---   * parse and validate the water example
---   * run a probabilistic logP regression using the demo data set and
---     print predictions for water and the remaining database entries.
 main :: IO ()
 main = do
+  args <- getArgs
+  case args of
+    [] -> runDemo
+    ["demo"] -> runDemo
+    ["parse", path] -> runParse path
+    ["parse-smiles", smilesText] -> runParseSMILES smilesText
+    ["to-smiles", path] -> runToSMILES path
+    ["infer-benchmark", datasetPrefix, methodName] ->
+      runInferBenchmark datasetPrefix methodName Nothing
+    ["infer-benchmark", datasetPrefix, methodName, limitText] ->
+      runInferBenchmark datasetPrefix methodName (readMaybe limitText)
+    _ -> putStrLn usage
+
+usage :: String
+usage = unlines
+  [ "Usage:"
+  , "  stack run moladtbayes -- demo"
+  , "  stack run moladtbayes -- parse molecules/benzene.sdf"
+  , "  stack run moladtbayes -- parse-smiles \"c1ccccc1\""
+  , "  stack run moladtbayes -- to-smiles molecules/benzene.sdf"
+  , "  stack run moladtbayes -- infer-benchmark freesolv_smiles lwis"
+  , "  stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256"
+  ]
+
+runDemo :: IO ()
+runDemo = do
   putStrLn "Parsing molecules/benzene.sdf"
   benzeneParsed <- readSDF "molecules/benzene.sdf"
   case benzeneParsed of
@@ -52,55 +55,72 @@ main = do
           putStrLn err
         Right _ -> do
           putStrLn $ "Benzene validated (" ++ show (length (atoms benzene)) ++ " atoms)."
-          benzeneActualLogP <- readSDFDoubleProperty "molecules/benzene.sdf" "PUBCHEM_XLOGP3"
-          case benzeneActualLogP of
-            Just actual ->
-              putStrLn $ "Actual benzene logP (PUBCHEM_XLOGP3): " ++ show actual
-            Nothing ->
-              putStrLn "Warning: could not locate a numeric PUBCHEM_XLOGP3 property for benzene"
+          printSmiles "Benzene SMILES" benzene
           putStrLn "Parsing molecules/water.sdf"
           waterParsed <- readSDF "molecules/water.sdf"
           case waterParsed of
-            Left err -> putStrLn (errorBundlePretty err)
+            Left err2 -> putStrLn (errorBundlePretty err2)
             Right water ->
               case validateMolecule water of
-                Left err2 -> do
+                Left err3 -> do
                   putStrLn "Water invalid:"
-                  putStrLn err2
+                  putStrLn err3
                 Right _ -> do
-                  samplingConfig <- promptSamplingConfig
-                  putStrLn "Running LogP regression over DB1 and predicting for water and DB2 (LWIS):"
-                  let trackedMolecules =
-                        [ ("Benzene", benzene, benzeneActualLogP)
-                        , ("Water", water, Nothing)
-                        ]
+                  printSmiles "Water SMILES" water
+                  let samplingConfig = defaultSamplingConfig
                       lwisMethod = UseLWIS (posteriorSamples samplingConfig)
-                      mhMethod   = UseMH 0.9
-                  runLogPRegressionWith samplingConfig lwisMethod trackedMolecules
-                  putStrLn "Running LogP regression over DB1 and predicting for water and DB2 (MH):"
-                  runLogPRegressionWith samplingConfig mhMethod trackedMolecules
+                      mhMethod = UseMH 0.9
+                  putStrLn "Running aligned FreeSolv / SMILES smoke benchmark (LWIS):"
+                  runBenchmarkRegressionWith samplingConfig lwisMethod defaultProcessedDataDir "freesolv_smiles" (Just 128)
+                  putStrLn "Running aligned QM9 / SDF smoke benchmark (MH):"
+                  runBenchmarkRegressionWith samplingConfig mhMethod defaultProcessedDataDir "qm9_sdf" (Just 256)
 
-promptSamplingConfig :: IO SamplingConfig
-promptSamplingConfig = do
-  putStrLn "Configure sampling (press Enter to accept defaults)."
-  burnIn <- promptPositiveInt "  Burn-in iterations" (burnInIterations defaultSamplingConfig)
-  posterior <- promptPositiveInt "  Posterior samples" (posteriorSamples defaultSamplingConfig)
-  pure defaultSamplingConfig
-    { burnInIterations = burnIn
-    , posteriorSamples = posterior
-    }
+runParse :: FilePath -> IO ()
+runParse path = do
+  parsed <- readSDF path
+  case parsed of
+    Left err -> putStrLn (errorBundlePretty err)
+    Right molecule -> do
+      renderValidated molecule
+      printSmiles "SMILES" molecule
 
-promptPositiveInt :: String -> Int -> IO Int
-promptPositiveInt label defVal = do
-  putStr $ label ++ " [" ++ show defVal ++ "]: "
-  hFlush stdout
-  input <- getLine
-  let trimmed = dropWhile isSpace (dropWhileEnd isSpace input)
-  if null trimmed
-    then pure defVal
-    else
-      case readMaybe trimmed of
-        Just n | n > 0 -> pure n
-        _ -> do
-          putStrLn $ "  Invalid entry; keeping default " ++ show defVal ++ "."
-          pure defVal
+runParseSMILES :: String -> IO ()
+runParseSMILES smilesText =
+  case parseSMILES smilesText >>= validateMolecule of
+    Left err -> putStrLn err
+    Right molecule -> renderValidated molecule
+
+runToSMILES :: FilePath -> IO ()
+runToSMILES path = do
+  parsed <- readSDF path
+  case parsed of
+    Left err -> putStrLn (errorBundlePretty err)
+    Right molecule ->
+      case validateMolecule molecule of
+        Left err2 -> putStrLn err2
+        Right validMolecule ->
+          case moleculeToSMILES validMolecule of
+            Left err3 -> putStrLn err3
+            Right smilesText -> putStrLn smilesText
+
+renderValidated :: Molecule -> IO ()
+renderValidated molecule =
+  case validateMolecule molecule of
+    Left err -> putStrLn err
+    Right validMolecule -> putStrLn (prettyPrintMolecule validMolecule)
+
+runInferBenchmark :: String -> String -> Maybe Int -> IO ()
+runInferBenchmark datasetPrefix methodName mLimit =
+  case parseInferenceMethod defaultSamplingConfig methodName of
+    Nothing ->
+      putStrLn $
+        "Unknown inference method `" ++ methodName
+        ++ "`. Use `lwis`, `lwis:<particles>`, `mh`, or `mh:<jitter>`."
+    Just method ->
+      runBenchmarkRegressionWith defaultSamplingConfig method defaultProcessedDataDir datasetPrefix mLimit
+
+printSmiles :: String -> Molecule -> IO ()
+printSmiles label molecule =
+  case moleculeToSMILES molecule of
+    Left err -> putStrLn (label ++ ": " ++ err)
+    Right smilesText -> putStrLn (label ++ ": " ++ smilesText)

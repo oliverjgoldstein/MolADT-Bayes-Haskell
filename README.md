@@ -1,56 +1,86 @@
-This is a datatype for molecules, complete with orbitals, reaction dynamics and group theoretic properties. It corresponds to the article here: https://arxiv.org/abs/2501.13633
+# MolADT-Bayes-Haskell
 
-## Quick Start
+`MolADT-Bayes-Haskell` is the original Haskell implementation of the MolADT chemistry model. It keeps the typed molecular ADT as the core representation, with explicit atoms, sigma adjacency, Dietz bonding systems, coordinates, validation, reactions, and lightweight SDF/SMILES boundaries.
 
-First install GHC, Stack etc here: https://www.haskell.org/ghcup/
+This repository is the semantic source implementation. The Python workspace companion carries the larger benchmark pipeline, while this code remains the main reference for the MolADT structure itself.
 
-1. **Build the project**
+## Default Path
 
-   ```bash
-   stack build
-   ```
+From the workspace root, use these commands exactly as written first. They already use the default settings.
 
-   `package.yaml` is processed by `hpack` to generate `moladtbayes.cabal`.
+- `make haskell-test`  
+  Run the Haskell test suites.
+- `make haskell-demo`  
+  Run the default Haskell demo executable.
+- `make haskell-infer-benchmark`  
+  Run the aligned Haskell benchmark baseline with its default dataset and sampler settings.
+- `make showcase`  
+  Run the shared workspace bundle so the Haskell and Python surfaces are exercised together.
+- `make help`  
+  Show the smaller set of optional commands and overrides.
 
-2. **Run the demonstration program**
+Most Haskell readers only need `make haskell-demo`.
 
-   ```bash
-   stack exec moladtbayes
-   ```
+## Standalone Usage
 
-   This executable:
+Install GHC and Stack with `ghcup`, then from this directory run:
 
-   - Parses and validates `molecules/benzene.sdf`, printing the structure as a sanity check.
-   - Parses `molecules/water.sdf` and uses it as a test molecule.
-   - Performs a Metropolis–Hastings regression on the molecules in `logp/DB1.sdf` to learn coefficients that predict the partition coefficient (logP).
-   - Applies the learned model to predict the logP of water and then prints predicted and observed values for each molecule in `logp/DB2.sdf`.
+```bash
+stack build
+stack test
+```
 
-3. **Parse molecules independently (optional)**
+The simplest direct CLI commands are:
 
-   ```bash
-   stack exec parse-molecules
-   ```
+```bash
+stack run moladtbayes -- parse molecules/benzene.sdf
+stack run moladtbayes -- parse-smiles "c1ccccc1"
+stack run moladtbayes -- to-smiles molecules/benzene.sdf
+stack run moladtbayes -- demo
+```
 
-   The example pretty-prints the contents of `molecules/benzene.sdf` and `molecules/water.sdf` using the library parser.
+## Aligned Benchmark Baseline
 
-Sample SDF files for these experiments are provided in `molecules/` and `logp/`.
+The default aligned benchmark command is:
 
-An example Haskell representation of a molecule is available in `src/ExampleMolecules/Benzene.hs`, which defines the `benzene` structure programmatically.
+```bash
+make haskell-infer-benchmark
+```
 
-## Array backend
+That default already chooses:
 
-The logP regression pipeline now relies on the [`massiv`](https://hackage.haskell.org/package/massiv) array library for parallel-friendly map and fold operations. No manual flags are required—running `stack build` will automatically pull in the Massiv dependency declared in `package.yaml`.
+- the exported `freesolv_smiles` matrix
+- the `lwis` sampler
+- the first `128` rows
 
-Author: Oliver Goldstein (oliverjgoldstein@gmail.com)
+The Haskell model is aligned to the Python `bayes_linear_student_t` benchmark family: same exported standardized `X/y` matrices, same linear regression structure, and a Student-`t` likelihood. CLI output prints `predicted`, `actual`, `residual`, and summary metrics including RMSE.
+
+The structural representation path is available through `qm9_sdf`, where SDF/3D-derived features carry the MolADT representation advantage over a SMILES-only baseline. If you later need non-default settings, use `make help` from the workspace root or run an explicit command such as:
+
+```bash
+stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256
+```
+
+## SMILES Scope
+
+The SMILES boundary is intentionally lightweight and conservative. It supports:
+
+- atoms and bracket atoms
+- bracket hydrogens and formal charges
+- branches and ring digits `1-9`
+- single, double, and triple bonds
+- benzene-style aromatic input such as `c1ccccc1`
+
+It does not try to encode non-classical multicenter systems like diborane or ferrocene as SMILES. Those molecules remain representable in the MolADT core, but `to-smiles` rejects structures outside the supported classical subset.
+
+## Relation To The Python Benchmark
+
+The larger FreeSolv, QM9, and ZINC benchmark pipeline lives in `../MolADT-Bayes-Python`. The exported matrices used by the Haskell aligned baseline are written under `../MolADT-Bayes-Python/data/processed/`, and the fitted Python reports are written under `../MolADT-Bayes-Python/results/`.
 
 ## License
 
-Distributed under AGPL-3.0. See [LICENSE](LICENSE) for details.
+Distributed under the MIT License. See [LICENSE](LICENSE).
 
 ## LazyPPL Disclaimer
 
 The probabilistic programming components (`LazyPPL.hs` and `Distr.hs`) are taken from the [LazyPPL project](https://github.com/lazyppl-team/lazyppl) by Swaraj Dash, Younesse Kaddar, Hugo Paquet, and Sam Staton. These files were not written by us and are included here with permission.
-
-## What the Program Does
-
-The `moladtbayes` executable parses the sample benzene molecule (`molecules/benzene.sdf`) to showcase structural validation, then loads `molecules/water.sdf` as the test molecule for the regression. Coefficients are inferred from the training set `logp/DB1.sdf`, the logP of water is predicted from these coefficients, and predicted versus observed values for all molecules in `logp/DB2.sdf` are printed. The `parse-molecules` example demonstrates parsing and validating multiple SDF files.

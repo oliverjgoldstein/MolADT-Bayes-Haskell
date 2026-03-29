@@ -1,4 +1,4 @@
-cabal-version: 2.2
+cabal-version: 1.12
 
 -- This file has been generated from package.yaml by hpack version 0.38.1.
 --
@@ -11,7 +11,7 @@ description: A library for molecular representation and probabilistic programmin
 category: Development
 author: Oliver Goldstein
 maintainer: oliverjgoldstein@gmail.com, oliver.goldstein@cs.ox.ac.uk, sammarch2@gmail.com
-license: AGPL-3.0-only
+license: MIT
 license-file: LICENSE
 build-type: Simple
 extra-source-files:
@@ -30,6 +30,7 @@ library
         Orbital
         SlaterTypeOrbital
         Chem.IO.SDF
+        Chem.IO.SMILES
         Reaction
         Serialisable
         SampleMolecules
@@ -38,6 +39,7 @@ library
         ExampleMolecules.Diborane
         ExampleMolecules.Ferrocene
         PrettyBenzene
+        BenchmarkModel
         LogPModel
     other-modules:
         ExtraF
@@ -57,6 +59,7 @@ library
         ghc-heap,
         log-domain,
         massiv,
+        math-functions,
         megaparsec >=9.0 && <10.0,
         monad-extras,
         mtl,
@@ -71,8 +74,6 @@ library
 executable moladtbayes
     main-is: Main.hs
     other-modules:
-        Paths_moladtbayes
-    autogen-modules:
         Paths_moladtbayes
     hs-source-dirs:
         app
@@ -89,6 +90,7 @@ executable moladtbayes
         ghc-heap,
         log-domain,
         massiv,
+        math-functions,
         megaparsec >=9.0 && <10.0,
         moladtbayes,
         monad-extras,
@@ -105,8 +107,6 @@ executable parse-molecules
     main-is: ParseMolecules.hs
     other-modules:
         Paths_moladtbayes
-    autogen-modules:
-        Paths_moladtbayes
     hs-source-dirs:
         examples
     default-language: Haskell2010
@@ -122,6 +122,7 @@ executable parse-molecules
         ghc-heap,
         log-domain,
         massiv,
+        math-functions,
         megaparsec >=9.0 && <10.0,
         moladtbayes,
         monad-extras,
@@ -134,12 +135,44 @@ executable parse-molecules
         transformers,
         vector
 
-test-suite edge-properties
+test-suite benchmark-alignment
     type: exitcode-stdio-1.0
     main-is: Main.hs
     other-modules:
         Paths_moladtbayes
-    autogen-modules:
+    hs-source-dirs:
+        test/benchmark-alignment
+    build-depends:
+        array,
+        base >=4.13 && <4.21,
+        binary,
+        bytestring,
+        containers,
+        deepseq,
+        directory,
+        filepath,
+        ghc-heap,
+        hspec,
+        log-domain,
+        massiv,
+        math-functions,
+        megaparsec >=9.0 && <10.0,
+        moladtbayes,
+        monad-extras,
+        mtl,
+        parallel,
+        random,
+        statistics,
+        text,
+        time,
+        transformers,
+        vector
+    default-language: Haskell2010
+
+test-suite edge-properties
+    type: exitcode-stdio-1.0
+    main-is: Main.hs
+    other-modules:
         Paths_moladtbayes
     hs-source-dirs:
         test/edge-properties
@@ -157,6 +190,7 @@ test-suite edge-properties
         ghc-heap,
         log-domain,
         massiv,
+        math-functions,
         megaparsec >=9.0 && <10.0,
         moladtbayes,
         monad-extras,
@@ -174,8 +208,6 @@ test-suite parser-roundtrip
     main-is: Main.hs
     other-modules:
         Paths_moladtbayes
-    autogen-modules:
-        Paths_moladtbayes
     hs-source-dirs:
         test/parser-roundtrip
     default-language: Haskell2010
@@ -192,6 +224,7 @@ test-suite parser-roundtrip
         hspec,
         log-domain,
         massiv,
+        math-functions,
         megaparsec >=9.0 && <10.0,
         moladtbayes,
         monad-extras,
@@ -209,8 +242,6 @@ test-suite validation-properties
     main-is: Main.hs
     other-modules:
         Paths_moladtbayes
-    autogen-modules:
-        Paths_moladtbayes
     hs-source-dirs:
         test/validation-properties
     default-language: Haskell2010
@@ -227,6 +258,7 @@ test-suite validation-properties
         ghc-heap,
         log-domain,
         massiv,
+        math-functions,
         megaparsec >=9.0 && <10.0,
         moladtbayes,
         monad-extras,
