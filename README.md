@@ -4,44 +4,66 @@
 
 This repository is the semantic source implementation. The Python workspace companion carries the larger benchmark pipeline, while this code remains the main reference for the MolADT structure itself.
 
-## Default Path
+## Step By Step
 
-From the workspace root, use these commands exactly as written first. They already use the default settings.
+### 1. Install GHC and Stack
 
-- `make haskell-test`  
-  Run the Haskell test suites.
-- `make haskell-demo`  
-  Run the default Haskell demo executable.
-- `make haskell-infer-benchmark`  
-  Run the aligned Haskell benchmark baseline with its default dataset and sampler settings.
-- `make showcase`  
-  Run the shared workspace bundle so the Haskell and Python surfaces are exercised together.
-- `make help`  
-  Show the smaller set of optional commands and overrides.
+The simplest route is `ghcup`, then `stack`.
 
-Most Haskell readers only need `make haskell-demo`.
+If you use Nix, there is also a repository-local `shell.nix`, but it is optional.
 
-## Standalone Usage
+### 2. Build and test the Haskell code
 
-Install GHC and Stack with `ghcup`, then from this directory run:
+From this repository:
 
 ```bash
 stack build
 stack test
 ```
 
-The simplest direct CLI commands are:
+From the workspace root, the equivalent test command is:
+
+```bash
+make haskell-test
+```
+
+### 3. Try the core CLI on small examples
+
+From this repository:
 
 ```bash
 stack run moladtbayes -- parse molecules/benzene.sdf
 stack run moladtbayes -- parse-smiles "c1ccccc1"
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
-stack run moladtbayes -- demo
 ```
 
-## Aligned Benchmark Baseline
+These commands do not depend on the Python benchmark outputs.
 
-The default aligned benchmark command is:
+### 4. Generate the shared benchmark matrices
+
+The aligned Haskell benchmark reads the exported standardized matrices written by the Python benchmark pipeline. From the workspace root, run:
+
+```bash
+make python-setup
+make python-cmdstan-install
+make benchmark
+```
+
+You only need to do this before the Haskell aligned benchmark if those Python outputs do not already exist.
+
+### 5. Run the default Haskell demo
+
+From the workspace root:
+
+```bash
+make haskell-demo
+```
+
+This runs the default Haskell demo executable.
+
+### 6. Run the aligned Haskell benchmark baseline
+
+From the workspace root:
 
 ```bash
 make haskell-infer-benchmark
@@ -55,9 +77,22 @@ That default already chooses:
 
 The Haskell model is aligned to the Python `bayes_linear_student_t` benchmark family: same exported standardized `X/y` matrices, same linear regression structure, and a Student-`t` likelihood. CLI output prints `predicted`, `actual`, `residual`, and summary metrics including RMSE.
 
-The structural representation path is available through `qm9_sdf`, where SDF/3D-derived features carry the MolADT representation advantage over a SMILES-only baseline. If you later need non-default settings, use `make help` from the workspace root or run an explicit command such as:
+The structural representation path is available through `qm9_sdf`, where SDF/3D-derived features carry the MolADT representation advantage over a SMILES-only baseline.
+
+### 7. Run the full workspace bundle
+
+If you want the shared Python + Haskell run from the workspace root:
 
 ```bash
+make showcase
+```
+
+### 8. Need non-default settings?
+
+Use:
+
+```bash
+make help
 stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256
 ```
 
