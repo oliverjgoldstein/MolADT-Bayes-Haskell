@@ -21,7 +21,7 @@ stack build
 stack test
 ```
 
-From the workspace root, the equivalent test command is:
+From the workspace root, or from this repository now that it has a small forwarding `Makefile`, the equivalent test command is:
 
 ```bash
 make haskell-test
@@ -53,7 +53,7 @@ You only need to do this before the Haskell aligned benchmark if those Python ou
 
 ### 5. Run the default Haskell demo
 
-From the workspace root:
+From the workspace root, or from this repository:
 
 ```bash
 make haskell-demo
@@ -63,7 +63,7 @@ This runs the default Haskell demo executable.
 
 ### 6. Run the aligned Haskell benchmark baseline
 
-From the workspace root:
+From the workspace root, or from this repository:
 
 ```bash
 make haskell-infer-benchmark
@@ -81,7 +81,7 @@ The structural representation path is available through `qm9_sdf`, where SDF/3D-
 
 ### 7. Run the full workspace bundle
 
-If you want the shared Python + Haskell run from the workspace root:
+If you want the shared Python + Haskell run from the workspace root, or from this repository:
 
 ```bash
 make showcase
