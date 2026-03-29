@@ -12,23 +12,24 @@ import           Chem.IO.SDF (readSDF)
 import           Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
 import           Chem.Molecule (Molecule, atoms, prettyPrintMolecule)
 import           Chem.Validate (validateMolecule)
-import           System.Environment (getArgs)
+import           System.Environment (getArgs, lookupEnv)
 import           Text.Megaparsec (errorBundlePretty)
 import           Text.Read (readMaybe)
 
 main :: IO ()
 main = do
   args <- getArgs
+  processedDataDir <- resolveProcessedDataDir
   case args of
-    [] -> runDemo
-    ["demo"] -> runDemo
+    [] -> runDemo processedDataDir
+    ["demo"] -> runDemo processedDataDir
     ["parse", path] -> runParse path
     ["parse-smiles", smilesText] -> runParseSMILES smilesText
     ["to-smiles", path] -> runToSMILES path
     ["infer-benchmark", datasetPrefix, methodName] ->
-      runInferBenchmark datasetPrefix methodName Nothing
+      runInferBenchmark processedDataDir datasetPrefix methodName Nothing
     ["infer-benchmark", datasetPrefix, methodName, limitText] ->
-      runInferBenchmark datasetPrefix methodName (readMaybe limitText)
+      runInferBenchmark processedDataDir datasetPrefix methodName (readMaybe limitText)
     _ -> putStrLn usage
 
 usage :: String
@@ -40,10 +41,18 @@ usage = unlines
   , "  stack run moladtbayes -- to-smiles molecules/benzene.sdf"
   , "  stack run moladtbayes -- infer-benchmark freesolv_smiles lwis"
   , "  stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256"
+  , ""
+  , "Optional environment variable:"
+  , "  MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed"
   ]
 
-runDemo :: IO ()
-runDemo = do
+resolveProcessedDataDir :: IO FilePath
+resolveProcessedDataDir = do
+  mProcessedDataDir <- lookupEnv "MOLADT_PROCESSED_DATA_DIR"
+  pure (maybe defaultProcessedDataDir id mProcessedDataDir)
+
+runDemo :: FilePath -> IO ()
+runDemo processedDataDir = do
   putStrLn "Parsing molecules/benzene.sdf"
   benzeneParsed <- readSDF "molecules/benzene.sdf"
   case benzeneParsed of
@@ -70,10 +79,11 @@ runDemo = do
                   let samplingConfig = defaultSamplingConfig
                       lwisMethod = UseLWIS (posteriorSamples samplingConfig)
                       mhMethod = UseMH 0.9
+                  putStrLn $ "Processed data directory: " ++ processedDataDir
                   putStrLn "Running aligned FreeSolv / SMILES smoke benchmark (LWIS):"
-                  runBenchmarkRegressionWith samplingConfig lwisMethod defaultProcessedDataDir "freesolv_smiles" (Just 128)
+                  runBenchmarkRegressionWith samplingConfig lwisMethod processedDataDir "freesolv_smiles" (Just 128)
                   putStrLn "Running aligned QM9 / SDF smoke benchmark (MH):"
-                  runBenchmarkRegressionWith samplingConfig mhMethod defaultProcessedDataDir "qm9_sdf" (Just 256)
+                  runBenchmarkRegressionWith samplingConfig mhMethod processedDataDir "qm9_sdf" (Just 256)
 
 runParse :: FilePath -> IO ()
 runParse path = do
@@ -109,15 +119,15 @@ renderValidated molecule =
     Left err -> putStrLn err
     Right validMolecule -> putStrLn (prettyPrintMolecule validMolecule)
 
-runInferBenchmark :: String -> String -> Maybe Int -> IO ()
-runInferBenchmark datasetPrefix methodName mLimit =
+runInferBenchmark :: FilePath -> String -> String -> Maybe Int -> IO ()
+runInferBenchmark processedDataDir datasetPrefix methodName mLimit =
   case parseInferenceMethod defaultSamplingConfig methodName of
     Nothing ->
       putStrLn $
         "Unknown inference method `" ++ methodName
         ++ "`. Use `lwis`, `lwis:<particles>`, `mh`, or `mh:<jitter>`."
     Just method ->
-      runBenchmarkRegressionWith defaultSamplingConfig method defaultProcessedDataDir datasetPrefix mLimit
+      runBenchmarkRegressionWith defaultSamplingConfig method processedDataDir datasetPrefix mLimit
 
 printSmiles :: String -> Molecule -> IO ()
 printSmiles label molecule =

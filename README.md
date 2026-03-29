@@ -2,7 +2,7 @@
 
 `MolADT-Bayes-Haskell` is the original Haskell implementation of the MolADT chemistry model. It keeps the typed molecular ADT as the core representation, with explicit atoms, sigma adjacency, Dietz bonding systems, coordinates, validation, reactions, and lightweight SDF/SMILES boundaries.
 
-This repository is the semantic source implementation. The Python workspace companion carries the larger benchmark pipeline, while this code remains the main reference for the MolADT structure itself.
+This repository is the semantic source implementation. It can also run the aligned LWIS/MH benchmark baseline over feature matrices exported by the Python benchmark pipeline.
 
 ## Step By Step
 
@@ -21,7 +21,7 @@ stack build
 stack test
 ```
 
-From the workspace root, or from this repository now that it has a small forwarding `Makefile`, the equivalent test command is:
+The equivalent local `make` target is:
 
 ```bash
 make haskell-test
@@ -37,33 +37,31 @@ stack run moladtbayes -- parse-smiles "c1ccccc1"
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
-These commands do not depend on the Python benchmark outputs.
+These commands do not depend on any Python benchmark outputs.
 
-### 4. Generate the shared benchmark matrices
+### 4. Run the default Haskell demo
 
-The aligned Haskell benchmark reads the exported standardized matrices written by the Python benchmark pipeline. From the workspace root, run:
-
-```bash
-make python-setup
-make python-cmdstan-install
-make benchmark
-```
-
-You only need to do this before the Haskell aligned benchmark if those Python outputs do not already exist.
-
-### 5. Run the default Haskell demo
-
-From the workspace root, or from this repository:
+From this repository:
 
 ```bash
 make haskell-demo
 ```
 
-This runs the default Haskell demo executable.
+By default that looks for exported benchmark matrices in:
 
-### 6. Run the aligned Haskell benchmark baseline
+```bash
+../MolADT-Bayes-Python/data/processed
+```
 
-From the workspace root, or from this repository:
+If your exported matrices live somewhere else, set:
+
+```bash
+MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed
+```
+
+### 5. Run the aligned Haskell benchmark baseline
+
+From this repository:
 
 ```bash
 make haskell-infer-benchmark
@@ -75,25 +73,29 @@ That default already chooses:
 - the `lwis` sampler
 - the first `128` rows
 
+If the exported matrices are not in the default sibling path, override it:
+
+```bash
+make haskell-infer-benchmark PROCESSED_DATA_DIR=/path/to/data/processed
+```
+
 The Haskell model is aligned to the Python `bayes_linear_student_t` benchmark family: same exported standardized `X/y` matrices, same linear regression structure, and a Student-`t` likelihood. CLI output prints `predicted`, `actual`, `residual`, and summary metrics including RMSE.
 
 The structural representation path is available through `qm9_sdf`, where SDF/3D-derived features carry the MolADT representation advantage over a SMILES-only baseline.
 
-### 7. Run the full workspace bundle
-
-If you want the shared Python + Haskell run from the workspace root, or from this repository:
-
-```bash
-make showcase
-```
-
-### 8. Need non-default settings?
+### 6. Need non-default settings?
 
 Use:
 
 ```bash
 make help
 stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256
+```
+
+Or with an explicit exported-matrix path:
+
+```bash
+MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256
 ```
 
 ## SMILES Scope
@@ -110,7 +112,7 @@ It does not try to encode non-classical multicenter systems like diborane or fer
 
 ## Relation To The Python Benchmark
 
-The larger FreeSolv, QM9, and ZINC benchmark pipeline lives in `../MolADT-Bayes-Python`. The exported matrices used by the Haskell aligned baseline are written under `../MolADT-Bayes-Python/data/processed/`, and the fitted Python reports are written under `../MolADT-Bayes-Python/results/`.
+The larger FreeSolv, QM9, and ZINC benchmark pipeline lives in the Python repository. The aligned Haskell baseline consumes the exported matrices from that pipeline rather than recomputing them locally.
 
 ## License
 
