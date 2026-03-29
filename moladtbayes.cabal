@@ -40,7 +40,6 @@ library
         ExampleMolecules.Ferrocene
         PrettyBenzene
         BenchmarkModel
-        LogPModel
     other-modules:
         ExtraF
         Chem.Molecule.Coordinate

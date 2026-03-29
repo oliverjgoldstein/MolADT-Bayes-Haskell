@@ -12,11 +12,6 @@ import Chem.Dietz
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import Text.Megaparsec (errorBundlePretty)
-import Control.Monad.Trans.Writer (runWriterT)
-import Data.Monoid (Product(..))
-import LazyPPL (Meas(..), Tree(..), runProb)
-import LogPModel (LogPParameters, inferLogP)
-import Numeric.Log (Log)
 import SampleMolecules (methane, water)
 
 -- | Run the Hspec suite defined in 'spec'.
@@ -93,15 +88,6 @@ spec = do
                   S.size (localBonds mol') `shouldBe` 12
                   length (systems mol') `shouldBe` 1
 
-  describe "LogPModel inference" $ do
-    it "uses a single coefficient sample for the entire dataset" $ do
-      let datasetOne = [(water, 0.0)]
-          datasetTwo = [(water, 0.0), (methane, 0.5)]
-          tree = constantTree 0.42
-          (paramsOne, _) = runInference tree datasetOne
-          (paramsTwo, _) = runInference tree datasetTwo
-      paramsTwo `shouldBe` paramsOne
-
 -- | Minimal V2000 writer sufficient for round-trip testing.
 moleculeToSDF :: Molecule -> String
 moleculeToSDF m = unlines $ header ++ atomLines ++ bondLines ++ ["M  END"]
@@ -117,17 +103,6 @@ moleculeToSDF m = unlines $ header ++ atomLines ++ bondLines ++ ["M  END"]
       in unwords [show (unAngstrom x), show (unAngstrom y), show (unAngstrom z), sym, "0"]
     bondLines = map formatBond (S.toList (localBonds m))
     formatBond (Edge (AtomId i) (AtomId j)) = unwords [show i, show j, "1"]
-
--- | Deterministic infinite tree returning the same pseudo-random value at each node.
-constantTree :: Double -> Tree
-constantTree x = tree where tree = Tree x (repeat tree)
-
--- | Evaluate 'inferLogP' once using a fixed randomness tree.
-runInference :: Tree -> [(Molecule, Double)] -> (LogPParameters, Log Double)
-runInference tree observations =
-  let Meas program       = inferLogP observations
-      (params, weightM)  = runProb (runWriterT program) tree
-  in (params, getProduct weightM)
 
 countSymbol :: AtomicSymbol -> Molecule -> Int
 countSymbol sym mol =
