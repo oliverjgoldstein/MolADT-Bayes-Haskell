@@ -32,6 +32,8 @@ make haskell-infer-benchmark
 
 The make targets wrap `stack` and can prompt to install missing local prerequisites or generate the Python-exported benchmark matrices when they are missing.
 
+The checked-in Cabal metadata now targets `cabal-version: 2.2`, keeping the package description on a modern baseline while remaining compatible with the current Stack resolver.
+
 ## Docs
 
 - [Docs index](docs/README.md)

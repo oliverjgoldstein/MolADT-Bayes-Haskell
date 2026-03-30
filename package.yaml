@@ -1,5 +1,7 @@
 name: moladtbayes
 version: 0.1.0.0
+verbatim:
+  cabal-version: 2.2
 synopsis: Chemical Algorithmic Programming
 description: A library for molecular representation and probabilistic programming.
 category: Development
