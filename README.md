@@ -23,10 +23,12 @@ The timing benchmark and the hours-long full run live in the Python repo:
 ## Start Here
 
 ```bash
-stack build
-stack test
+make haskell-build
+make haskell-test
 make haskell-infer-benchmark
 ```
+
+The make targets wrap `stack` and can prompt to install missing local prerequisites or generate the Python-exported benchmark matrices when they are missing.
 
 ## Docs
 

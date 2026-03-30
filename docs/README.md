@@ -17,8 +17,8 @@ The Haskell model is the aligned baseline over the Python-exported train/valid/t
 ## Run It
 
 ```bash
-stack build
-stack test
+make haskell-build
+make haskell-test
 make haskell-infer-benchmark
 ```
 

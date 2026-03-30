@@ -7,14 +7,15 @@ Use this page to verify the Haskell install and to understand what the current t
 From the repo root:
 
 ```bash
-stack build
-stack test
+make haskell-build
+make haskell-test
 ```
 
-Equivalent local helper:
+Equivalent raw commands:
 
 ```bash
-make haskell-test
+stack build
+stack test
 ```
 
 For a quick self-contained CLI sanity check:
@@ -52,9 +53,9 @@ QuickCheck properties for validator invariants, including benzene relabeling and
 ## Common Failure Cases
 
 - Missing Stack or GHC:
-  install a working Stack toolchain first, then rerun `stack build`.
+  `make haskell-build` can offer to install `stack` through Homebrew or `apt-get` when one of those package managers is available.
 - Missing processed data for interop:
-  `demo` and `infer-benchmark` need Python-exported matrices under `../MolADT-Bayes-Python/data/processed` unless `MOLADT_PROCESSED_DATA_DIR` is set.
+  `make haskell-demo` and `make haskell-infer-benchmark` can offer to generate the needed exports from the sibling Python repo when `../MolADT-Bayes-Python/data/processed` is missing and `MOLADT_PROCESSED_DATA_DIR` is not set.
 - Unsupported SMILES outside the conservative subset:
   the CLI will reject molecules outside the supported classical boundary. See [SMILES scope and validation](smiles-scope-and-validation.md).
 - Confusion about which repo owns which benchmark stage:

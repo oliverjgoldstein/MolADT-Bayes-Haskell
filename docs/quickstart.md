@@ -7,25 +7,27 @@ This page gets you from a fresh clone to a working Haskell CLI, then points you 
 From the repo root:
 
 ```bash
-stack build
+make haskell-build
 ```
 
-If you prefer the local helper:
+That target wraps `stack build`. If `stack` is missing and Homebrew or `apt-get` is available, the Makefile will offer to install it for you. Type `y` to allow the repair step.
+
+If you prefer the raw command:
 
 ```bash
-make haskell-build
+stack build
 ```
 
 ## 2. Run the Test Suite
 
 ```bash
-stack test
+make haskell-test
 ```
 
-Equivalent local helper:
+Equivalent raw command:
 
 ```bash
-make haskell-test
+stack test
 ```
 
 For the list of repo-local wrappers:
@@ -72,6 +74,8 @@ By default it looks for processed exports in:
 ../MolADT-Bayes-Python/data/processed
 ```
 
+If those processed exports are missing, the Makefile can offer to generate them from the sibling Python repo. Type `y` to let it run the matching Python benchmark helper.
+
 ## 7. Aligned Benchmark Wrapper
 
 ```bash
@@ -84,6 +88,8 @@ This wrapper needs Python-exported matrices. By default it uses:
 - inference method: `lwis`
 - row limit: `128`
 - processed data dir: `../MolADT-Bayes-Python/data/processed`
+
+If the required exported matrices are missing, the Makefile can offer to generate them from the sibling Python repo before rerunning the Haskell command.
 
 Override the processed-data path with:
 
