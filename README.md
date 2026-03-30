@@ -16,6 +16,11 @@ Atoms keep explicit shell and orbital structure. The CLI and pretty-printer expo
 
 The Haskell inference side is the aligned baseline. It reads the standardized matrices exported by the Python repo and runs LWIS or MH over the linear Student-`t` model.
 
+Core model files:
+
+- [`src/BenchmarkModel.hs`](src/BenchmarkModel.hs)
+- [`src/LazyPPL.hs`](src/LazyPPL.hs)
+
 ## Timing
 
 The timing benchmark and the hours-long full run live in the Python repo:

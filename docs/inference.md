@@ -92,4 +92,9 @@ The Haskell model is aligned to the Python `bayes_linear_student_t` exported `X/
 - targets stay on the original scale
 - the model is a linear Student-`t` regression baseline
 
+Core Haskell model files:
+
+- [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs) for the aligned regression model, dataset loading, and benchmark reporting
+- [`src/LazyPPL.hs`](../src/LazyPPL.hs) for the `lwis` and `mh` inference kernels
+
 For the export contract and default path, see [Python interop](python-interop.md).

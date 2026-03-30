@@ -14,6 +14,11 @@ Orbitals and shell structure stay visible in the pretty-printer rather than disa
 
 The Haskell model is the aligned baseline over the Python-exported train/valid/test matrices.
 
+Core model files:
+
+- [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs)
+- [`src/LazyPPL.hs`](../src/LazyPPL.hs)
+
 ## Run It
 
 ```bash
