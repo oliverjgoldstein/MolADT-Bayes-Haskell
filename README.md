@@ -2,6 +2,8 @@
 
 `MolADT-Bayes-Haskell` is the typed source implementation of MolADT. It keeps the molecule representation, validation logic, orbital-aware pretty-printing, and the aligned LWIS/MH baseline that reads the Python-exported matrices.
 
+MolADT is intended as a replacement molecular representation for bringing cheminformatics into the present day: explicit about orbitals and bonding, and less constrained by legacy graph-only assumptions.
+
 ## Molecule Representation
 
 This repo keeps the molecule ADT directly visible: atoms, sigma bonds, and Dietz-style bonding systems.
