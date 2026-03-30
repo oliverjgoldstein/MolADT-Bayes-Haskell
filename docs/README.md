@@ -1,31 +1,36 @@
 # Haskell Docs
 
-This repo is the Haskell side of MolADT. It is the original typed source implementation and the home of the aligned LWIS/MH baseline that reads standardized benchmark exports from the Python repo.
+This repo is the compact side of MolADT. It keeps the typed representation and the aligned Haskell baseline. The timing benchmark and the full hours-long run live in the Python repo.
 
-## Most Common Tasks
+## Molecule Representation
 
-| Task | Page | Command |
-| --- | --- | --- |
-| Build and test the repo | [Quickstart](quickstart.md) | `stack build && stack test` |
-| Parse an SDF file | [CLI and demo](cli-and-demo.md) | `stack run moladtbayes -- parse molecules/benzene.sdf` |
-| Parse a conservative SMILES string | [CLI and demo](cli-and-demo.md) | `stack run moladtbayes -- parse-smiles "c1ccccc1"` |
-| Render an SDF-backed molecule to SMILES | [CLI and demo](cli-and-demo.md) | `stack run moladtbayes -- to-smiles molecules/benzene.sdf` |
-| Run the demo flow | [CLI and demo](cli-and-demo.md) | `make haskell-demo` |
-| Run aligned inference on Python exports | [Inference](inference.md) | `make haskell-infer-benchmark` |
-| Check the conservative SMILES boundary | [SMILES scope and validation](smiles-scope-and-validation.md) | `stack run moladtbayes -- parse-smiles "c1ccccc1"` |
-| Understand where code lives | [Repo map](repo-map.md) | `rg --files app src test examples` |
-| Point Haskell at Python exports | [Python interop](python-interop.md) | `MOLADT_PROCESSED_DATA_DIR=... stack run moladtbayes -- infer-benchmark freesolv_smiles lwis` |
-| Understand the tests | [Testing](testing.md) | `make haskell-test` |
+Atoms, sigma bonds, and Dietz-style systems stay explicit in the core data type.
+
+## Orbitals
+
+Orbitals and shell structure stay visible in the pretty-printer rather than disappearing behind a reduced graph.
+
+## Model
+
+The Haskell model is the aligned baseline over the Python-exported train/valid/test matrices.
+
+## Run It
+
+```bash
+stack build
+stack test
+make haskell-infer-benchmark
+```
 
 ## Pages
 
-- [Quickstart](quickstart.md)
+- [Inference](inference.md)
 - [Examples](examples.md)
 - [CLI and demo](cli-and-demo.md)
-- [Inference](inference.md)
 - [SMILES scope and validation](smiles-scope-and-validation.md)
-- [Repo map](repo-map.md)
 - [Python interop](python-interop.md)
+- [Quickstart](quickstart.md)
+- [Repo map](repo-map.md)
 - [Testing](testing.md)
 
 ## Related Repo
