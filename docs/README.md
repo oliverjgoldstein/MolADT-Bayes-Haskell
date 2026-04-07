@@ -1,43 +1,18 @@
 # Haskell Docs
 
-This repo is the compact side of MolADT. It keeps the typed representation and the aligned Haskell baseline. The timing benchmark and the full hours-long run live in the Python repo.
+The Haskell repo is the typed source implementation and the aligned baseline consumer.
 
-## Molecule Representation
+## Start Here
 
-Atoms, sigma bonds, and Dietz-style systems stay explicit in the core data type.
-
-## Orbitals
-
-Orbitals and shell structure stay visible in the pretty-printer rather than disappearing behind a reduced graph.
-
-## Model
-
-The Haskell model is the aligned baseline over the Python-exported train/valid/test matrices.
-
-Core model files:
-
-- [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs)
-- [`src/LazyPPL.hs`](../src/LazyPPL.hs)
-
-## Run It
-
-```bash
-make haskell-build
-make haskell-test
-make haskell-infer-benchmark
-```
-
-## Pages
-
-- [Inference](inference.md)
-- [Examples](examples.md)
-- [CLI and demo](cli-and-demo.md)
-- [SMILES scope and validation](smiles-scope-and-validation.md)
+- [Parsing and rendering](parsing.md)
+- [Inference baseline](inference.md)
 - [Python interop](python-interop.md)
+
+## Deeper Reference
+
 - [Quickstart](quickstart.md)
+- [CLI and demo](cli-and-demo.md)
+- [Examples](examples.md)
+- [SMILES scope and validation](smiles-scope-and-validation.md)
 - [Repo map](repo-map.md)
 - [Testing](testing.md)
-
-## Related Repo
-
-- [MolADT-Bayes-Python](https://github.com/oliverjgoldstein/MolADT-Bayes-Python)
