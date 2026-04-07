@@ -30,3 +30,7 @@ result-*
 
 # Generated repository-local cache/output
 /logs/
+
+# Local scratch/reference files
+/benchmarks/
+/2501.13633v3.pdf
