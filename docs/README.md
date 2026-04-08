@@ -6,6 +6,7 @@ The Haskell repo is the typed source implementation and the aligned baseline con
 
 - [Representation](representation.md)
 - [Orbitals and theoretical chemistry](orbitals.md)
+- [Models and exported features](models.md)
 - [Parsing and rendering](parsing.md)
 - [Inference baseline](inference.md)
 - [Python interop](python-interop.md)
