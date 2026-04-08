@@ -113,6 +113,7 @@ nominalValence symbol = case symbol of
     O  -> (4, 4)
     F  -> (2, 2)
     P  -> (6, 10)
+    Si -> (8, 8)
     S  -> (4, 12)
     Cl -> (2, 2)
     Br -> (2, 2)
@@ -140,6 +141,7 @@ elementAttributes Cl = ElementAttributes Cl 17 35.453
 elementAttributes S = ElementAttributes S 16 32.065
 elementAttributes Br = ElementAttributes Br 35 79.904
 elementAttributes P = ElementAttributes P 15 30.974
+elementAttributes Si = ElementAttributes Si 14 28.085
 elementAttributes I = ElementAttributes I 53 126.904
 elementAttributes Na = ElementAttributes Na 11 22.990
 
@@ -157,6 +159,6 @@ elementShells Cl = Orb.chlorine
 elementShells S = Orb.sulfur
 elementShells Br = Orb.bromine
 elementShells P = Orb.phosphorus
+elementShells Si = Orb.silicon
 elementShells I = Orb.iodine
 elementShells Na = Orb.sodium
-

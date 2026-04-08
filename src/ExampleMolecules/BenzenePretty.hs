@@ -16,6 +16,7 @@ import Chem.Molecule
   , Atom(..)
   , Coordinate(..)
   , mkAngstrom
+  , emptySmilesStereochemistry
   )
 import Constants (elementAttributes, elementShells)
 
@@ -24,6 +25,7 @@ benzenePretty = Molecule
   { atoms = atomTable
   , localBonds = sigmaFramework
   , systems = [(SystemId 1, piRingSystem)]
+  , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
     c1Id = AtomId 1

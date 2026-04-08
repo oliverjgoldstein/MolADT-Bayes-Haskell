@@ -88,6 +88,36 @@ spec = do
                   S.size (localBonds mol') `shouldBe` 12
                   length (systems mol') `shouldBe` 1
 
+    it "records atom-centered stereochemistry from chiral bracket atoms" $ do
+      case parseSMILES "N[C@](Br)(O)C" of
+        Left err -> expectationFailure err
+        Right mol -> do
+          let annotations = atomStereoAnnotations (smilesStereochemistry mol)
+          length annotations `shouldBe` 1
+          stereoClass (head annotations) `shouldBe` StereoTetrahedral
+          stereoConfiguration (head annotations) `shouldBe` 1
+          stereoToken (head annotations) `shouldBe` "@"
+
+    it "records directional bond annotations for alkene stereochemistry" $ do
+      case parseSMILES "F/C=C\\F" of
+        Left err -> expectationFailure err
+        Right mol -> do
+          let annotations = bondStereoAnnotations (smilesStereochemistry mol)
+          length annotations `shouldBe` 2
+          map bondStereoDirection annotations `shouldBe` [BondUp, BondDown]
+
+    it "accepts silicon-containing SMILES used in the ZINC slice" $ do
+      case parseSMILES "C[Si](C)(C)C" of
+        Left err -> expectationFailure err
+        Right mol -> do
+          countSymbol Si mol `shouldBe` 1
+
+    it "parses a real ZINC entry even where the current validator is still too strict" $ do
+      case parseSMILES "CC1(C)CN(C(=O)Nc2cc3ccccc3nn2)C[C@@]2(CCOC2)O1" of
+        Left err -> expectationFailure err
+        Right mol -> do
+          countSymbol C mol `shouldSatisfy` (> 0)
+
 -- | Minimal V2000 writer sufficient for round-trip testing.
 moleculeToSDF :: Molecule -> String
 moleculeToSDF m = unlines $ header ++ atomLines ++ bondLines ++ ["M  END"]

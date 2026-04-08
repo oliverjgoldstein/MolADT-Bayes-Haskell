@@ -19,6 +19,11 @@ import           Constants (elementAttributes, elementShells)
 data BondKind = BondSingle | BondDouble | BondTriple | BondAromatic
   deriving (Eq, Show)
 
+data BondSpec = BondSpec
+  { bondSpecKind      :: Maybe BondKind
+  , bondSpecDirection :: Maybe SmilesBondStereoDirection
+  } deriving (Eq, Show)
+
 data AtomRef = AtomRef
   { refAtomId   :: AtomId
   , refAromatic :: Bool
@@ -27,13 +32,16 @@ data AtomRef = AtomRef
 data BracketAtom = BracketAtom
   { bracketSymbol        :: AtomicSymbol
   , bracketAromatic      :: Bool
+  , bracketStereoClass   :: Maybe SmilesAtomStereoClass
+  , bracketStereoConfig  :: Maybe Int
+  , bracketStereoToken   :: Maybe String
   , bracketHydrogenCount :: Int
   , bracketCharge        :: Int
   } deriving (Eq, Show)
 
 data RingOpen = RingOpen
   { ringAtom     :: AtomRef
-  , ringBondKind :: Maybe BondKind
+  , ringBondSpec :: Maybe BondSpec
   } deriving (Eq, Show)
 
 data ParseState = ParseState
@@ -43,6 +51,8 @@ data ParseState = ParseState
   , psAtoms          :: M.Map AtomId Atom
   , psLocalBonds     :: S.Set Edge
   , psSystems        :: [BondingSystem]
+  , psAtomStereo     :: [SmilesAtomStereo]
+  , psBondStereo     :: [SmilesBondStereo]
   , psAromaticEdges  :: S.Set Edge
   , psBranchStack    :: [AtomRef]
   , psRingOpens      :: M.Map Char RingOpen
@@ -60,6 +70,8 @@ parseSMILES rawText = do
         , psAtoms = M.empty
         , psLocalBonds = S.empty
         , psSystems = []
+        , psAtomStereo = []
+        , psBondStereo = []
         , psAromaticEdges = S.empty
         , psBranchStack = []
         , psRingOpens = M.empty
@@ -80,9 +92,13 @@ parseSMILES rawText = do
                    { atoms = psAtoms st
                    , localBonds = psLocalBonds st
                    , systems = assignedSystems
+                   , smilesStereochemistry = SmilesStereochemistry
+                       { atomStereoAnnotations = psAtomStereo st
+                       , bondStereoAnnotations = psBondStereo st
+                       }
                    }
 
-parseLoop :: Maybe AtomRef -> Maybe BondKind -> ParserM ()
+parseLoop :: Maybe AtomRef -> Maybe BondSpec -> ParserM ()
 parseLoop current pendingBond = do
   mChar <- currentChar
   case mChar of
@@ -108,11 +124,13 @@ parseLoop current pendingBond = do
       parseLoop Nothing Nothing
     Just char
       | Just bondKind <- bondKindFromChar char -> do
-          case pendingBond of
-            Just _  -> throwError "Multiple bond symbols in sequence"
-            Nothing -> do
-              advanceIndex 1
-              parseLoop current (Just bondKind)
+          advanceIndex 1
+          updated <- liftEither (extendBondSpec pendingBond (Just bondKind) Nothing)
+          parseLoop current (Just updated)
+      | Just bondDirection <- bondDirectionFromChar char -> do
+          advanceIndex 1
+          updated <- liftEither (extendBondSpec pendingBond Nothing (Just bondDirection))
+          parseLoop current (Just updated)
       | Char.isDigit char ->
           case current of
             Nothing -> throwError "Ring digit encountered before any atom"
@@ -149,6 +167,20 @@ parseBracketAtom = do
           bracketAtom <- liftEither (parseBracketContent content)
           advanceIndex (length content + 2)
           atom <- newAtom (bracketSymbol bracketAtom) (bracketCharge bracketAtom)
+          case (bracketStereoClass bracketAtom, bracketStereoConfig bracketAtom, bracketStereoToken bracketAtom) of
+            (Just stereoClass, Just stereoConfig, Just stereoTokenText) ->
+              modify' $ \state -> state
+                { psAtomStereo =
+                    psAtomStereo state ++
+                      [ SmilesAtomStereo
+                          { stereoCenter = atomID atom
+                          , stereoClass = stereoClass
+                          , stereoConfiguration = stereoConfig
+                          , stereoToken = stereoTokenText
+                          }
+                      ]
+                }
+            _ -> pure ()
           let atomRef = AtomRef (atomID atom) (bracketAromatic bracketAtom)
           replicateM_ (bracketHydrogenCount bracketAtom) $ do
             hydrogen <- newAtom H 0
@@ -214,22 +246,62 @@ newAtom symbol charge = do
       }
   pure atom
 
-handleRingDigit :: Char -> AtomRef -> Maybe BondKind -> ParserM ()
+handleRingDigit :: Char -> AtomRef -> Maybe BondSpec -> ParserM ()
 handleRingDigit digit current pendingBond = do
   ringOpens <- gets psRingOpens
   case M.lookup digit ringOpens of
     Nothing ->
       modify' $ \st -> st { psRingOpens = M.insert digit (RingOpen current pendingBond) (psRingOpens st) }
     Just ringOpen -> do
-      bondKind <- liftEither (resolveBondKind (ringBondKind ringOpen) pendingBond (refAromatic (ringAtom ringOpen)) (refAromatic current))
+      bondKind <- liftEither (resolveBondKind (bondSpecKind =<< ringBondSpec ringOpen) (bondSpecKind =<< pendingBond) (refAromatic (ringAtom ringOpen)) (refAromatic current))
       addBond (refAtomId (ringAtom ringOpen)) (refAtomId current) bondKind
+      case bondSpecDirection =<< ringBondSpec ringOpen of
+        Just direction ->
+          modify' $ \st -> st
+            { psBondStereo =
+                psBondStereo st ++
+                  [ SmilesBondStereo
+                      { bondStereoStart = refAtomId (ringAtom ringOpen)
+                      , bondStereoEnd = refAtomId current
+                      , bondStereoDirection = direction
+                      }
+                  ]
+            }
+        Nothing -> pure ()
+      case bondSpecDirection =<< pendingBond of
+        Just direction ->
+          modify' $ \st -> st
+            { psBondStereo =
+                psBondStereo st ++
+                  [ SmilesBondStereo
+                      { bondStereoStart = refAtomId current
+                      , bondStereoEnd = refAtomId (ringAtom ringOpen)
+                      , bondStereoDirection = direction
+                      }
+                  ]
+            }
+        Nothing -> pure ()
       modify' $ \st -> st { psRingOpens = M.delete digit (psRingOpens st) }
 
-connectAtoms :: AtomRef -> AtomRef -> Maybe BondKind -> ParserM ()
+connectAtoms :: AtomRef -> AtomRef -> Maybe BondSpec -> ParserM ()
 connectAtoms left right pendingBond =
-  addBond (refAtomId left) (refAtomId right) bondKind
+  do
+    addBond (refAtomId left) (refAtomId right) bondKind
+    case bondSpecDirection =<< pendingBond of
+      Just direction ->
+        modify' $ \st -> st
+          { psBondStereo =
+              psBondStereo st ++
+                [ SmilesBondStereo
+                    { bondStereoStart = refAtomId left
+                    , bondStereoEnd = refAtomId right
+                    , bondStereoDirection = direction
+                    }
+                ]
+          }
+      Nothing -> pure ()
   where
-    bondKind = case pendingBond of
+    bondKind = case bondSpecKind =<< pendingBond of
       Just explicit -> explicit
       Nothing       -> defaultBondKind left right
 
@@ -262,12 +334,16 @@ advanceIndex n = modify' $ \st -> st { psIndex = psIndex st + n }
 parseBracketContent :: String -> Either String BracketAtom
 parseBracketContent content = do
   (symbol, aromatic, rest1) <- parseBracketSymbol content
-  let (hydrogenCount, rest2) = parseBracketHydrogenCount rest1
-  (charge, rest3) <- parseBracketCharge rest2
-  if null rest3
+  (stereoInfo, rest2) <- parseBracketStereo rest1
+  let (hydrogenCount, rest3) = parseBracketHydrogenCount rest2
+  (charge, rest4) <- parseBracketCharge rest3
+  if null rest4
     then Right BracketAtom
       { bracketSymbol = symbol
       , bracketAromatic = aromatic
+      , bracketStereoClass = (\(cls, _, _) -> cls) <$> stereoInfo
+      , bracketStereoConfig = (\(_, cfg, _) -> cfg) <$> stereoInfo
+      , bracketStereoToken = (\(_, _, tok) -> tok) <$> stereoInfo
       , bracketHydrogenCount = hydrogenCount
       , bracketCharge = charge
       }
@@ -306,6 +382,28 @@ parseBracketCharge input@(sign:rest)
                   else Right (signValue * magnitude, remainder)
   | otherwise = Right (0, input)
 
+parseBracketStereo :: String -> Either String (Maybe (SmilesAtomStereoClass, Int, String), String)
+parseBracketStereo [] = Right (Nothing, [])
+parseBracketStereo input@('@':'@':rest) = Right (Just (StereoTetrahedral, 2, "@@"), rest)
+parseBracketStereo input@('@':rest) =
+  case rest of
+    [] -> Right (Just (StereoTetrahedral, 1, "@"), [])
+    next:_ | next `elem` "H+-" -> Right (Just (StereoTetrahedral, 1, "@"), rest)
+    _ ->
+      let (cls, suffix) =
+            case rest of
+              'T':'H':xs -> (StereoTetrahedral, xs)
+              'A':'L':xs -> (StereoAllene, xs)
+              'S':'P':xs -> (StereoSquarePlanar, xs)
+              'T':'B':xs -> (StereoTrigonalBipyramidal, xs)
+              'O':'H':xs -> (StereoOctahedral, xs)
+              _          -> (StereoTetrahedral, rest)
+          (digits, suffix') = span Char.isDigit suffix
+          config = if null digits then 1 else read digits
+          consumed = length input - length suffix'
+      in Right (Just (cls, config, take consumed input), suffix')
+parseBracketStereo input = Right (Nothing, input)
+
 defaultBondKind :: AtomRef -> AtomRef -> BondKind
 defaultBondKind left right
   | refAromatic left && refAromatic right = BondAromatic
@@ -322,6 +420,20 @@ resolveBondKind left right leftAromatic rightAromatic =
     (Nothing, Nothing)
       | leftAromatic && rightAromatic -> Right BondAromatic
       | otherwise                     -> Right BondSingle
+
+extendBondSpec :: Maybe BondSpec -> Maybe BondKind -> Maybe SmilesBondStereoDirection -> Either String BondSpec
+extendBondSpec current maybeKind maybeDirection =
+  let spec = maybe (BondSpec Nothing Nothing) id current
+  in case (maybeKind, maybeDirection) of
+       (Just kind, _) ->
+         case bondSpecKind spec of
+           Just _  -> Left "Multiple bond symbols in sequence"
+           Nothing -> Right (spec { bondSpecKind = Just kind })
+       (_, Just direction) ->
+         case bondSpecDirection spec of
+           Just _  -> Left "Multiple directional bond symbols in sequence"
+           Nothing -> Right (spec { bondSpecDirection = Just direction })
+       _ -> Right spec
 
 normalizeSMILESSystems :: S.Set Edge -> [BondingSystem] -> S.Set Edge -> [BondingSystem]
 normalizeSMILESSystems localBonds' systems' aromaticCandidateEdges =
@@ -702,11 +814,17 @@ bondKindFromChar '#' = Just BondTriple
 bondKindFromChar ':' = Just BondAromatic
 bondKindFromChar _   = Nothing
 
+bondDirectionFromChar :: Char -> Maybe SmilesBondStereoDirection
+bondDirectionFromChar '/'  = Just BondUp
+bondDirectionFromChar '\\' = Just BondDown
+bondDirectionFromChar _    = Nothing
+
 atomicSymbolFromToken :: String -> Maybe AtomicSymbol
 atomicSymbolFromToken "Br" = Just Br
 atomicSymbolFromToken "Cl" = Just Cl
 atomicSymbolFromToken "Fe" = Just Fe
 atomicSymbolFromToken "Na" = Just Na
+atomicSymbolFromToken "Si" = Just Si
 atomicSymbolFromToken "B"  = Just B
 atomicSymbolFromToken "C"  = Just C
 atomicSymbolFromToken "F"  = Just F

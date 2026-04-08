@@ -56,7 +56,7 @@ sdfFile = do
         [ (SystemId idx
           , mkBondingSystem (NonNegative 6) ring (Just "pi_ring"))
         | (idx, ring) <- zip [1..] rings ]
-      mol = Molecule atomMap local sysList
+      mol = Molecule atomMap local sysList emptySmilesStereochemistry
   pure mol
     where
       -- apply formal charges specified in M  CHG records

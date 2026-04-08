@@ -33,6 +33,7 @@ import Chem.Molecule
   , Atom(..)
   , Coordinate(..)
   , mkAngstrom
+  , emptySmilesStereochemistry
   )
 import Constants (elementAttributes, elementShells)
 
@@ -45,6 +46,7 @@ ferrocenePretty = Molecule
       , (SystemId 2, cp2PiSystem)
       , (SystemId 3, feBackDonationSystem)
       ]
+  , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
     -- Atom IDs

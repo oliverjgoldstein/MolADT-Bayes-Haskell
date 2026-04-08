@@ -13,6 +13,12 @@ module Chem.Molecule
   , Angstrom(..), mkAngstrom, unAngstrom, Coordinate(..)
   , Shells
   , Atom(..)
+  , SmilesAtomStereoClass(..)
+  , SmilesBondStereoDirection(..)
+  , SmilesAtomStereo(..)
+  , SmilesBondStereo(..)
+  , SmilesStereochemistry(..)
+  , emptySmilesStereochemistry
   , Molecule(..)
     -- * Helpers
   , addSigma
@@ -43,7 +49,7 @@ import qualified Orbital as Orb
 
 -- ===== Element + units =====
 
-data AtomicSymbol = H | C | N | O | S | P | F | Cl | Br | I | Fe | B | Na
+data AtomicSymbol = H | C | N | O | S | P | Si | F | Cl | Br | I | Fe | B | Na
   deriving (Eq, Ord, Show, Read, Generic, NFData)
 
 data ElementAttributes = ElementAttributes
@@ -66,12 +72,45 @@ data Atom = Atom
   , formalCharge :: Int       -- explicit charge; do NOT overload “unshared e−”
   } deriving (Eq, Show, Read, Generic, NFData)
 
+data SmilesAtomStereoClass
+  = StereoTetrahedral
+  | StereoAllene
+  | StereoSquarePlanar
+  | StereoTrigonalBipyramidal
+  | StereoOctahedral
+  deriving (Eq, Ord, Show, Read, Generic, NFData)
+
+data SmilesBondStereoDirection = BondUp | BondDown
+  deriving (Eq, Ord, Show, Read, Generic, NFData)
+
+data SmilesAtomStereo = SmilesAtomStereo
+  { stereoCenter        :: AtomId
+  , stereoClass         :: SmilesAtomStereoClass
+  , stereoConfiguration :: Int
+  , stereoToken         :: String
+  } deriving (Eq, Show, Read, Generic, NFData)
+
+data SmilesBondStereo = SmilesBondStereo
+  { bondStereoStart     :: AtomId
+  , bondStereoEnd       :: AtomId
+  , bondStereoDirection :: SmilesBondStereoDirection
+  } deriving (Eq, Show, Read, Generic, NFData)
+
+data SmilesStereochemistry = SmilesStereochemistry
+  { atomStereoAnnotations :: [SmilesAtomStereo]
+  , bondStereoAnnotations :: [SmilesBondStereo]
+  } deriving (Eq, Show, Read, Generic, NFData)
+
+emptySmilesStereochemistry :: SmilesStereochemistry
+emptySmilesStereochemistry = SmilesStereochemistry [] []
+
 -- ===== Molecule (Dietz + \963) =====
 
 data Molecule = Molecule
   { atoms      :: Map AtomId Atom             -- ^ V
   , localBonds :: Set Edge                    -- ^ \963 adjacency (2e bonds)
   , systems    :: [(SystemId, BondingSystem)] -- ^ B (each system is (s, E))
+  , smilesStereochemistry :: SmilesStereochemistry
   } deriving (Eq, Show, Read, Generic, NFData)
 
 -- ===== Small helpers =====
@@ -119,11 +158,13 @@ effectiveOrder m e = sigma + piContribution
 -- | Simple pretty printer for molecules.
 prettyPrintMolecule :: Molecule -> String
 prettyPrintMolecule m =
-  intercalate "\n\n" (header : [atomsSection, bondsSection, systemsSection])
+  intercalate "\n\n" (header : [atomsSection, bondsSection, systemsSection, stereoSection])
   where
     atomList   = M.toAscList (atoms m)
     sigmaEdges = sort (S.toList (localBonds m))
     systemList = sortOn fst (systems m)
+    atomStereoList = sortOn stereoCenter (atomStereoAnnotations (smilesStereochemistry m))
+    bondStereoList = sortOn (\item -> (bondStereoStart item, bondStereoEnd item, bondStereoDirection item)) (bondStereoAnnotations (smilesStereochemistry m))
 
     header =
       "Molecule with " ++ intercalate ", "
@@ -152,6 +193,23 @@ prettyPrintMolecule m =
               ++ intercalate "\n\n"
                    [ renderLines (indentBlock 2 (formatSystemBlock m entry))
                    | entry <- systemList ]
+
+    stereoSection
+      | null atomStereoList && null bondStereoList = "SMILES stereochemistry: (none)"
+      | otherwise =
+          "SMILES stereochemistry:\n"
+            ++ renderLines (indentBlock 2 (atomStereoSection ++ bondStereoSection))
+
+    atomStereoSection
+      | null atomStereoList = []
+      | otherwise = "Atom-centered:" : indentBlock 2 (map formatAtomStereo atomStereoList)
+
+    bondStereoSection
+      | null bondStereoList = []
+      | otherwise =
+          (if null atomStereoList then [] else [""])
+            ++ ["Bond-directed:"]
+            ++ indentBlock 2 (map (formatBondStereo m) bondStereoList)
 
 -- | Pretty printer for an atom, including electron configuration.
 prettyPrintAtom :: Atom -> String
@@ -285,6 +343,33 @@ formatSystemLabel sid bs =
       base = "#" ++ show sidNum
   in maybe base (\lbl -> base ++ " [" ++ lbl ++ "]") (tag bs)
 
+formatAtomStereo :: SmilesAtomStereo -> String
+formatAtomStereo stereo =
+  let AtomId center = stereoCenter stereo
+  in "center #" ++ show center ++ ": "
+       ++ smilesAtomStereoClassCode (stereoClass stereo)
+       ++ show (stereoConfiguration stereo)
+       ++ " from token "
+       ++ stereoToken stereo
+
+formatBondStereo :: Molecule -> SmilesBondStereo -> String
+formatBondStereo m stereo =
+  let atomMap = atoms m
+      left = renderAtomRef (atomMap M.! bondStereoStart stereo)
+      right = renderAtomRef (atomMap M.! bondStereoEnd stereo)
+  in left ++ " -> " ++ right ++ ": " ++ smilesBondStereoDirectionCode (bondStereoDirection stereo)
+
+smilesAtomStereoClassCode :: SmilesAtomStereoClass -> String
+smilesAtomStereoClassCode StereoTetrahedral = "TH"
+smilesAtomStereoClassCode StereoAllene = "AL"
+smilesAtomStereoClassCode StereoSquarePlanar = "SP"
+smilesAtomStereoClassCode StereoTrigonalBipyramidal = "TB"
+smilesAtomStereoClassCode StereoOctahedral = "OH"
+
+smilesBondStereoDirectionCode :: SmilesBondStereoDirection -> String
+smilesBondStereoDirectionCode BondUp = "/"
+smilesBondStereoDirectionCode BondDown = "\\"
+
 prettyShellLines :: Shells -> [String]
 prettyShellLines = concatMap formatShell
   where
@@ -340,5 +425,9 @@ formatPureOrbital (Orb.PureF  f) = map toLower (show f)
 instance Binary AtomicSymbol
 instance Binary ElementAttributes
 instance Binary Atom
+instance Binary SmilesAtomStereoClass
+instance Binary SmilesBondStereoDirection
+instance Binary SmilesAtomStereo
+instance Binary SmilesBondStereo
+instance Binary SmilesStereochemistry
 instance Binary Molecule
-

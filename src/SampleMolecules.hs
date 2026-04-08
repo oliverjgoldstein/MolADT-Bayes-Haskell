@@ -25,6 +25,7 @@ hydrogen = Molecule
       ]
   , localBonds = S.singleton (mkEdge (AtomId 1) (AtomId 2))
   , systems = []
+  , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
     hAtom i coord = Atom
@@ -46,6 +47,7 @@ oxygen = Molecule
       ]
   , localBonds = S.singleton (mkEdge (AtomId 1) (AtomId 2))
   , systems = []
+  , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
     oAtom i coord = Atom
@@ -68,6 +70,7 @@ water = Molecule
       ]
   , localBonds = S.fromList [mkEdge (AtomId 1) (AtomId 2), mkEdge (AtomId 1) (AtomId 3)]
   , systems = []
+  , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
     oAtom = Atom
@@ -104,6 +107,7 @@ methane = Molecule
       , mkEdge (AtomId 1) (AtomId 5)
       ]
   , systems = []
+  , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
     cAtom = Atom

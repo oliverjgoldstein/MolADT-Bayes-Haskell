@@ -848,6 +848,82 @@ phosphorus =
       }
   ]
 
+-- | Silicon atom: 1s^2, 2s^2, 2p^6, 3s^2, 3p^2
+silicon :: Shells
+silicon =
+  [ Shell
+      { principalQuantumNumber = 1
+      , sSubShell = Just (SubShell
+                          [ Orbital { orbitalType      = So
+                                    , electronCount    = 2
+                                    , orientation      = Nothing
+                                    , hybridComponents = Nothing
+                                    }
+                          ])
+      , pSubShell = Nothing
+      , dSubShell = Nothing
+      , fSubShell = Nothing
+      }
+  , Shell
+      { principalQuantumNumber = 2
+      , sSubShell = Just (SubShell
+                          [ Orbital { orbitalType      = So
+                                    , electronCount    = 2
+                                    , orientation      = Nothing
+                                    , hybridComponents = Nothing
+                                    }
+                          ])
+      , pSubShell = Just (SubShell
+                          [ Orbital { orbitalType      = Px
+                                    , electronCount    = 2
+                                    , orientation      = Just (angCoord 1 0 0)
+                                    , hybridComponents = Nothing
+                                    }
+                          , Orbital { orbitalType      = Py
+                                    , electronCount    = 2
+                                    , orientation      = Just (angCoord 0 1 0)
+                                    , hybridComponents = Nothing
+                                    }
+                          , Orbital { orbitalType      = Pz
+                                    , electronCount    = 2
+                                    , orientation      = Just (angCoord 0 0 1)
+                                    , hybridComponents = Nothing
+                                    }
+                          ])
+      , dSubShell = Nothing
+      , fSubShell = Nothing
+      }
+  , Shell
+      { principalQuantumNumber = 3
+      , sSubShell = Just (SubShell
+                          [ Orbital { orbitalType      = So
+                                    , electronCount    = 2
+                                    , orientation      = Nothing
+                                    , hybridComponents = Nothing
+                                    }
+                          ])
+      , pSubShell = Just (SubShell
+                          [ Orbital { orbitalType      = Px
+                                    , electronCount    = 1
+                                    , orientation      = Just (angCoord 1 0 0)
+                                    , hybridComponents = Nothing
+                                    }
+                          , Orbital { orbitalType      = Py
+                                    , electronCount    = 1
+                                    , orientation      = Just (angCoord 0 1 0)
+                                    , hybridComponents = Nothing
+                                    }
+                          , Orbital { orbitalType      = Pz
+                                    , electronCount    = 0
+                                    , orientation      = Nothing
+                                    , hybridComponents = Nothing
+                                    }
+                          ])
+      , dSubShell = Nothing
+      , fSubShell = Nothing
+      }
+  ]
+
 -- | Iodine atom: 1s^2, 2s^2, 2p^6, 3s^2, 3p^6, 3d^10, 4s^2, 4p^6, 4d^10, 5s^2, 5p^5
 iodine :: Shells
 iodine =

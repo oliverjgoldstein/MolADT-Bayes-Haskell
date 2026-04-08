@@ -27,6 +27,7 @@ import Chem.Molecule
   , Atom(..)
   , Coordinate(..)
   , mkAngstrom
+  , emptySmilesStereochemistry
   )
 import Constants (elementAttributes, elementShells)
 
@@ -38,6 +39,7 @@ diboranePretty = Molecule
       [ (SystemId 1, bridgeH3System)
       , (SystemId 2, bridgeH4System)
       ]
+  , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
     -- Atom IDs

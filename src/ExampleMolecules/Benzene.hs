@@ -39,6 +39,7 @@ benzene = Molecule
       S.fromList [edgeFromPair pair | pair <- sigmaEdges]
   , systems =
       [(SystemId 1, piSystem)]
+  , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
     piSystem =

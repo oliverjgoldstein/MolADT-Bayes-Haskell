@@ -6,6 +6,7 @@ module Main (main) where
 
 import Test.QuickCheck
 import ExampleMolecules.Benzene (benzene)
+import Chem.IO.SMILES (parseSMILES)
 import Chem.Molecule
 import Chem.Dietz
 import Chem.Validate (validateMolecule, usedElectronsAt)
@@ -15,7 +16,7 @@ import qualified Data.Set as S
 -- | Relabel a molecule according to a permutation of its 'AtomId's.  All
 -- structural data (atoms, bonds and Dietz systems) are updated consistently.
 relabelMolecule :: Molecule -> [AtomId] -> Molecule
-relabelMolecule m perm = Molecule atoms' bonds' systems'
+relabelMolecule m perm = Molecule atoms' bonds' systems' (smilesStereochemistry m)
   where
     oldIds   = M.keys (atoms m)
     mapping  = M.fromList (zip oldIds perm)
@@ -66,3 +67,13 @@ main :: IO ()
 main = do
   quickCheck prop_permInvariant
   quickCheck prop_benzeneElectronAccounting
+  case parseSMILES "CC1(C)CN(C(=O)Nc2cc3ccccc3nn2)C[C@@]2(CCOC2)O1" of
+    Left err -> error ("Unexpected parse failure in documented ZINC validation case: " ++ err)
+    Right mol ->
+      case validateMolecule mol of
+        Left err ->
+          if err == "Atom 11 exceeds maximum valence"
+            then pure ()
+            else error ("Unexpected validation failure message: " ++ err)
+        Right _ ->
+          error "Expected documented ZINC validation failure, but validation unexpectedly succeeded"
