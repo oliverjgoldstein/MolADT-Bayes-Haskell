@@ -12,6 +12,10 @@ import           Chem.IO.SDF (readSDF)
 import           Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
 import           Chem.Molecule (Molecule, atoms, prettyPrintMolecule)
 import           Chem.Validate (validateMolecule)
+import           ExampleMolecules.Diborane (diboranePretty)
+import           ExampleMolecules.Ferrocene (ferrocenePretty)
+import           ExampleMolecules.Morphine (morphinePretty)
+import qualified Data.Char as Char
 import           System.Environment (getArgs, lookupEnv)
 import           Text.Megaparsec (errorBundlePretty)
 import           Text.Read (readMaybe)
@@ -25,6 +29,7 @@ main = do
     ["demo"] -> runDemo processedDataDir
     ["parse", path] -> runParse path
     ["parse-smiles", smilesText] -> runParseSMILES smilesText
+    ["pretty-example", name] -> runPrettyExample name
     ["to-smiles", path] -> runToSMILES path
     ["infer-benchmark", datasetPrefix, methodName] ->
       runInferBenchmark processedDataDir datasetPrefix methodName Nothing
@@ -38,6 +43,7 @@ usage = unlines
   , "  stack run moladtbayes -- demo"
   , "  stack run moladtbayes -- parse molecules/benzene.sdf"
   , "  stack run moladtbayes -- parse-smiles \"c1ccccc1\""
+  , "  stack run moladtbayes -- pretty-example morphine"
   , "  stack run moladtbayes -- to-smiles molecules/benzene.sdf"
   , "  stack run moladtbayes -- infer-benchmark freesolv_smiles lwis"
   , "  stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256"
@@ -100,6 +106,20 @@ runParseSMILES smilesText =
     Left err -> putStrLn err
     Right molecule -> renderValidated molecule
 
+runPrettyExample :: String -> IO ()
+runPrettyExample rawName =
+  case lookupPrettyExample rawName of
+    Nothing ->
+      putStrLn $
+        "Unknown built-in example `"
+        ++ rawName
+        ++ "`. Choose one of: diborane, ferrocene, morphine."
+    Just (title, note, molecule) -> do
+      putStrLn title
+      putStrLn note
+      putStrLn ""
+      renderValidated molecule
+
 runToSMILES :: FilePath -> IO ()
 runToSMILES path = do
   parsed <- readSDF path
@@ -134,3 +154,26 @@ printSmiles label molecule =
   case moleculeToSMILES molecule of
     Left err -> putStrLn (label ++ ": " ++ err)
     Right smilesText -> putStrLn (label ++ ": " ++ smilesText)
+
+lookupPrettyExample :: String -> Maybe (String, String, Molecule)
+lookupPrettyExample rawName =
+  case map Char.toLower rawName of
+    "diborane" ->
+      Just
+        ( "Diborane (B2H6)"
+        , "Dietz-style ADT with two explicit 3c-2e bridging hydrogen bonding systems."
+        , diboranePretty
+        )
+    "ferrocene" ->
+      Just
+        ( "Ferrocene (Fe(C5H5)2)"
+        , "Dietz-style ADT with two cyclopentadienyl pi systems and an Fe back-donation-style pool."
+        , ferrocenePretty
+        )
+    "morphine" ->
+      Just
+        ( "Morphine (explicit Dietz skeleton)"
+        , "Dietz-style ADT that spells the five classic SMILES ring closures out as sigma edges and keeps the phenyl ring as an explicit pi system."
+        , morphinePretty
+        )
+    _ -> Nothing

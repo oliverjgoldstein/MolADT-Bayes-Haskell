@@ -57,6 +57,7 @@ library:
     - ExampleMolecules.BenzenePretty
     - ExampleMolecules.Diborane
     - ExampleMolecules.Ferrocene
+    - ExampleMolecules.Morphine
     - PrettyBenzene
     - BenchmarkModel
   other-modules:

@@ -13,7 +13,7 @@ import qualified Data.Set as S
 
 import           Chem.Dietz
 import           Chem.Molecule
-import           Chem.Molecule.Coordinate (Coordinate(..), mkAngstrom)
+import           Chem.Molecule.Coordinate (Coordinate(..), mkAngstrom, unAngstrom)
 import           Constants (elementAttributes, elementShells)
 
 data BondKind = BondSingle | BondDouble | BondTriple | BondAromatic
@@ -54,6 +54,8 @@ data ParseState = ParseState
   , psAtomStereo     :: [SmilesAtomStereo]
   , psBondStereo     :: [SmilesBondStereo]
   , psAromaticEdges  :: S.Set Edge
+  , psAromaticAtoms  :: S.Set AtomId
+  , psImplicitHydrogenHosts :: S.Set AtomId
   , psBranchStack    :: [AtomRef]
   , psRingOpens      :: M.Map Char RingOpen
   }
@@ -73,6 +75,8 @@ parseSMILES rawText = do
         , psAtomStereo = []
         , psBondStereo = []
         , psAromaticEdges = S.empty
+        , psAromaticAtoms = S.empty
+        , psImplicitHydrogenHosts = S.empty
         , psBranchStack = []
         , psRingOpens = M.empty
         }
@@ -86,11 +90,22 @@ parseSMILES rawText = do
           if not (M.null (psRingOpens st))
             then Left "Unclosed ring digit in SMILES"
             else
-              let normalizedSystems = normalizeSMILESSystems (psLocalBonds st) (psSystems st) (psAromaticEdges st)
+              let normalizedSystems =
+                    normalizeSMILESSystems
+                      (psLocalBonds st)
+                      (psSystems st)
+                      (psAromaticEdges st)
+                      (psAromaticAtoms st)
+                  (enrichedAtoms, enrichedBonds) =
+                    inferImplicitHydrogens
+                      (psAtoms st)
+                      (psLocalBonds st)
+                      normalizedSystems
+                      (psImplicitHydrogenHosts st)
                   assignedSystems = zipWith (\idx sys -> (SystemId idx, sys)) [1 ..] normalizedSystems
               in Right Molecule
-                   { atoms = psAtoms st
-                   , localBonds = psLocalBonds st
+                   { atoms = enrichedAtoms
+                   , localBonds = enrichedBonds
                    , systems = assignedSystems
                    , smilesStereochemistry = SmilesStereochemistry
                        { atomStereoAnnotations = psAtomStereo st
@@ -167,6 +182,9 @@ parseBracketAtom = do
           bracketAtom <- liftEither (parseBracketContent content)
           advanceIndex (length content + 2)
           atom <- newAtom (bracketSymbol bracketAtom) (bracketCharge bracketAtom)
+          if bracketAromatic bracketAtom
+            then modify' $ \state -> state { psAromaticAtoms = S.insert (atomID atom) (psAromaticAtoms state) }
+            else pure ()
           case (bracketStereoClass bracketAtom, bracketStereoConfig bracketAtom, bracketStereoToken bracketAtom) of
             (Just stereoClass, Just stereoConfig, Just stereoTokenText) ->
               modify' $ \state -> state
@@ -197,18 +215,28 @@ parseBareAtom = do
         Just symbol -> do
           advanceIndex 2
           atom <- newAtom symbol 0
+          if supportsImplicitHydrogens symbol
+            then modify' $ \state -> state { psImplicitHydrogenHosts = S.insert (atomID atom) (psImplicitHydrogenHosts state) }
+            else pure ()
           pure (AtomRef (atomID atom) False)
         Nothing ->
           case aromaticSymbolFromChar c1 of
             Just symbol -> do
               advanceIndex 1
               atom <- newAtom symbol 0
+              modify' $ \state -> state
+                { psAromaticAtoms = S.insert (atomID atom) (psAromaticAtoms state)
+                , psImplicitHydrogenHosts = S.insert (atomID atom) (psImplicitHydrogenHosts state)
+                }
               pure (AtomRef (atomID atom) True)
             Nothing ->
               case atomicSymbolFromToken [c1] of
                 Just symbol -> do
                   advanceIndex 1
                   atom <- newAtom symbol 0
+                  if supportsImplicitHydrogens symbol
+                    then modify' $ \state -> state { psImplicitHydrogenHosts = S.insert (atomID atom) (psImplicitHydrogenHosts state) }
+                    else pure ()
                   pure (AtomRef (atomID atom) False)
                 Nothing -> throwError ("Unsupported SMILES atom token at index " ++ show (psIndex st))
     [c1] ->
@@ -216,12 +244,19 @@ parseBareAtom = do
         Just symbol -> do
           advanceIndex 1
           atom <- newAtom symbol 0
+          modify' $ \state -> state
+            { psAromaticAtoms = S.insert (atomID atom) (psAromaticAtoms state)
+            , psImplicitHydrogenHosts = S.insert (atomID atom) (psImplicitHydrogenHosts state)
+            }
           pure (AtomRef (atomID atom) True)
         Nothing ->
           case atomicSymbolFromToken [c1] of
             Just symbol -> do
               advanceIndex 1
               atom <- newAtom symbol 0
+              if supportsImplicitHydrogens symbol
+                then modify' $ \state -> state { psImplicitHydrogenHosts = S.insert (atomID atom) (psImplicitHydrogenHosts state) }
+                else pure ()
               pure (AtomRef (atomID atom) False)
             Nothing -> throwError ("Unsupported SMILES atom token at index " ++ show (psIndex st))
     [] -> throwError "Expected atom, reached end of input"
@@ -435,20 +470,13 @@ extendBondSpec current maybeKind maybeDirection =
            Nothing -> Right (spec { bondSpecDirection = Just direction })
        _ -> Right spec
 
-normalizeSMILESSystems :: S.Set Edge -> [BondingSystem] -> S.Set Edge -> [BondingSystem]
-normalizeSMILESSystems localBonds' systems' aromaticCandidateEdges =
+normalizeSMILESSystems :: S.Set Edge -> [BondingSystem] -> S.Set Edge -> S.Set AtomId -> [BondingSystem]
+normalizeSMILESSystems localBonds' systems' aromaticCandidateEdges aromaticAtoms =
   retainedSystems ++ aromaticSystems
   where
     aromaticRings = S.fromList (detectAromaticSixRings aromaticCandidateEdges)
-    doubleEdges = S.fromList
-      [ edge
-      | system <- systems'
-      , S.size (memberEdges system) == 1
-      , getNN (sharedElectrons system) == 2
-      , let edge = head (S.toAscList (memberEdges system))
-      ]
-    alternatingRings = S.fromList (detectAlternatingSixRings localBonds' doubleEdges)
-    piRings = S.union aromaticRings alternatingRings
+    lowercaseAromaticRings = S.fromList (detectLowercaseAromaticSixRings localBonds' aromaticCandidateEdges aromaticAtoms)
+    piRings = S.unions [aromaticRings, lowercaseAromaticRings]
     ringEdges = S.unions (S.toList piRings)
 
     retainedSystems =
@@ -464,13 +492,6 @@ normalizeSMILESSystems localBonds' systems' aromaticCandidateEdges =
       [ mkBondingSystem (NonNegative 6) ring (Just "pi_ring")
       | ring <- S.toAscList piRings
       ]
-
-detectAlternatingSixRings :: S.Set Edge -> S.Set Edge -> [S.Set Edge]
-detectAlternatingSixRings localBonds' doubleEdges =
-  detectSixRingsWithOrders
-    [ (edge, if edge `S.member` doubleEdges then 2 else 1)
-    | edge <- S.toAscList localBonds'
-    ]
 
 detectAromaticSixRings :: S.Set Edge -> [S.Set Edge]
 detectAromaticSixRings edges =
@@ -498,39 +519,35 @@ detectAromaticSixRings edges =
                , neighbor `notElem` path
                ]
 
-detectSixRingsWithOrders :: [(Edge, Int)] -> [S.Set Edge]
-detectSixRingsWithOrders bonds =
+detectLowercaseAromaticSixRings :: S.Set Edge -> S.Set Edge -> S.Set AtomId -> [S.Set Edge]
+detectLowercaseAromaticSixRings localBonds' aromaticCandidateEdges aromaticAtoms =
   S.toAscList discovered
   where
-    adjacency = orderedAdjacency bonds
-    discovered = S.fromList (concatMap (\start -> search [start] start Nothing) (M.keys adjacency))
+    adjacency = adjacencyFromEdges localBonds'
+    discovered = S.fromList (concatMap (search . (:[])) (M.keys adjacency))
 
-    alternate 1 = 2 :: Int
-    alternate 2 = 1 :: Int
-    alternate _ = 0 :: Int
-
-    search :: [AtomId] -> AtomId -> Maybe Int -> [S.Set Edge]
-    search path current previousOrder
-      | length path == 6 =
-          case previousOrder of
-            Nothing -> []
-            Just prevOrder ->
-              [ ringEdges
-              | (neighbor, order) <- M.findWithDefault [] current adjacency
-              , neighbor == head path
-              , order == alternate prevOrder
-              , let atoms = path ++ [head path]
-              , let ringEdges = S.fromList (zipWith mkEdge atoms (tail atoms))
-              , head path == minimum path
-              ]
-      | otherwise =
-          concat
-            [ search (path ++ [neighbor]) neighbor (Just order)
-            | (neighbor, order) <- M.findWithDefault [] current adjacency
-            , order `elem` [1, 2]
-            , maybe True (\prev -> order == alternate prev) previousOrder
-            , neighbor `notElem` path
-            ]
+    search :: [AtomId] -> [S.Set Edge]
+    search path =
+      let current = last path
+      in if length path == 6
+           then
+             [ ringEdges
+             | neighbor <- M.findWithDefault [] current adjacency
+             , neighbor == head path
+             , let atoms = path ++ [head path]
+             , let ringEdges = S.fromList (zipWith mkEdge atoms (tail atoms))
+             , let aromaticCount = length [ atom | atom <- path, atom `S.member` aromaticAtoms ]
+             , let aromaticEdgeCount = length [ edge | edge <- S.toList ringEdges, edge `S.member` aromaticCandidateEdges ]
+             , aromaticCount >= 5
+             , aromaticEdgeCount >= 4
+             , head path == minimum path
+             ]
+           else
+             concat
+               [ search (path ++ [neighbor])
+               | neighbor <- M.findWithDefault [] current adjacency
+               , neighbor `notElem` path
+               ]
 
 adjacencyFromEdges :: S.Set Edge -> M.Map AtomId [AtomId]
 adjacencyFromEdges edges =
@@ -540,13 +557,111 @@ adjacencyFromEdges edges =
     forward = M.fromListWith (++) [ (a, [b]) | Edge a b <- S.toAscList edges ]
     backward = M.fromListWith (++) [ (b, [a]) | Edge a b <- S.toAscList edges ]
 
-orderedAdjacency :: [(Edge, Int)] -> M.Map AtomId [(AtomId, Int)]
-orderedAdjacency bonds =
-  M.map (L.sortOn fst) $
-    M.unionWith (++) forward backward
+inferImplicitHydrogens :: M.Map AtomId Atom -> S.Set Edge -> [BondingSystem] -> S.Set AtomId -> (M.Map AtomId Atom, S.Set Edge)
+inferImplicitHydrogens atomMap sigmaEdges systems' hosts =
+  (enrichedAtoms, enrichedBonds)
   where
-    forward = M.fromListWith (++) [ (a, [(b, order)]) | (Edge a b, order) <- bonds ]
-    backward = M.fromListWith (++) [ (b, [(a, order)]) | (Edge a b, order) <- bonds ]
+    sigmaCounts =
+      M.fromListWith (+)
+        [ (aid, 1 :: Int)
+        | Edge a b <- S.toAscList sigmaEdges
+        , aid <- [a, b]
+        ]
+
+    systemContributions =
+      M.fromListWith (+)
+        [ (aid, contribution)
+        | system <- systems'
+        , let edgeCount = S.size (memberEdges system)
+        , edgeCount > 0
+        , let contribution = fromIntegral (getNN (sharedElectrons system)) / (2.0 * fromIntegral edgeCount)
+        , Edge a b <- S.toAscList (memberEdges system)
+        , aid <- [a, b]
+        ]
+
+    hostCounts = zip (S.toAscList hosts) [0 :: Int ..]
+
+    hydrogenSpecs =
+      concat
+        [ [ (host, offset)
+          | offset <- [0 .. missing - 1]
+          ]
+        | (host, _) <- hostCounts
+        , Just atom <- [M.lookup host atomMap]
+        , symbol (attributes atom) /= H
+        , formalCharge atom == 0
+        , let currentUsed =
+                fromIntegral (M.findWithDefault 0 host sigmaCounts)
+                  + M.findWithDefault 0.0 host systemContributions
+        , let missing = implicitHydrogenCount (implicitHydrogenValence (symbol (attributes atom)) - currentUsed)
+        , missing > 0
+        ]
+
+    startIndex = maybe 1 ((+ 1) . atomIdValue) (safeMaximum (M.keys atomMap))
+    hydrogenIds = map (AtomId . (+ startIndex) . fromIntegral) [0 .. length hydrogenSpecs - 1]
+
+    enrichedAtoms =
+      foldl
+        (\acc (hydrogenId, (host, offset)) ->
+          case M.lookup host atomMap of
+            Nothing -> acc
+            Just hostAtom ->
+              M.insert hydrogenId (inferredHydrogenAtom hydrogenId hostAtom offset) acc
+        )
+        atomMap
+        (zip hydrogenIds hydrogenSpecs)
+
+    enrichedBonds =
+      foldl
+        (\acc (hydrogenId, (host, _)) -> S.insert (mkEdge host hydrogenId) acc)
+        sigmaEdges
+        (zip hydrogenIds hydrogenSpecs)
+
+implicitHydrogenCount :: Double -> Int
+implicitHydrogenCount missingValence
+  | missingValence <= 1e-9 = 0
+  | rounded <= 0 = 0
+  | abs (missingValence - fromIntegral rounded) > 1e-6 = 0
+  | otherwise = rounded
+  where
+    rounded = round missingValence
+
+implicitHydrogenValence :: AtomicSymbol -> Double
+implicitHydrogenValence symbol =
+  case symbol of
+    B  -> 3.0
+    Br -> 1.0
+    C  -> 4.0
+    Cl -> 1.0
+    F  -> 1.0
+    I  -> 1.0
+    N  -> 3.0
+    O  -> 2.0
+    P  -> 3.0
+    S  -> 2.0
+    Si -> 4.0
+    _  -> 0.0
+
+inferredHydrogenAtom :: AtomId -> Atom -> Int -> Atom
+inferredHydrogenAtom hydrogenId hostAtom offset =
+  Atom
+    { atomID = hydrogenId
+    , attributes = elementAttributes H
+    , coordinate = inferredHydrogenCoordinate (coordinate hostAtom) offset
+    , shells = elementShells H
+    , formalCharge = 0
+    }
+
+inferredHydrogenCoordinate :: Coordinate -> Int -> Coordinate
+inferredHydrogenCoordinate (Coordinate x y z) offset =
+  Coordinate
+    (mkAngstrom (unAngstrom x))
+    (mkAngstrom (unAngstrom y))
+    (mkAngstrom (unAngstrom z + 0.12 * fromIntegral (offset + 1)))
+
+safeMaximum :: Ord a => [a] -> Maybe a
+safeMaximum [] = Nothing
+safeMaximum xs = Just (maximum xs)
 
 moleculeToSMILES :: Molecule -> Either String String
 moleculeToSMILES molecule = do
@@ -818,6 +933,22 @@ bondDirectionFromChar :: Char -> Maybe SmilesBondStereoDirection
 bondDirectionFromChar '/'  = Just BondUp
 bondDirectionFromChar '\\' = Just BondDown
 bondDirectionFromChar _    = Nothing
+
+supportsImplicitHydrogens :: AtomicSymbol -> Bool
+supportsImplicitHydrogens symbol =
+  case symbol of
+    B  -> True
+    Br -> True
+    C  -> True
+    Cl -> True
+    F  -> True
+    I  -> True
+    N  -> True
+    O  -> True
+    P  -> True
+    S  -> True
+    Si -> True
+    _  -> False
 
 atomicSymbolFromToken :: String -> Maybe AtomicSymbol
 atomicSymbolFromToken "Br" = Just Br

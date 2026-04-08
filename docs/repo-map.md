@@ -6,7 +6,7 @@ This page documents the current Haskell repo layout as it exists today.
 
 ### [`app/Main.hs`](../app/Main.hs)
 
-The main CLI entrypoint. It dispatches `demo`, `parse`, `parse-smiles`, `to-smiles`, and `infer-benchmark`.
+The main CLI entrypoint. It dispatches `demo`, `parse`, `parse-smiles`, `pretty-example`, `to-smiles`, and `infer-benchmark`.
 
 ### [`examples/ParseMolecules.hs`](../examples/ParseMolecules.hs)
 
@@ -35,6 +35,7 @@ Built-in MolADT example objects:
 - benzene
 - diborane
 - ferrocene
+- morphine
 
 ### [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs)
 

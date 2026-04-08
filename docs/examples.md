@@ -1,6 +1,6 @@
 # Example Molecules
 
-This repo mixes file-backed SDF examples with built-in Haskell modules. Benzene and water exist as local SDF files. Ferrocene and diborane exist as built-in MolADT objects under `src/ExampleMolecules/`.
+This repo mixes file-backed SDF examples with built-in Haskell modules. Benzene and water exist as local SDF files. Ferrocene, diborane, and morphine exist as built-in MolADT objects under `src/ExampleMolecules/`.
 
 ## At a Glance
 
@@ -8,8 +8,9 @@ This repo mixes file-backed SDF examples with built-in Haskell modules. Benzene 
 | --- | --- | --- | --- | --- |
 | Benzene | [`molecules/benzene.sdf`](../molecules/benzene.sdf), [`src/ExampleMolecules/Benzene.hs`](../src/ExampleMolecules/Benzene.hs), [`src/ExampleMolecules/BenzenePretty.hs`](../src/ExampleMolecules/BenzenePretty.hs) | `stack run moladtbayes -- parse molecules/benzene.sdf` | Classical aromatic ring with one `pi_ring` system | Both file-backed and built-in |
 | Water | [`molecules/water.sdf`](../molecules/water.sdf), [`src/SampleMolecules.hs`](../src/SampleMolecules.hs) | `stack run moladtbayes -- parse molecules/water.sdf` | Small classical molecule used in round-trip tests | Both file-backed and built-in |
-| Ferrocene | [`src/ExampleMolecules/Ferrocene.hs`](../src/ExampleMolecules/Ferrocene.hs) | `stack ghci` snippet below | Non-classical Fe-centered system with cyclopentadienyl pools and back-donation-style pool | Built-in object |
-| Diborane | [`src/ExampleMolecules/Diborane.hs`](../src/ExampleMolecules/Diborane.hs) | `stack ghci` snippet below | Two explicit `3c-2e` bridges | Built-in object |
+| Morphine | [`src/ExampleMolecules/Morphine.hs`](../src/ExampleMolecules/Morphine.hs) | `stack run moladtbayes -- pretty-example morphine` | Explicit Dietz version of the classic five-ring-closure morphine sketch | Built-in object |
+| Ferrocene | [`src/ExampleMolecules/Ferrocene.hs`](../src/ExampleMolecules/Ferrocene.hs) | `stack run moladtbayes -- pretty-example ferrocene` | Non-classical Fe-centered system with cyclopentadienyl pools and back-donation-style pool | Built-in object |
+| Diborane | [`src/ExampleMolecules/Diborane.hs`](../src/ExampleMolecules/Diborane.hs) | `stack run moladtbayes -- pretty-example diborane` | Two explicit `3c-2e` bridges | Built-in object |
 
 ## Benzene
 
@@ -38,22 +39,26 @@ stack run moladtbayes -- parse molecules/water.sdf
 
 Water is the smallest practical file-backed example in the repo and renders cleanly inside the conservative SMILES subset.
 
-## Ferrocene and Diborane
+## Morphine
 
-There is no dedicated CLI subcommand for these built-in non-classical examples today. Use `stack ghci` with the real module names instead:
+- Built-in source: [`src/ExampleMolecules/Morphine.hs`](../src/ExampleMolecules/Morphine.hs)
+
+Use:
 
 ```bash
-stack ghci
+stack run moladtbayes -- pretty-example morphine
+stack run moladtbayes -- parse-smiles "O1C2C(O)C=C(C3C2(C4)C5c1c(O)ccc5CC3N(C)C4)"
 ```
 
-Then:
+Morphine is the cleanest built-in comparison point for the classic ring-closure image. The boundary SMILES uses digits to reconnect five broken edges; the built-in MolADT object stores those five edges directly in `localBonds` and marks the alkene plus phenyl delocalization as explicit Dietz systems.
 
-```haskell
-:module +ExampleMolecules.Ferrocene ExampleMolecules.Diborane Chem.Molecule Chem.Validate
-putStrLn (prettyPrintMolecule ferrocenePretty)
-putStrLn (prettyPrintMolecule diboranePretty)
-validateMolecule ferrocenePretty
-validateMolecule diboranePretty
+## Ferrocene and Diborane
+
+These built-in examples are now inspectable through the main CLI as well:
+
+```bash
+stack run moladtbayes -- pretty-example ferrocene
+stack run moladtbayes -- pretty-example diborane
 ```
 
 - Ferrocene source: [`src/ExampleMolecules/Ferrocene.hs`](../src/ExampleMolecules/Ferrocene.hs)

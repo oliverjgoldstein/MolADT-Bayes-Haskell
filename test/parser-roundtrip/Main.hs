@@ -9,6 +9,8 @@ import Chem.IO.SDF (readSDF, parseSDF)
 import Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
 import Chem.Molecule
 import Chem.Dietz
+import Chem.Validate (validateMolecule)
+import ExampleMolecules.Morphine (morphinePretty, morphineRingClosureSmiles)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import Text.Megaparsec (errorBundlePretty)
@@ -45,9 +47,32 @@ spec = do
       case parseSMILES "c1ccccc1" of
         Left err -> expectationFailure err
         Right mol -> do
-          M.size (atoms mol) `shouldBe` 6
-          S.size (localBonds mol) `shouldBe` 6
+          countSymbol C mol `shouldBe` 6
+          countSymbol H mol `shouldBe` 6
+          S.size (localBonds mol) `shouldBe` 12
           length (systems mol) `shouldBe` 1
+
+    it "infers terminal hydrogens for bare methane and water SMILES" $ do
+      case parseSMILES "C" of
+        Left err -> expectationFailure err
+        Right methaneMol -> do
+          countSymbol C methaneMol `shouldBe` 1
+          countSymbol H methaneMol `shouldBe` 4
+          S.size (localBonds methaneMol) `shouldBe` 4
+      case parseSMILES "O" of
+        Left err -> expectationFailure err
+        Right waterMol -> do
+          countSymbol O waterMol `shouldBe` 1
+          countSymbol H waterMol `shouldBe` 2
+          S.size (localBonds waterMol) `shouldBe` 2
+
+    it "does not add extra implicit hydrogens to bracket atoms" $ do
+      case parseSMILES "[O]" of
+        Left err -> expectationFailure err
+        Right radicalOxygen -> do
+          countSymbol O radicalOxygen `shouldBe` 1
+          countSymbol H radicalOxygen `shouldBe` 0
+          S.size (localBonds radicalOxygen) `shouldBe` 0
 
     it "renders water as bracketed SMILES and parses it back" $ do
       case moleculeToSMILES water of
@@ -71,7 +96,7 @@ spec = do
               M.size (atoms mol) `shouldBe` 5
               S.size (localBonds mol) `shouldBe` 4
 
-    it "renders benzene as a deterministic Kekule string and recovers the pi ring" $ do
+    it "renders benzene as a deterministic Kekule string and preserves localized double bonds on parse-back" $ do
       parsed <- readSDF "molecules/benzene.sdf"
       case parsed of
         Left err -> expectationFailure (errorBundlePretty err)
@@ -86,7 +111,8 @@ spec = do
                   countSymbol C mol' `shouldBe` 6
                   countSymbol H mol' `shouldBe` 6
                   S.size (localBonds mol') `shouldBe` 12
-                  length (systems mol') `shouldBe` 1
+                  length (systems mol') `shouldBe` 3
+                  map (tag . snd) (systems mol') `shouldBe` [Nothing, Nothing, Nothing]
 
     it "records atom-centered stereochemistry from chiral bracket atoms" $ do
       case parseSMILES "N[C@](Br)(O)C" of
@@ -112,11 +138,30 @@ spec = do
         Right mol -> do
           countSymbol Si mol `shouldBe` 1
 
+    it "parses the documented morphine ring-closure boundary string" $ do
+      case parseSMILES morphineRingClosureSmiles of
+        Left err -> expectationFailure err
+        Right mol -> do
+          countSymbol C mol `shouldBe` 17
+          countSymbol H mol `shouldBe` 19
+          countSymbol N mol `shouldBe` 1
+          countSymbol O mol `shouldBe` 3
+          S.size (localBonds mol) `shouldBe` 44
+          map (tag . snd) (systems mol) `shouldBe` [Nothing, Just "pi_ring"]
+
     it "parses a real ZINC entry even where the current validator is still too strict" $ do
       case parseSMILES "CC1(C)CN(C(=O)Nc2cc3ccccc3nn2)C[C@@]2(CCOC2)O1" of
         Left err -> expectationFailure err
         Right mol -> do
           countSymbol C mol `shouldSatisfy` (> 0)
+
+  describe "Built-in Dietz examples" $ do
+    it "validates the explicit morphine example and preserves both systems" $ do
+      case validateMolecule morphinePretty of
+        Left err -> expectationFailure err
+        Right mol -> do
+          S.size (localBonds mol) `shouldBe` 25
+          map (tag . snd) (systems mol) `shouldBe` [Just "alkene_bridge", Just "phenyl_pi_ring"]
 
 -- | Minimal V2000 writer sufficient for round-trip testing.
 moleculeToSDF :: Molecule -> String
