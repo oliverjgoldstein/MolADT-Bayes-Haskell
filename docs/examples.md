@@ -8,7 +8,7 @@ This repo mixes file-backed SDF examples with built-in Haskell modules. Benzene 
 | --- | --- | --- | --- | --- |
 | Benzene | [`molecules/benzene.sdf`](../molecules/benzene.sdf), [`src/ExampleMolecules/Benzene.hs`](../src/ExampleMolecules/Benzene.hs), [`src/ExampleMolecules/BenzenePretty.hs`](../src/ExampleMolecules/BenzenePretty.hs) | `stack run moladtbayes -- parse molecules/benzene.sdf` | Classical aromatic ring with one `pi_ring` system | Both file-backed and built-in |
 | Water | [`molecules/water.sdf`](../molecules/water.sdf), [`src/SampleMolecules.hs`](../src/SampleMolecules.hs) | `stack run moladtbayes -- parse molecules/water.sdf` | Small classical molecule used in round-trip tests | Both file-backed and built-in |
-| Morphine | [`src/ExampleMolecules/Morphine.hs`](../src/ExampleMolecules/Morphine.hs) | `stack run moladtbayes -- pretty-example morphine` | Explicit Dietz version of the classic five-ring-closure morphine sketch | Built-in object |
+| Morphine | [`src/ExampleMolecules/Morphine.hs`](../src/ExampleMolecules/Morphine.hs) | `stack run moladtbayes -- pretty-example morphine` | Explicit Dietz version of the classic morphine sketch, with the standard SMILES stereochemistry flags preserved on the object | Built-in object |
 | Ferrocene | [`src/ExampleMolecules/Ferrocene.hs`](../src/ExampleMolecules/Ferrocene.hs) | `stack run moladtbayes -- pretty-example ferrocene` | Non-classical Fe-centered system with cyclopentadienyl pools and back-donation-style pool | Built-in object |
 | Diborane | [`src/ExampleMolecules/Diborane.hs`](../src/ExampleMolecules/Diborane.hs) | `stack run moladtbayes -- pretty-example diborane` | Two explicit `3c-2e` bridges | Built-in object |
 
@@ -47,10 +47,18 @@ Use:
 
 ```bash
 stack run moladtbayes -- pretty-example morphine
-stack run moladtbayes -- parse-smiles "O1C2C(O)C=C(C3C2(C4)C5c1c(O)ccc5CC3N(C)C4)"
+stack run moladtbayes -- parse-smiles "CN1CC[C@]23C4=C5C=CC(O)=C4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5"
 ```
 
-Morphine is the cleanest built-in comparison point for the classic ring-closure image. The boundary SMILES uses digits to reconnect five broken edges; the built-in MolADT object stores those five edges directly in `localBonds` and marks the alkene plus phenyl delocalization as explicit Dietz systems.
+Morphine is the cleanest built-in comparison point for the classic ring-closure image. The standard boundary SMILES carries ring digits, a localized double-bond pattern, and five atom-centered stereochemistry flags, while the built-in MolADT object stores those five edges directly in `localBonds`, marks the alkene plus phenyl delocalization as explicit Dietz systems, and preserves the stereochemistry flags in `smilesStereochemistry`. The conservative `parse-smiles` path keeps the localized double bonds explicit; the built-in morphine object then groups the alkene and phenyl fragment into Dietz systems on purpose.
+
+## Side-by-Side SMILES vs MolADT
+
+| Example | SMILES Side | MolADT Side |
+| --- | --- | --- |
+| Diborane | `[BH2]1[H][BH2][H]1` is standard, but it does not say "two explicit 3c-2e bridges". | `pretty-example diborane` shows two explicit `3c-2e` bridge systems over the bridging hydrogens. |
+| Ferrocene | `[CH-]1C=CC=C1.[CH-]1C=CC=C1.[Fe+2]` is standard, but it splits the sandwich into ionic fragments. | `pretty-example ferrocene` shows the Fe-centered object with two Cp `pi` systems and one `fe_backdonation` pool. |
+| Morphine | `CN1CC[C@]23C4=C5C=CC(O)=C4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5` | `pretty-example morphine` shows the same fused graph as direct `localBonds`, explicit `alkene_bridge` and `phenyl_pi_ring` systems, and preserved atom-centered stereochemistry flags. |
 
 ## Ferrocene and Diborane
 

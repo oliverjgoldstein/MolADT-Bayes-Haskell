@@ -173,7 +173,7 @@ lookupPrettyExample rawName =
     "morphine" ->
       Just
         ( "Morphine (explicit Dietz skeleton)"
-        , "Dietz-style ADT that spells the five classic SMILES ring closures out as sigma edges and keeps the phenyl ring as an explicit pi system."
+        , "Dietz-style ADT that turns the five classic SMILES ring closures into sigma edges, keeps the phenyl ring as an explicit pi system, and preserves the five atom-centered stereochemistry flags from the standard boundary string."
         , morphinePretty
         )
     _ -> Nothing

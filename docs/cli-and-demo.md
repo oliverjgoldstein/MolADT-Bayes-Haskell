@@ -41,6 +41,7 @@ What it does now:
 - parses the conservative SMILES subset
 - infers terminal hydrogens for supported bare atoms
 - promotes recoverable six-membered delocalized cycles into explicit `pi_ring` Dietz systems when aromatic lowercase syntax is present
+- preserves atom-centered `@`/`@@` and bond-directed `/` `\` annotations on `smilesStereochemistry`
 - validates the resulting MolADT structure
 - pretty-prints the molecule
 
@@ -62,7 +63,7 @@ This command loads a named built-in Dietz example, validates it, and prints a sh
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
-This command loads an SDF file, validates the structure, and prints only the SMILES rendering or the current renderer error.
+This command loads an SDF file, validates the structure, and prints only the SMILES rendering or the current renderer error. Stored stereochemistry annotations are preserved on parse, but the current renderer does not yet emit `@`, `@@`, `/`, or `\`.
 
 ## `demo`
 

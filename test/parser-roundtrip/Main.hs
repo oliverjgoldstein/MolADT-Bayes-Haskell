@@ -147,7 +147,17 @@ spec = do
           countSymbol N mol `shouldBe` 1
           countSymbol O mol `shouldBe` 3
           S.size (localBonds mol) `shouldBe` 44
-          map (tag . snd) (systems mol) `shouldBe` [Nothing, Just "pi_ring"]
+          map (tag . snd) (systems mol) `shouldBe` [Nothing, Nothing, Nothing, Nothing]
+          map
+            (\item -> (stereoCenter item, stereoClass item, stereoConfiguration item, stereoToken item))
+            (atomStereoAnnotations (smilesStereochemistry mol))
+            `shouldBe`
+              [ (AtomId 5, StereoTetrahedral, 1, "@")
+              , (AtomId 14, StereoTetrahedral, 1, "@")
+              , (AtomId 16, StereoTetrahedral, 2, "@@")
+              , (AtomId 21, StereoTetrahedral, 1, "@")
+              , (AtomId 23, StereoTetrahedral, 1, "@")
+              ]
 
     it "parses a real ZINC entry even where the current validator is still too strict" $ do
       case parseSMILES "CC1(C)CN(C(=O)Nc2cc3ccccc3nn2)C[C@@]2(CCOC2)O1" of
@@ -162,6 +172,16 @@ spec = do
         Right mol -> do
           S.size (localBonds mol) `shouldBe` 25
           map (tag . snd) (systems mol) `shouldBe` [Just "alkene_bridge", Just "phenyl_pi_ring"]
+          map
+            (\item -> (stereoCenter item, stereoClass item, stereoConfiguration item, stereoToken item))
+            (atomStereoAnnotations (smilesStereochemistry mol))
+            `shouldBe`
+              [ (AtomId 2, StereoTetrahedral, 1, "@")
+              , (AtomId 3, StereoTetrahedral, 2, "@@")
+              , (AtomId 7, StereoTetrahedral, 1, "@")
+              , (AtomId 8, StereoTetrahedral, 1, "@")
+              , (AtomId 18, StereoTetrahedral, 1, "@")
+              ]
 
 -- | Minimal V2000 writer sufficient for round-trip testing.
 moleculeToSDF :: Molecule -> String

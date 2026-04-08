@@ -2,9 +2,10 @@
 -- molecule. The atom numbering follows the non-cyclic morphine sketch in the
 -- classic ring-closure figure:
 --
---   O1C2C(O)C=C(C3C2(C4)C5c1c(O)ccc5CC3N(C)C4)
+--   CN1CC[C@]23C4=C5C=CC(O)=C4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5
 --
--- The five SMILES closure digits become ordinary sigma edges here:
+-- In that sketch, the five broken edges that later become SMILES ring
+-- closures are ordinary sigma edges here:
 --   1 -> (1, 11)
 --   2 -> (2, 8)
 --   3 -> (7, 18)
@@ -37,13 +38,15 @@ import Chem.Molecule
   , AtomicSymbol(..)
   , Coordinate(..)
   , Molecule(..)
-  , emptySmilesStereochemistry
+  , SmilesAtomStereo(..)
+  , SmilesAtomStereoClass(..)
+  , SmilesStereochemistry(..)
   , mkAngstrom
   )
 import Constants (elementAttributes, elementShells)
 
 morphineRingClosureSmiles :: String
-morphineRingClosureSmiles = "O1C2C(O)C=C(C3C2(C4)C5c1c(O)ccc5CC3N(C)C4)"
+morphineRingClosureSmiles = "CN1CC[C@]23C4=C5C=CC(O)=C4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5"
 
 morphinePretty :: Molecule
 morphinePretty = Molecule
@@ -53,7 +56,17 @@ morphinePretty = Molecule
       [ (SystemId 1, alkeneBridgeSystem)
       , (SystemId 2, phenylPiRingSystem)
       ]
-  , smilesStereochemistry = emptySmilesStereochemistry
+  , smilesStereochemistry =
+      SmilesStereochemistry
+        { atomStereoAnnotations =
+            [ SmilesAtomStereo (AtomId 2) StereoTetrahedral 1 "@"
+            , SmilesAtomStereo (AtomId 3) StereoTetrahedral 2 "@@"
+            , SmilesAtomStereo (AtomId 7) StereoTetrahedral 1 "@"
+            , SmilesAtomStereo (AtomId 8) StereoTetrahedral 1 "@"
+            , SmilesAtomStereo (AtomId 18) StereoTetrahedral 1 "@"
+            ]
+        , bondStereoAnnotations = []
+        }
   }
   where
     atomTable =
@@ -149,4 +162,3 @@ morphinePretty = Molecule
         (NonNegative 6)
         (S.fromList [edgeFromPair pair | pair <- phenylPiRingEdges])
         (Just "phenyl_pi_ring")
-

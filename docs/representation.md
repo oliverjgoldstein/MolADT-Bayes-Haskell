@@ -28,34 +28,46 @@ MolADT keeps the chemistry object first and treats SMILES as one boundary format
 
 Diborane and ferrocene show the non-classical side of the story: the built-in examples keep multicenter bridges and metal-centered pools explicit even though the current classical SMILES renderer does not support them.
 
-Morphine shows the classical fused-ring side more clearly.
-
-The classic morphine figure breaks five ring closures, numbers them, and then emits this boundary string:
+Standard boundary notation already compresses both:
 
 ```text
-O1C2C(O)C=C(C3C2(C4)C5c1c(O)ccc5CC3N(C)C4)
+[BH2]1[H][BH2][H]1
+[CH-]1C=CC=C1.[CH-]1C=CC=C1.[Fe+2]
 ```
 
-In that notation, the digits are backreferences:
+Those are useful SMILES strings, but they flatten the diborane bridges and split ferrocene into ionic fragments instead of the explicit multicenter pools used in MolADT.
 
-- `1` reconnects `O#1` and `C#11`
-- `2` reconnects `C#2` and `C#8`
-- `3` reconnects `C#7` and `C#18`
-- `4` reconnects `C#9` and `C#21`
-- `5` reconnects `C#10` and `C#16`
+Morphine shows the classical fused-ring side more clearly.
 
-In the explicit built-in morphine example at [`src/ExampleMolecules/Morphine.hs`](../src/ExampleMolecules/Morphine.hs), those are just ordinary entries in `localBonds`. The example then uses Dietz systems explicitly:
+The standard stereochemical boundary string is:
+
+```text
+CN1CC[C@]23C4=C5C=CC(O)=C4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5
+```
+
+That string is faithful for the classical graph, but it still compresses the fused skeleton into ring digits, localized double-bond syntax, and atom-centered `@`/`@@` flags.
+
+In the explicit built-in morphine example at [`src/ExampleMolecules/Morphine.hs`](../src/ExampleMolecules/Morphine.hs), the five classical ring-closure edges from the standard sketch are just ordinary entries in `localBonds`:
+
+- `O#1 ↔ C#11`
+- `C#2 ↔ C#8`
+- `C#7 ↔ C#18`
+- `C#9 ↔ C#21`
+- `C#10 ↔ C#16`
+
+The example then uses Dietz systems explicitly:
 
 - `alkene_bridge` marks the `C#5 <-> C#6` two-electron alkene
 - `phenyl_pi_ring` marks the six-edge aromatic ring over `C#10-C#11-C#12-C#14-C#15-C#16`
+- `smilesStereochemistry` preserves the five atom-centered flags at centers `#2`, `#3`, `#7`, `#8`, and `#18`
 
-That is the key comparison to the image. The image is a recipe for turning a polycycle into SMILES text. MolADT stores the polycycle and its delocalization directly, without going through ring digits as an internal representation.
+That is the key comparison to the image. SMILES is still a useful boundary notation, but MolADT stores the polycycle, its delocalization, and its parsed stereochemistry flags directly instead of making string syntax the core representation. The conservative `parse-smiles` path keeps the Kekule-style double bonds from the boundary string explicit; the hand-built morphine example then groups the alkene and phenyl fragment into Dietz systems on purpose.
 
 Use:
 
 ```bash
 stack run moladtbayes -- pretty-example morphine
-stack run moladtbayes -- parse-smiles "O1C2C(O)C=C(C3C2(C4)C5c1c(O)ccc5CC3N(C)C4)"
+stack run moladtbayes -- parse-smiles "CN1CC[C@]23C4=C5C=CC(O)=C4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5"
 ```
 
 The first command shows the explicit Dietz object. The second shows the boundary-format parse path based on the same figure.
