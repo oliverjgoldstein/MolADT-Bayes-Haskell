@@ -74,7 +74,7 @@ By default it looks for processed exports in:
 ../MolADT-Bayes-Python/data/processed
 ```
 
-If those processed exports are missing, the Makefile can offer to generate them from the sibling Python repo. Type `y` to let it run the matching Python benchmark helper.
+If those processed exports are missing, the Makefile can offer to generate them from the sibling Python repo. Type `y` to let it run the matching Python benchmark helper. In that delegated path, only Python-side downloads and extractions above GitHub's 100 MB file limit show a live progress meter; smaller files stay on the usual one-line logging path.
 
 ## 7. Aligned Benchmark Wrapper
 
@@ -89,7 +89,7 @@ This wrapper needs Python-exported matrices. By default it uses:
 - row limit: `128`
 - processed data dir: `../MolADT-Bayes-Python/data/processed`
 
-If the required exported matrices are missing, the Makefile can offer to generate them from the sibling Python repo before rerunning the Haskell command.
+If the required exported matrices are missing, the Makefile can offer to generate them from the sibling Python repo before rerunning the Haskell command. That delegated Python run uses the same large-file-only progress reporting for raw dataset transfers and archive extraction.
 
 Override the processed-data path with:
 

@@ -55,7 +55,7 @@ QuickCheck properties for validator invariants, including benzene relabeling and
 - Missing Stack or GHC:
   `make haskell-build` can offer to install `stack` through Homebrew or `apt-get` when one of those package managers is available.
 - Missing processed data for interop:
-  `make haskell-demo` and `make haskell-infer-benchmark` can offer to generate the needed exports from the sibling Python repo when `../MolADT-Bayes-Python/data/processed` is missing and `MOLADT_PROCESSED_DATA_DIR` is not set.
+  `make haskell-demo` and `make haskell-infer-benchmark` can offer to generate the needed exports from the sibling Python repo when `../MolADT-Bayes-Python/data/processed` is missing and `MOLADT_PROCESSED_DATA_DIR` is not set. In that delegated Python path, only downloads and extractions above GitHub's 100 MB file limit show the live progress meter.
 - Unsupported SMILES outside the conservative subset:
   the CLI will reject molecules outside the supported classical boundary. See [SMILES scope and validation](smiles-scope-and-validation.md).
 - Confusion about which repo owns which benchmark stage:

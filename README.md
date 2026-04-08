@@ -40,6 +40,8 @@ The Haskell inference path is the aligned baseline, not the main high-capacity b
 
 It consumes the standardized train/valid/test matrices exported by the Python repo and runs the LWIS or MH baseline over that data.
 
+When the Haskell `Makefile` offers to generate missing exports through the sibling Python repo, large Python-side downloads and archive extractions above GitHub's 100 MB file limit show live progress.
+
 ## Read More
 
 - [Parsing and rendering](docs/parsing.md)
