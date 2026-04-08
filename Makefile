@@ -28,7 +28,7 @@ help:
 	"Current aligned benchmark configuration:" \
 	"  processed_data_dir=$(PROCESSED_DATA_DIR)" \
 	"  missing export generation delegates to $(PYTHON_REPO_DIR)" \
-	"  large (>100 MB) Python-side downloads and extractions show progress" \
+	"  large (>100 MB) Python-side downloads and extractions show counts, speed, and elapsed time" \
 	"  dataset_prefix=$(DATASET_PREFIX)" \
 	"  method=$(METHOD)" \
 	"  row_limit=$(ROW_LIMIT)" \
@@ -150,7 +150,7 @@ haskell-check-dataset-data:
 	if [ -n "$$python_target" ] && [ -f "$$python_repo_dir/Makefile" ] && confirm_fix "Processed benchmark exports for $$dataset_prefix are missing. Generate them now via the Python repo? [y/N] "; then \
 		printf "%s\n" \
 			"Delegating export generation to $$python_repo_dir/Makefile target $$python_target." \
-			"Large Python-side downloads and extractions above GitHub's 100 MB limit will show progress."; \
+			"Large Python-side downloads and extractions above GitHub's 100 MB limit will show byte counts, entry counts, throughput, and elapsed time."; \
 		$(MAKE) -C "$$python_repo_dir" "$$python_target"; \
 	fi; \
 	if [ -f "$$required_file" ]; then \

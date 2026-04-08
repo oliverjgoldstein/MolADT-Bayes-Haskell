@@ -22,6 +22,8 @@ make haskell-infer-benchmark
 
 MolADT keeps atoms, sigma bonds, and Dietz-style bonding systems explicit. Shells and orbitals remain visible in the printed structure instead of being hidden behind a reduced graph.
 
+If you want the orbital layer explained on its own, see [Orbitals and theoretical chemistry](docs/orbitals.md).
+
 This repo is the smallest place to inspect the representation directly.
 
 ### SMILES vs MolADT
@@ -50,11 +52,12 @@ The Haskell inference path is the aligned baseline, not the main high-capacity b
 
 It consumes the standardized train/valid/test matrices exported by the Python repo and runs the LWIS or MH baseline over that data.
 
-When the Haskell `Makefile` offers to generate missing exports through the sibling Python repo, large Python-side downloads and archive extractions above GitHub's 100 MB file limit show live progress.
+When the Haskell `Makefile` offers to generate missing exports through the sibling Python repo, large Python-side downloads and archive extractions above GitHub's 100 MB file limit show live byte counts, extraction entry counts, throughput, and elapsed time.
 
 ## Read More
 
 - [Representation](docs/representation.md)
+- [Orbitals and theoretical chemistry](docs/orbitals.md)
 - [Parsing and rendering](docs/parsing.md)
 - [Inference baseline](docs/inference.md)
 - [Python interop](docs/python-interop.md)

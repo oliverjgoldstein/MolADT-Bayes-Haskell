@@ -1,8 +1,8 @@
 # Quickstart
 
-This page gets you from a fresh clone to a working Haskell CLI, then points you at the Python-exported benchmark path when you are ready for aligned inference.
+This is the shortest path from a fresh clone to a working Haskell CLI, then to the Python-backed benchmark path.
 
-## 1. Build the Project
+## 1. Build
 
 From the repo root:
 
@@ -10,63 +10,33 @@ From the repo root:
 make haskell-build
 ```
 
-That target wraps `stack build`. If `stack` is missing and Homebrew or `apt-get` is available, the Makefile will offer to install it for you. Type `y` to allow the repair step.
+That wraps `stack build`. If `stack` is missing and Homebrew or `apt-get` is available, the Makefile can offer to install it for you.
 
-If you prefer the raw command:
+## 2. First Successful CLI Run
 
 ```bash
-stack build
+stack run moladtbayes -- parse molecules/benzene.sdf
+stack run moladtbayes -- parse-smiles "c1ccccc1"
+stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
-## 2. Run the Test Suite
+If those commands work, the local Haskell CLI is installed correctly.
+
+## 3. First Test Run
 
 ```bash
 make haskell-test
 ```
 
-Equivalent raw command:
+Use `make help` if you want the list of repo-local wrappers.
 
-```bash
-stack test
-```
-
-For the list of repo-local wrappers:
-
-```bash
-make help
-```
-
-## 3. First Parse Command
-
-```bash
-stack run moladtbayes -- parse molecules/benzene.sdf
-```
-
-This parses an SDF file, validates it, pretty-prints the MolADT structure, and then tries to render a SMILES string.
-
-## 4. First `parse-smiles` Command
-
-```bash
-stack run moladtbayes -- parse-smiles "c1ccccc1"
-```
-
-This parses the conservative SMILES subset, validates the structure, and pretty-prints the MolADT view.
-
-## 5. First `to-smiles` Command
-
-```bash
-stack run moladtbayes -- to-smiles molecules/benzene.sdf
-```
-
-This loads an SDF file, validates it, and emits only the SMILES rendering.
-
-## 6. Demo Wrapper
+## 4. First Demo Run
 
 ```bash
 make haskell-demo
 ```
 
-`make haskell-demo` runs `stack run moladtbayes -- demo`. The demo first parses and validates the local benzene and water examples, then runs small aligned FreeSolv and QM9 smoke benchmarks against processed exports.
+This is the best first end-to-end check on the Haskell side. It runs the local demo and small aligned benchmark smoke checks.
 
 By default it looks for processed exports in:
 
@@ -74,22 +44,21 @@ By default it looks for processed exports in:
 ../MolADT-Bayes-Python/data/processed
 ```
 
-If those processed exports are missing, the Makefile can offer to generate them from the sibling Python repo. Type `y` to let it run the matching Python benchmark helper. In that delegated path, only Python-side downloads and extractions above GitHub's 100 MB file limit show a live progress meter; smaller files stay on the usual one-line logging path.
+If those exports are missing, the Makefile can offer to generate them through the sibling Python repo.
 
-## 7. Aligned Benchmark Wrapper
+## 5. First Aligned Benchmark Run
 
 ```bash
 make haskell-infer-benchmark
 ```
 
-This wrapper needs Python-exported matrices. By default it uses:
+This uses Python-exported matrices. By default it runs:
 
-- dataset prefix: `freesolv_smiles`
-- inference method: `lwis`
-- row limit: `128`
-- processed data dir: `../MolADT-Bayes-Python/data/processed`
+- dataset prefix `freesolv_smiles`
+- method `lwis`
+- row limit `128`
 
-If the required exported matrices are missing, the Makefile can offer to generate them from the sibling Python repo before rerunning the Haskell command. That delegated Python run uses the same large-file-only progress reporting for raw dataset transfers and archive extraction.
+If the required exports are missing, the Makefile can offer to build them through the Python repo first. In that delegated path, Python-side downloads and large archive extractions above GitHub's 100 MB limit show byte counts, entry counts, throughput, and elapsed time.
 
 Override the processed-data path with:
 
@@ -97,4 +66,11 @@ Override the processed-data path with:
 MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed stack run moladtbayes -- infer-benchmark freesolv_smiles lwis
 ```
 
-For the cross-repo export contract, see [Python interop](python-interop.md).
+## 6. If Setup Fails
+
+- Missing `stack`:
+  rerun `make haskell-build` and allow the offered repair step, or install `stack` yourself.
+- Missing processed benchmark exports:
+  let the Makefile delegate to the Python repo, or prepare them there first.
+- Cross-repo benchmark contract:
+  see [Python interop](python-interop.md).
