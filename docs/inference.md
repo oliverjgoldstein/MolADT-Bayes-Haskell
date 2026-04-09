@@ -5,7 +5,7 @@ The Haskell repo is the aligned baseline. It does not own the large benchmark ru
 ## Main Command
 
 ```bash
-stack run moladtbayes -- infer-benchmark freesolv_smiles lwis
+stack run moladtbayes -- infer-benchmark freesolv_moladt lwis
 ```
 
 The `Makefile` wrapper is:
@@ -16,7 +16,7 @@ make haskell-infer-benchmark
 
 ## What It Uses
 
-Given a dataset prefix such as `freesolv_smiles` or `qm9_sdf`, it loads:
+Given a dataset prefix such as `freesolv_moladt` or `qm9_moladt`, it loads:
 
 - `<prefix>_X_train.csv`
 - `<prefix>_X_valid.csv`
@@ -25,10 +25,7 @@ Given a dataset prefix such as `freesolv_smiles` or `qm9_sdf`, it loads:
 - `<prefix>_y_valid.csv`
 - `<prefix>_y_test.csv`
 
-The representation comes from the suffix:
-
-- `_smiles` -> `smiles`
-- `_sdf` -> `sdf`
+The aligned benchmark contract now uses the `_moladt` exports only.
 
 The target name comes from the exported `y_train` header.
 
@@ -53,14 +50,14 @@ The optional final integer argument truncates each split after loading.
 ## Examples
 
 ```bash
-stack run moladtbayes -- infer-benchmark freesolv_smiles lwis
-stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256
+stack run moladtbayes -- infer-benchmark freesolv_moladt lwis
+stack run moladtbayes -- infer-benchmark qm9_moladt mh:0.9 256
 ```
 
 With an explicit processed-data directory:
 
 ```bash
-MOLADT_PROCESSED_DATA_DIR=../MolADT-Bayes-Python/data/processed stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256
+MOLADT_PROCESSED_DATA_DIR=../MolADT-Bayes-Python/data/processed stack run moladtbayes -- infer-benchmark qm9_moladt mh:0.9 256
 ```
 
 ## What You See

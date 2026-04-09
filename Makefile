@@ -1,4 +1,4 @@
-DATASET_PREFIX ?= freesolv_smiles
+DATASET_PREFIX ?= freesolv_moladt
 METHOD ?= lwis
 ROW_LIMIT ?= 128
 PROCESSED_DATA_DIR ?= ../MolADT-Bayes-Python/data/processed
@@ -166,17 +166,45 @@ haskell-check-dataset-data:
 	exit 1
 
 haskell-build: haskell-check-stack
+	@printf "%s\n" \
+	"Building MolADT-Bayes-Haskell." \
+	"  repo: MolADT-Bayes-Haskell" \
+	"  stack_cmd: $(STACK_CMD)" \
+	"  tested GHC: $(TESTED_GHC)" \
+	"  tested resolver: $(TESTED_STACK_RESOLVER)"
 	$(STACK_CMD) build
 
 haskell-test: haskell-check-stack
+	@printf "%s\n" \
+	"Running Haskell test suites." \
+	"  repo: MolADT-Bayes-Haskell" \
+	"  stack_cmd: $(STACK_CMD)" \
+	"  tested GHC: $(TESTED_GHC)" \
+	"  tested resolver: $(TESTED_STACK_RESOLVER)"
 	$(STACK_CMD) test
 
 haskell-demo: haskell-check-stack
-	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="freesolv_smiles" haskell-check-dataset-data
-	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="qm9_sdf" haskell-check-dataset-data
+	@printf "%s\n" \
+	"Running Haskell demo flow." \
+	"  repo: MolADT-Bayes-Haskell" \
+	"  processed_data_dir: $(PROCESSED_DATA_DIR)" \
+	"  delegated Python repo for missing exports: $(PYTHON_REPO_DIR)" \
+	"  required benchmark exports: freesolv_moladt and qm9_moladt" \
+	"  stack_cmd: $(STACK_CMD)"
+	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="freesolv_moladt" haskell-check-dataset-data
+	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="qm9_moladt" haskell-check-dataset-data
 	MOLADT_PROCESSED_DATA_DIR="$(PROCESSED_DATA_DIR)" $(STACK_CMD) run moladtbayes -- demo
 
 haskell-infer-benchmark: haskell-check-stack
+	@printf "%s\n" \
+	"Running Haskell aligned benchmark inference." \
+	"  repo: MolADT-Bayes-Haskell" \
+	"  dataset_prefix: $(DATASET_PREFIX)" \
+	"  method: $(METHOD)" \
+	"  row_limit: $(ROW_LIMIT)" \
+	"  processed_data_dir: $(PROCESSED_DATA_DIR)" \
+	"  delegated Python repo for missing exports: $(PYTHON_REPO_DIR)" \
+	"  stack_cmd: $(STACK_CMD)"
 	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="$(DATASET_PREFIX)" haskell-check-dataset-data
 	MOLADT_PROCESSED_DATA_DIR="$(PROCESSED_DATA_DIR)" $(STACK_CMD) run moladtbayes -- infer-benchmark $(DATASET_PREFIX) $(METHOD) $(ROW_LIMIT)
 

@@ -45,8 +45,8 @@ usage = unlines
   , "  stack run moladtbayes -- parse-smiles \"c1ccccc1\""
   , "  stack run moladtbayes -- pretty-example morphine"
   , "  stack run moladtbayes -- to-smiles molecules/benzene.sdf"
-  , "  stack run moladtbayes -- infer-benchmark freesolv_smiles lwis"
-  , "  stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256"
+  , "  stack run moladtbayes -- infer-benchmark freesolv_moladt lwis"
+  , "  stack run moladtbayes -- infer-benchmark qm9_moladt mh:0.9 256"
   , ""
   , "Optional environment variable:"
   , "  MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed"
@@ -86,10 +86,10 @@ runDemo processedDataDir = do
                       lwisMethod = UseLWIS (posteriorSamples samplingConfig)
                       mhMethod = UseMH 0.9
                   putStrLn $ "Processed data directory: " ++ processedDataDir
-                  putStrLn "Running aligned FreeSolv / SMILES smoke benchmark (LWIS):"
-                  runBenchmarkRegressionWith samplingConfig lwisMethod processedDataDir "freesolv_smiles" (Just 128)
-                  putStrLn "Running aligned QM9 / SDF smoke benchmark (MH):"
-                  runBenchmarkRegressionWith samplingConfig mhMethod processedDataDir "qm9_sdf" (Just 256)
+                  putStrLn "Running aligned FreeSolv / MolADT smoke benchmark (LWIS):"
+                  runBenchmarkRegressionWith samplingConfig lwisMethod processedDataDir "freesolv_moladt" (Just 128)
+                  putStrLn "Running aligned QM9 / MolADT smoke benchmark (MH):"
+                  runBenchmarkRegressionWith samplingConfig mhMethod processedDataDir "qm9_moladt" (Just 256)
 
 runParse :: FilePath -> IO ()
 runParse path = do

@@ -30,7 +30,7 @@ stack run moladtbayes -- to-smiles molecules/benzene.sdf
 
 ### [`test/benchmark-alignment`](../test/benchmark-alignment/)
 
-Checks that the Haskell side can load the Python-exported `freesolv_smiles` and `qm9_sdf` matrices and sees the expected target/representation structure.
+Checks that the Haskell side can load the Python-exported `freesolv_moladt` and `qm9_moladt` matrices and sees the expected target/representation structure.
 
 ### [`test/edge-properties`](../test/edge-properties/)
 

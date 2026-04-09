@@ -122,8 +122,7 @@ loadBenchmarkDataset processedDir prefix mLimit = do
       valid = mkObservations "valid" xValidRows yValidRows
       test  = mkObservations "test" xTestRows yTestRows
       representation
-        | "_sdf" `isSuffixOf` prefix    = "sdf"
-        | "_smiles" `isSuffixOf` prefix = "smiles"
+        | "_moladt" `isSuffixOf` prefix = "moladt"
         | otherwise                     = "unknown"
   pure
     BenchmarkDataset
@@ -319,10 +318,8 @@ describeInferenceMethod UseMH { mhJitter } =
 
 
 describeRepresentation :: String -> String
-describeRepresentation "sdf" =
-  "sdf/3D structural descriptor matrix (the representation-advantaged path over SMILES)"
-describeRepresentation "smiles" =
-  "smiles-derived descriptor matrix"
+describeRepresentation "moladt" =
+  "typed MolADT descriptor matrix exported by the Python benchmark"
 describeRepresentation other = other
 
 

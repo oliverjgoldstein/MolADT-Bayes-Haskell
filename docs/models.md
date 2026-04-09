@@ -2,11 +2,20 @@
 
 This page explains what the Haskell repo means by "models over molecules".
 
+## Our Approach
+
+The Haskell-side approach is:
+
+- keep the MolADT source representation explicit and typed
+- reuse the Python MolADT benchmark exports
+- run the aligned Haskell baseline over those same exports
+- use the Python MoleculeNet figures as the reviewer-facing paper comparison
+
 The short version is:
 
-- the typed MolADT is the source chemistry object
-- the Haskell repo provides an aligned probabilistic baseline
-- that baseline consumes feature matrices exported by the Python repo
+- the typed `Molecule` ADT is the source chemistry object
+- Python turns typed MolADT objects into aligned numeric matrices for the benchmark run
+- Haskell then runs the same probabilistic baseline over those exported matrices
 
 ## What Model Lives Here
 
@@ -27,50 +36,36 @@ make haskell-infer-benchmark
 or directly:
 
 ```bash
-stack run moladtbayes -- infer-benchmark freesolv_smiles lwis
+stack run moladtbayes -- infer-benchmark freesolv_moladt lwis
 ```
 
 ## Where The Features Come From
 
 The Haskell baseline reads standardized `X/y` matrices exported by the Python repo.
 
-That means the feature engineering happens on the Python side first, and Haskell then runs aligned inference over the same representation-derived inputs.
-
-For a dataset prefix such as `freesolv_smiles` or `qm9_sdf`, the Haskell side expects:
+For a dataset prefix such as `freesolv_moladt` or `qm9_moladt`, the Haskell side expects:
 
 - `*_X_train.csv`, `*_X_valid.csv`, `*_X_test.csv`
 - `*_y_train.csv`, `*_y_valid.csv`, `*_y_test.csv`
 
 ## What Those Features Represent
 
-At a high level, the exported features come from molecule representations such as:
+The current benchmark contract is MolADT-only:
 
-- `smiles`
-- `moladt`
-- `moladt_typed`
-- geometry-aware branches built on top of those molecule objects
+- Python builds the typed `Molecule` object
+- Python computes MolADT-native descriptors from that object
+- Haskell consumes the exported standardized `X/y` matrices
 
-The important point is that the MolADT-backed branches are derived from explicit molecule structure rather than from a serializer-oriented string alone.
-
-On the Python side, that includes feature families such as:
-
-- atom and bond summaries
-- bonding-system summaries
-- typed pair channels
-- radial distance channels
-- bond-angle channels
-- torsion channels
-
-So when this repo says it runs models over molecules, the idea is not "text in, numbers out". The model is meant to sit on top of representation-derived molecular structure.
+The reviewer-facing comparison is then MolADT versus MoleculeNet, not MolADT versus a second local representation.
 
 ## Why This Matters For The Haskell Repo
 
 The Haskell repo keeps the typed source representation small and inspectable, then uses the aligned baseline to ask:
 
-- what happens when the same feature matrices are used with a typed probabilistic implementation?
-- how do `lwis` and `mh` behave on the same molecular prediction problem?
+- how do `lwis` and `mh` behave on the same exported MolADT prediction problem?
+- what happens when the same MolADT descriptor matrix is pushed through a second implementation of the baseline inference path?
 
-That is why this repo has a model page even though Python owns the heavy feature pipeline: the baseline still exists to model molecular data, and the features still come from molecular structure.
+That is why this repo has a model page even though Python owns the heavier feature pipeline: the baseline still exists to model molecular data, and the comparison still depends on the typed molecular object used to generate `X`.
 
 ## Where To Read More
 

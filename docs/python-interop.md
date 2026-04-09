@@ -6,6 +6,12 @@ The Haskell repo consumes processed benchmark exports from the sibling Python re
 
 The large benchmark pipeline lives there. The Haskell side reads the exported matrices and runs an aligned baseline over them.
 
+Simple version:
+
+- Python builds the MolADT benchmark matrices
+- Python writes the MoleculeNet comparison figures
+- Haskell reads the same MolADT matrices and runs the aligned baseline locally
+
 ## Default Processed-Data Location
 
 The current default path is:
@@ -22,7 +28,7 @@ MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed
 
 ## What Haskell Expects
 
-For a dataset prefix such as `freesolv_smiles` or `qm9_sdf`, Haskell expects:
+For a dataset prefix such as `freesolv_moladt` or `qm9_moladt`, Haskell expects:
 
 - `*_X_train.csv`, `*_X_valid.csv`, `*_X_test.csv`
 - `*_y_train.csv`, `*_y_valid.csv`, `*_y_test.csv`
@@ -44,20 +50,20 @@ That contract is what lets the Haskell baseline compare inference behavior witho
 1. In the Python repo, build or refresh the exports:
 
    ```bash
-   ./.venv/bin/python -m scripts.run_all smoke-test
-   ./.venv/bin/python -m scripts.run_all qm9 --limit 2000
+   make freesolv
+   make qm9
    ```
 
 2. In the Haskell repo, point at that processed-data directory:
 
    ```bash
-   MOLADT_PROCESSED_DATA_DIR=../MolADT-Bayes-Python/data/processed stack run moladtbayes -- infer-benchmark freesolv_smiles lwis
+   MOLADT_PROCESSED_DATA_DIR=../MolADT-Bayes-Python/data/processed stack run moladtbayes -- infer-benchmark freesolv_moladt lwis
    ```
 
-3. For the structural QM9 path:
+3. For the typed QM9 path:
 
    ```bash
-   MOLADT_PROCESSED_DATA_DIR=../MolADT-Bayes-Python/data/processed stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256
+   MOLADT_PROCESSED_DATA_DIR=../MolADT-Bayes-Python/data/processed stack run moladtbayes -- infer-benchmark qm9_moladt mh:0.9 256
    ```
 
 ## Repo Ownership Boundary

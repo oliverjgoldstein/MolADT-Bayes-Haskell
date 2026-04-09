@@ -78,19 +78,24 @@ make haskell-demo
 - parsing and validating `molecules/water.sdf`
 - rendering SMILES where supported
 - running aligned benchmark smoke passes for:
-  - FreeSolv / SMILES with LWIS
-  - QM9 / SDF with MH
+  - FreeSolv / MolADT with LWIS
+  - QM9 / MolADT with MH
 
 The `make haskell-demo` helper only wraps the same `demo` subcommand while setting `MOLADT_PROCESSED_DATA_DIR` from the `Makefile`.
 
 ## `infer-benchmark`
 
 ```bash
-stack run moladtbayes -- infer-benchmark freesolv_smiles lwis
-stack run moladtbayes -- infer-benchmark qm9_sdf mh:0.9 256
+stack run moladtbayes -- infer-benchmark freesolv_moladt lwis
+stack run moladtbayes -- infer-benchmark qm9_moladt mh:0.9 256
 ```
 
 This command loads one Python-exported dataset prefix and runs the aligned Haskell baseline over it.
+
+In the current docs story, that means:
+
+- `freesolv_moladt` for the FreeSolv MolADT export
+- `qm9_moladt` for the QM9 MolADT export
 
 ## How `parse` and `parse-smiles` Differ
 

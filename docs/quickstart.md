@@ -54,7 +54,7 @@ make haskell-infer-benchmark
 
 This uses Python-exported matrices. By default it runs:
 
-- dataset prefix `freesolv_smiles`
+- dataset prefix `freesolv_moladt`
 - method `lwis`
 - row limit `128`
 
@@ -63,7 +63,7 @@ If the required exports are missing, the Makefile can offer to build them throug
 Override the processed-data path with:
 
 ```bash
-MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed stack run moladtbayes -- infer-benchmark freesolv_smiles lwis
+MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed stack run moladtbayes -- infer-benchmark freesolv_moladt lwis
 ```
 
 ## 6. If Setup Fails
