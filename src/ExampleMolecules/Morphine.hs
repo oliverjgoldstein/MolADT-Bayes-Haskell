@@ -28,10 +28,10 @@ import qualified Data.Set as S
 
 import Chem.Dietz
   ( AtomId(..)
+  , Edge(..)
   , NonNegative(..)
   , SystemId(..)
   , mkBondingSystem
-  , mkEdge
   )
 import Chem.Molecule
   ( Atom(..)
@@ -149,7 +149,11 @@ morphinePretty = Molecule
       , (10, 16)
       ]
 
-    edgeFromPair (a, b) = mkEdge (AtomId a) (AtomId b)
+    edgeFromPair (a, b) = canonicalEdge (AtomId a) (AtomId b)
+
+    canonicalEdge left right
+      | left <= right = Edge left right
+      | otherwise = Edge right left
 
     alkeneBridgeSystem =
       mkBondingSystem

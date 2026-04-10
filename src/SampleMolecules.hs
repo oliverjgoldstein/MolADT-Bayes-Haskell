@@ -10,10 +10,15 @@ module SampleMolecules
 
 import Chem.Molecule
 import Chem.Molecule.Coordinate (Coordinate(..), mkAngstrom)
-import Chem.Dietz (AtomId(..), mkEdge)
+import Chem.Dietz (AtomId(..), Edge(..))
 import Constants (elementAttributes, elementShells)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
+
+canonicalEdge :: AtomId -> AtomId -> Edge
+canonicalEdge left right
+  | left <= right = Edge left right
+  | otherwise = Edge right left
 
 -- | A very small molecule: H2
 -- | Symmetric \(\mathrm{H_2}\) molecule positioned along the x-axis.
@@ -23,7 +28,7 @@ hydrogen = Molecule
       [ (AtomId 1, hAtom 1 (Coordinate (mkAngstrom 0)    (mkAngstrom 0) (mkAngstrom 0)))
       , (AtomId 2, hAtom 2 (Coordinate (mkAngstrom 0.74) (mkAngstrom 0) (mkAngstrom 0)))
       ]
-  , localBonds = S.singleton (mkEdge (AtomId 1) (AtomId 2))
+  , localBonds = S.singleton (canonicalEdge (AtomId 1) (AtomId 2))
   , systems = []
   , smilesStereochemistry = emptySmilesStereochemistry
   }
@@ -45,7 +50,7 @@ oxygen = Molecule
       [ (AtomId 1, oAtom 1 (Coordinate (mkAngstrom 0)    (mkAngstrom 0) (mkAngstrom 0)))
       , (AtomId 2, oAtom 2 (Coordinate (mkAngstrom 1.21) (mkAngstrom 0) (mkAngstrom 0)))
       ]
-  , localBonds = S.singleton (mkEdge (AtomId 1) (AtomId 2))
+  , localBonds = S.singleton (canonicalEdge (AtomId 1) (AtomId 2))
   , systems = []
   , smilesStereochemistry = emptySmilesStereochemistry
   }
@@ -68,7 +73,7 @@ water = Molecule
       , (AtomId 2, hAtom 2 (Coordinate (mkAngstrom 0.96)  (mkAngstrom 0)    (mkAngstrom 0)))
       , (AtomId 3, hAtom 3 (Coordinate (mkAngstrom (-0.32)) (mkAngstrom 0.90) (mkAngstrom 0)))
       ]
-  , localBonds = S.fromList [mkEdge (AtomId 1) (AtomId 2), mkEdge (AtomId 1) (AtomId 3)]
+  , localBonds = S.fromList [canonicalEdge (AtomId 1) (AtomId 2), canonicalEdge (AtomId 1) (AtomId 3)]
   , systems = []
   , smilesStereochemistry = emptySmilesStereochemistry
   }
@@ -101,10 +106,10 @@ methane = Molecule
       , (AtomId 5, hAtom 5 (Coordinate (mkAngstrom 0) (mkAngstrom (-1.09)) (mkAngstrom 0)))
       ]
   , localBonds = S.fromList
-      [ mkEdge (AtomId 1) (AtomId 2)
-      , mkEdge (AtomId 1) (AtomId 3)
-      , mkEdge (AtomId 1) (AtomId 4)
-      , mkEdge (AtomId 1) (AtomId 5)
+      [ canonicalEdge (AtomId 1) (AtomId 2)
+      , canonicalEdge (AtomId 1) (AtomId 3)
+      , canonicalEdge (AtomId 1) (AtomId 4)
+      , canonicalEdge (AtomId 1) (AtomId 5)
       ]
   , systems = []
   , smilesStereochemistry = emptySmilesStereochemistry

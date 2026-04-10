@@ -5,9 +5,9 @@ import qualified Data.Set as S
 
 import Chem.Dietz
   ( AtomId(..)
+  , Edge(..)
   , SystemId(..)
   , NonNegative(..)
-  , mkEdge
   , mkBondingSystem
   )
 import Chem.Molecule
@@ -146,25 +146,33 @@ benzenePretty = Molecule
       M.insert (atomID c1)  c1  M.empty
 
     sigmaFramework =
-      S.insert (mkEdge c1Id c2Id) $
-      S.insert (mkEdge c2Id c3Id) $
-      S.insert (mkEdge c3Id c4Id) $
-      S.insert (mkEdge c4Id c5Id) $
-      S.insert (mkEdge c5Id c6Id) $
-      S.insert (mkEdge c6Id c1Id) $
-      S.insert (mkEdge c1Id h7Id) $
-      S.insert (mkEdge c2Id h8Id) $
-      S.insert (mkEdge c3Id h9Id) $
-      S.insert (mkEdge c4Id h10Id) $
-      S.insert (mkEdge c5Id h11Id) $
-      S.insert (mkEdge c6Id h12Id) S.empty
+      S.fromList
+        [ canonicalEdge c1Id c2Id
+        , canonicalEdge c2Id c3Id
+        , canonicalEdge c3Id c4Id
+        , canonicalEdge c4Id c5Id
+        , canonicalEdge c5Id c6Id
+        , canonicalEdge c6Id c1Id
+        , canonicalEdge c1Id h7Id
+        , canonicalEdge c2Id h8Id
+        , canonicalEdge c3Id h9Id
+        , canonicalEdge c4Id h10Id
+        , canonicalEdge c5Id h11Id
+        , canonicalEdge c6Id h12Id
+        ]
 
     piRingEdges =
-      S.insert (mkEdge c1Id c2Id) $
-      S.insert (mkEdge c2Id c3Id) $
-      S.insert (mkEdge c3Id c4Id) $
-      S.insert (mkEdge c4Id c5Id) $
-      S.insert (mkEdge c5Id c6Id) $
-      S.insert (mkEdge c6Id c1Id) S.empty
+      S.fromList
+        [ canonicalEdge c1Id c2Id
+        , canonicalEdge c2Id c3Id
+        , canonicalEdge c3Id c4Id
+        , canonicalEdge c4Id c5Id
+        , canonicalEdge c5Id c6Id
+        , canonicalEdge c6Id c1Id
+        ]
 
     piRingSystem = mkBondingSystem (NonNegative 6) piRingEdges (Just "pi_ring")
+
+    canonicalEdge left right
+      | left <= right = Edge left right
+      | otherwise = Edge right left

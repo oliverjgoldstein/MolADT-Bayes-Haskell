@@ -22,9 +22,9 @@ import qualified Data.Set as S
 
 import Chem.Dietz
   ( AtomId(..)
+  , Edge(..)
   , SystemId(..)
   , NonNegative(..)
-  , mkEdge
   , mkBondingSystem
   )
 import Chem.Molecule
@@ -77,7 +77,11 @@ ferrocenePretty = Molecule
       , formalCharge = 0
       }
 
-    mkEdges = S.fromList . map (uncurry mkEdge)
+    edgeSetFromPairs = S.fromList . map (uncurry canonicalEdge)
+
+    canonicalEdge left right
+      | left <= right = Edge left right
+      | otherwise = Edge right left
 
     ringPairs xs = zip xs (tail (cycle xs))
 
@@ -146,16 +150,16 @@ ferrocenePretty = Molecule
     ring2CHPairs = zip ring2C ring2H
 
     sigmaFramework =
-      mkEdges (ring1CCPairs ++ ring2CCPairs ++ ring1CHPairs ++ ring2CHPairs)
+      edgeSetFromPairs (ring1CCPairs ++ ring2CCPairs ++ ring1CHPairs ++ ring2CHPairs)
 
     -- Dietz-style bonding systems (electron pools)
     feToRing1 = [(fe, c) | c <- ring1C]
     feToRing2 = [(fe, c) | c <- ring2C]
     feToAll   = feToRing1 ++ feToRing2
 
-    cp1Edges = mkEdges (feToRing1 ++ ring1CCPairs)
-    cp2Edges = mkEdges (feToRing2 ++ ring2CCPairs)
-    feBackEdges = mkEdges feToAll
+    cp1Edges = edgeSetFromPairs (feToRing1 ++ ring1CCPairs)
+    cp2Edges = edgeSetFromPairs (feToRing2 ++ ring2CCPairs)
+    feBackEdges = edgeSetFromPairs feToAll
 
     cp1PiSystem =
       mkBondingSystem (NonNegative 6) cp1Edges (Just "cp1_pi")

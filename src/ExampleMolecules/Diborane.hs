@@ -16,9 +16,9 @@ import qualified Data.Set as S
 
 import Chem.Dietz
   ( AtomId(..)
+  , Edge(..)
   , SystemId(..)
   , NonNegative(..)
-  , mkEdge
   , mkBondingSystem
   )
 import Chem.Molecule
@@ -73,7 +73,11 @@ diboranePretty = Molecule
       , formalCharge = 0
       }
 
-    mkEdges = S.fromList . map (uncurry mkEdge)
+    edgeSetFromPairs = S.fromList . map (uncurry canonicalEdge)
+
+    canonicalEdge left right
+      | left <= right = Edge left right
+      | otherwise = Edge right left
 
     -- Idealised D2h-like geometry (Å), chosen to make bridges explicit.
     bCoords =
@@ -105,14 +109,14 @@ diboranePretty = Molecule
 
     -- σ adjacency: B–B and four terminal B–H bonds
     sigmaFramework =
-      mkEdges [ (b1,b2)
-              , (b1,h5), (b1,h6)
-              , (b2,h7), (b2,h8)
-              ]
+      edgeSetFromPairs [ (b1,b2)
+                       , (b1,h5), (b1,h6)
+                       , (b2,h7), (b2,h8)
+                       ]
 
     -- 3c–2e bridges as Dietz pools (2 electrons shared over two edges)
-    bridgeH3Edges = mkEdges [(b1,h3), (b2,h3)]
-    bridgeH4Edges = mkEdges [(b1,h4), (b2,h4)]
+    bridgeH3Edges = edgeSetFromPairs [(b1,h3), (b2,h3)]
+    bridgeH4Edges = edgeSetFromPairs [(b1,h4), (b2,h4)]
 
     bridgeH3System =
       mkBondingSystem (NonNegative 2) bridgeH3Edges (Just "bridge_h3_3c2e")

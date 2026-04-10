@@ -48,7 +48,11 @@ benzene = Molecule
         (S.fromList [edgeFromPair pair | pair <- ringEdges])
         (Just "pi_ring")
 
-    edgeFromPair (a, b) = mkEdge (AtomId a) (AtomId b)
+    edgeFromPair (a, b) = canonicalEdge (AtomId a) (AtomId b)
+
+    canonicalEdge left right
+      | left <= right = Edge left right
+      | otherwise = Edge right left
 
     -- Carbon atoms occupy indices 1–6, hydrogens 7–12.
     ringCarbonIds = [1 .. 6]

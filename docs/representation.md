@@ -13,6 +13,8 @@ MolADT keeps:
 
 The core object is a molecule, not a serialization.
 
+It is also not implemented as a hypergraph. The core adjacency is a set of ordinary undirected two-atom `Edge` values, and each bonding system is a separate object that refers back to a set of those edges. If you want graph language, this is closer to a layered or multiplex edge-annotated graph than to atom-level hyperedges.
+
 ## Why This Matters
 
 SMILES is useful at the boundary, but it is still a renderer-oriented string syntax.
@@ -41,11 +43,17 @@ Those are useful SMILES strings, but they flatten the diborane bridges and split
 
 The built-in ferrocene object is intentionally almost identical in Haskell and Python. Same atom ids, same sigma framework, same three Dietz systems.
 
-The compact snippets below use `mkEdge` or `mk_edge` for canonical undirected edges. The long-form versions underneath spell the same object out without that helper. In both styles, the important structural point is the same: the Cp `C-C` edges and Fe-Cp edges are reused across multiple Dietz systems, but they are not duplicated into a fake parallel-edge multigraph.
+The snippets below use the same direct-edge style as the built-in examples. In Python, `Edge(...)` canonicalizes the undirected pair for you; in Haskell, the examples use a small local helper before calling `Edge`. The important structural point is the same in both repos: the Cp `C-C` edges and Fe-Cp edges are reused across multiple Dietz systems, but they are not duplicated into a fake parallel-edge multigraph.
 
 Haskell:
 
 ```haskell
+canonicalEdge left right
+  | left <= right = Edge left right
+  | otherwise = Edge right left
+
+edgeSetFromPairs = S.fromList . map (uncurry canonicalEdge)
+
 fe      = AtomId 1
 ring1C  = AtomId <$> [2..6]
 ring2C  = AtomId <$> [7..11]
@@ -60,16 +68,16 @@ feToRing1    = [(fe, c) | c <- ring1C]
 feToRing2    = [(fe, c) | c <- ring2C]
 
 ferrocenePretty = Molecule
-  { localBonds = mkEdges (ring1CCPairs ++ ring2CCPairs ++ ring1CHPairs ++ ring2CHPairs)
+  { localBonds = edgeSetFromPairs (ring1CCPairs ++ ring2CCPairs ++ ring1CHPairs ++ ring2CHPairs)
   , systems =
-      [ (SystemId 1, mkBondingSystem (NonNegative 6) (mkEdges (feToRing1 ++ ring1CCPairs)) (Just "cp1_pi"))
-      , (SystemId 2, mkBondingSystem (NonNegative 6) (mkEdges (feToRing2 ++ ring2CCPairs)) (Just "cp2_pi"))
-      , (SystemId 3, mkBondingSystem (NonNegative 6) (mkEdges (feToRing1 ++ feToRing2)) (Just "fe_backdonation"))
+      [ (SystemId 1, mkBondingSystem (NonNegative 6) (edgeSetFromPairs (feToRing1 ++ ring1CCPairs)) (Just "cp1_pi"))
+      , (SystemId 2, mkBondingSystem (NonNegative 6) (edgeSetFromPairs (feToRing2 ++ ring2CCPairs)) (Just "cp2_pi"))
+      , (SystemId 3, mkBondingSystem (NonNegative 6) (edgeSetFromPairs (feToRing1 ++ feToRing2)) (Just "fe_backdonation"))
       ]
   }
 ```
 
-Long-form Haskell without `mkEdge`:
+Expanded Haskell with explicit edge literals:
 
 ```haskell
 ferrocenePretty = Molecule
@@ -155,6 +163,10 @@ ferrocenePretty = Molecule
 Python:
 
 ```python
+def _edge_set(atom_pairs: tuple[tuple[AtomId, AtomId], ...]) -> frozenset[Edge]:
+    return frozenset(Edge(atom_a, atom_b) for atom_a, atom_b in atom_pairs)
+
+
 fe = AtomId(1)
 ring1_c = tuple(AtomId(index) for index in range(2, 7))
 ring2_c = tuple(AtomId(index) for index in range(7, 12))
@@ -169,16 +181,16 @@ fe_to_ring1 = tuple((fe, atom_id) for atom_id in ring1_c)
 fe_to_ring2 = tuple((fe, atom_id) for atom_id in ring2_c)
 
 ferrocene_pretty = Molecule(
-    local_bonds=frozenset(mk_edge(a, b) for a, b in ring1_cc + ring2_cc + ring1_ch + ring2_ch),
+    local_bonds=_edge_set(ring1_cc + ring2_cc + ring1_ch + ring2_ch),
     systems=(
-        (SystemId(1), mk_bonding_system(NonNegative(6), frozenset(mk_edge(a, b) for a, b in fe_to_ring1 + ring1_cc), "cp1_pi")),
-        (SystemId(2), mk_bonding_system(NonNegative(6), frozenset(mk_edge(a, b) for a, b in fe_to_ring2 + ring2_cc), "cp2_pi")),
-        (SystemId(3), mk_bonding_system(NonNegative(6), frozenset(mk_edge(a, b) for a, b in fe_to_ring1 + fe_to_ring2), "fe_backdonation")),
+        (SystemId(1), mk_bonding_system(NonNegative(6), _edge_set(fe_to_ring1 + ring1_cc), "cp1_pi")),
+        (SystemId(2), mk_bonding_system(NonNegative(6), _edge_set(fe_to_ring2 + ring2_cc), "cp2_pi")),
+        (SystemId(3), mk_bonding_system(NonNegative(6), _edge_set(fe_to_ring1 + fe_to_ring2), "fe_backdonation")),
     ),
 )
 ```
 
-Long-form Python without `mk_edge`:
+Expanded Python with explicit edge literals:
 
 ```python
 ferrocene_pretty = Molecule(
@@ -280,7 +292,7 @@ The close alignment is deliberate:
 - atoms `#2..#6` and `#7..#11` are the two Cp rings in both repos
 - `localBonds` or `local_bonds` contains only the localized `C-C` and `C-H` sigma framework
 - the same three six-electron Dietz systems appear in both repos: `cp1_pi`, `cp2_pi`, and `fe_backdonation`
-- the long-form versions above keep canonical undirected edges explicitly, with the smaller atom id written first in the Haskell `Edge` constructor because `mkEdge` is not doing that normalization for us there
+- the direct-edge examples keep canonical undirected edges explicitly; in Haskell that means writing the smaller atom id first whenever `Edge` is constructed directly
 - the same undirected edge can appear in `localBonds` and again inside one or more bonding systems; that edge reuse is the intended Dietz structure, and it is not the same thing as duplicating edges into a fake multigraph
 
 Morphine shows the classical fused-ring side more clearly.
