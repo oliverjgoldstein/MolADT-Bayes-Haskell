@@ -48,6 +48,15 @@ If those exports are missing, the Makefile can offer to generate them through th
 
 ## 5. First Aligned Benchmark Run
 
+Before the first benchmark-backed run, install CmdStan once in the sibling Python repo:
+
+```bash
+cd ../MolADT-Bayes-Python
+make python-cmdstan-install
+```
+
+Then run:
+
 ```bash
 make haskell-infer-benchmark
 ```

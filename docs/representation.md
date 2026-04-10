@@ -37,6 +37,70 @@ Standard boundary notation already compresses both:
 
 Those are useful SMILES strings, but they flatten the diborane bridges and split ferrocene into ionic fragments instead of the explicit multicenter pools used in MolADT.
 
+## Ferrocene in Code
+
+The built-in ferrocene object is intentionally almost identical in Haskell and Python. Same atom ids, same sigma framework, same three Dietz systems.
+
+Haskell:
+
+```haskell
+fe      = AtomId 1
+ring1C  = AtomId <$> [2..6]
+ring2C  = AtomId <$> [7..11]
+ring1H  = AtomId <$> [12..16]
+ring2H  = AtomId <$> [17..21]
+
+ring1CCPairs = ringPairs ring1C
+ring2CCPairs = ringPairs ring2C
+ring1CHPairs = zip ring1C ring1H
+ring2CHPairs = zip ring2C ring2H
+feToRing1    = [(fe, c) | c <- ring1C]
+feToRing2    = [(fe, c) | c <- ring2C]
+
+ferrocenePretty = Molecule
+  { localBonds = mkEdges (ring1CCPairs ++ ring2CCPairs ++ ring1CHPairs ++ ring2CHPairs)
+  , systems =
+      [ (SystemId 1, mkBondingSystem (NonNegative 6) (mkEdges (feToRing1 ++ ring1CCPairs)) (Just "cp1_pi"))
+      , (SystemId 2, mkBondingSystem (NonNegative 6) (mkEdges (feToRing2 ++ ring2CCPairs)) (Just "cp2_pi"))
+      , (SystemId 3, mkBondingSystem (NonNegative 6) (mkEdges (feToRing1 ++ feToRing2)) (Just "fe_backdonation"))
+      ]
+  }
+```
+
+Python:
+
+```python
+fe = AtomId(1)
+ring1_c = tuple(AtomId(index) for index in range(2, 7))
+ring2_c = tuple(AtomId(index) for index in range(7, 12))
+ring1_h = tuple(AtomId(index) for index in range(12, 17))
+ring2_h = tuple(AtomId(index) for index in range(17, 22))
+
+ring1_cc = _ring_pairs(ring1_c)
+ring2_cc = _ring_pairs(ring2_c)
+ring1_ch = tuple(zip(ring1_c, ring1_h))
+ring2_ch = tuple(zip(ring2_c, ring2_h))
+fe_to_ring1 = tuple((fe, atom_id) for atom_id in ring1_c)
+fe_to_ring2 = tuple((fe, atom_id) for atom_id in ring2_c)
+
+ferrocene_pretty = Molecule(
+    local_bonds=frozenset(mk_edge(a, b) for a, b in ring1_cc + ring2_cc + ring1_ch + ring2_ch),
+    systems=(
+        (SystemId(1), mk_bonding_system(NonNegative(6), frozenset(mk_edge(a, b) for a, b in fe_to_ring1 + ring1_cc), "cp1_pi")),
+        (SystemId(2), mk_bonding_system(NonNegative(6), frozenset(mk_edge(a, b) for a, b in fe_to_ring2 + ring2_cc), "cp2_pi")),
+        (SystemId(3), mk_bonding_system(NonNegative(6), frozenset(mk_edge(a, b) for a, b in fe_to_ring1 + fe_to_ring2), "fe_backdonation")),
+    ),
+)
+```
+
+The close alignment is deliberate:
+
+- atom `#1` is `Fe` in both repos
+- atoms `#2..#6` and `#7..#11` are the two Cp rings in both repos
+- `localBonds` or `local_bonds` contains only the localized `C-C` and `C-H` sigma framework
+- the same three six-electron Dietz systems appear in both repos: `cp1_pi`, `cp2_pi`, and `fe_backdonation`
+- both repos use canonical undirected Dietz edges via `mkEdge` or `mk_edge`; the representation is not turned into a duplicated multigraph just to make downstream helpers easier
+
 Morphine shows the classical fused-ring side more clearly.
 
 The standard stereochemical boundary string is:
