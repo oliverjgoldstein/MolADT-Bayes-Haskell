@@ -41,6 +41,8 @@ data Orbital subshellType = Orbital
   { orbitalType      :: subshellType
   , electronCount    :: Int
   , orientation      :: Maybe Coordinate
+  -- Example: an sp2-like local orbital can mix PureSo So and PureP Px
+  -- while still remaining a single orbital value.
   , hybridComponents :: Maybe [(Double, PureOrbital)]
   } deriving (Show, Eq, Read, Generic, NFData)
 

@@ -21,6 +21,42 @@ The core declarations live in [`src/Orbital.hs`](../src/Orbital.hs):
 
 Atoms then carry `shells`, so the orbital layer is part of the molecule value itself.
 
+## Worked Example
+
+There are two useful ways to read the orbital layer: inspect one of the built-in atomic shell descriptions, or construct one orbital value directly.
+
+The shipped `carbon` value already contains a typed valence-shell picture:
+
+```haskell
+import Orbital (carbon)
+
+coreShell = carbon !! 0     -- 1s^2
+valenceShell = carbon !! 1  -- 2s^2, 2p^2
+```
+
+That second shell contains one filled `2s` orbital plus two singly occupied directional `p` orbitals, so the ADT is storing local electronic structure explicitly rather than reconstructing it later from the atom label.
+
+If you want to build one orbital value directly, the shape is explicit there too:
+
+```haskell
+import Orbital (Orbital(..), P(..), PureOrbital(..), So(..), angCoord)
+
+sp2LikePx :: Orbital P
+sp2LikePx =
+  Orbital
+    { orbitalType = Px
+    , electronCount = 1
+    , orientation = Just (angCoord 1 0 0)
+    , hybridComponents =
+        Just
+          [ (1 / sqrt 3, PureSo So)
+          , (sqrt (2 / 3), PureP Px)
+          ]
+    }
+```
+
+This is still one orbital value. `orientation` gives the local directional axis, and `hybridComponents` says that the orbital is being described as a local `s`/`p` mixture instead of as a purely atomic `px`.
+
 ## Why The Types Fit Theoretical Chemistry
 
 The type structure follows the chemistry closely.
