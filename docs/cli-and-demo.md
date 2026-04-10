@@ -11,6 +11,7 @@ Current usage includes:
 - `demo`
 - `parse`
 - `parse-smiles`
+- `parse-smiles-csv-timing`
 - `pretty-example`
 - `to-smiles`
 - `infer-benchmark`
@@ -46,6 +47,22 @@ What it does now:
 - pretty-prints the molecule
 
 Unlike `parse`, it does not load an SDF file and it does not print an SDF-derived title or properties block.
+
+## `parse-smiles-csv-timing`
+
+```bash
+stack run moladtbayes -- parse-smiles-csv-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.csv 128
+make haskell-parse-smiles-csv-timing
+```
+
+What it does now:
+
+- reads the detected SMILES column from a normalized benchmark CSV
+- times the plain `CSV field -> String` baseline as `smiles_csv_string_parse`
+- times the local `String -> MolADT` parser as `smiles_adt_parse`
+- prints a small stdout report with counts, throughput, median latency, and p95 latency
+
+This is a local parser-timing command, not the reviewer-facing Python timing bundle.
 
 ## `pretty-example`
 
@@ -101,6 +118,7 @@ In the current docs story, that means:
 
 - `parse` starts from an SDF file on disk and then tries to render SMILES from the validated result.
 - `parse-smiles` starts from a SMILES string in the conservative subset and only pretty-prints the validated MolADT structure.
+- `parse-smiles-csv-timing` starts from a benchmark CSV and compares field materialization against the local SMILES-to-MolADT parser.
 - `pretty-example` starts from a built-in Dietz object rather than a file or boundary string.
 
 ## Environment Variable

@@ -1,6 +1,6 @@
 # Inference
 
-The Haskell repo is the aligned baseline. It does not own the large benchmark run or the timing pass. It reads the Python-exported matrices and runs LWIS or MH over the same standardized `X/y` format.
+The Haskell repo is the aligned baseline. It does not own the large benchmark run or the reviewer-facing timing bundle, but it does own a local stdout parser-timing command. It reads the Python-exported matrices and runs LWIS or MH over the same standardized `X/y` format.
 
 ## Main Command
 
@@ -78,7 +78,7 @@ The command prints:
 - per-row test predictions with `predicted`, `actual`, `residual`, and `posterior_sd`
 - test-set MAE and RMSE summary
 
-This is a stdout-oriented baseline. The reviewer-facing Markdown, CSV, graphs, and timing files are written by the Python repo instead.
+This is a stdout-oriented baseline. The reviewer-facing Markdown, CSV, graphs, and timing files are written by the Python repo instead, while the Haskell parser-timing command stays local and stdout-only.
 
 ## Alignment
 

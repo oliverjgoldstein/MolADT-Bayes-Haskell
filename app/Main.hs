@@ -10,6 +10,7 @@ import           BenchmarkModel
   )
 import           Chem.IO.SDF (readSDF)
 import           Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
+import           Chem.IO.SMILESTiming (measureSmilesCsvTiming, renderTimingReport)
 import           Chem.Molecule (Molecule, atoms, prettyPrintMolecule)
 import           Chem.Validate (validateMolecule)
 import           ExampleMolecules.Diborane (diboranePretty)
@@ -29,6 +30,8 @@ main = do
     ["demo"] -> runDemo processedDataDir
     ["parse", path] -> runParse path
     ["parse-smiles", smilesText] -> runParseSMILES smilesText
+    ["parse-smiles-csv-timing", path] -> runParseSmilesCsvTiming path Nothing
+    ["parse-smiles-csv-timing", path, limitText] -> runParseSmilesCsvTiming path (readMaybe limitText)
     ["pretty-example", name] -> runPrettyExample name
     ["to-smiles", path] -> runToSMILES path
     ["infer-benchmark", datasetPrefix, methodName] ->
@@ -43,6 +46,8 @@ usage = unlines
   , "  stack run moladtbayes -- demo"
   , "  stack run moladtbayes -- parse molecules/benzene.sdf"
   , "  stack run moladtbayes -- parse-smiles \"c1ccccc1\""
+  , "  stack run moladtbayes -- parse-smiles-csv-timing path/to/file.csv"
+  , "  stack run moladtbayes -- parse-smiles-csv-timing path/to/file.csv 1000"
   , "  stack run moladtbayes -- pretty-example morphine"
   , "  stack run moladtbayes -- to-smiles molecules/benzene.sdf"
   , "  stack run moladtbayes -- infer-benchmark freesolv_moladt lwis"
@@ -105,6 +110,13 @@ runParseSMILES smilesText =
   case parseSMILES smilesText >>= validateMolecule of
     Left err -> putStrLn err
     Right molecule -> renderValidated molecule
+
+runParseSmilesCsvTiming :: FilePath -> Maybe Int -> IO ()
+runParseSmilesCsvTiming path mLimit = do
+  result <- measureSmilesCsvTiming path mLimit
+  case result of
+    Left err -> putStrLn err
+    Right stages -> putStrLn (renderTimingReport stages)
 
 runPrettyExample :: String -> IO ()
 runPrettyExample rawName =

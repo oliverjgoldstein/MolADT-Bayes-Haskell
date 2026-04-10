@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Chem.IO.SMILES
   ( parseSMILES
   , moleculeToSMILES
@@ -45,19 +47,19 @@ data RingOpen = RingOpen
   } deriving (Eq, Show)
 
 data ParseState = ParseState
-  { psText           :: String
-  , psIndex          :: Int
-  , psNextAtomIndex  :: Integer
-  , psAtoms          :: M.Map AtomId Atom
-  , psLocalBonds     :: S.Set Edge
-  , psSystems        :: [BondingSystem]
-  , psAtomStereo     :: [SmilesAtomStereo]
-  , psBondStereo     :: [SmilesBondStereo]
-  , psAromaticEdges  :: S.Set Edge
-  , psAromaticAtoms  :: S.Set AtomId
-  , psImplicitHydrogenHosts :: S.Set AtomId
-  , psBranchStack    :: [AtomRef]
-  , psRingOpens      :: M.Map Char RingOpen
+  { psRemaining      :: !String
+  , psIndex          :: !Int
+  , psNextAtomIndex  :: !Integer
+  , psAtoms          :: !(M.Map AtomId Atom)
+  , psLocalBonds     :: !(S.Set Edge)
+  , psSystems        :: ![BondingSystem]
+  , psAtomStereo     :: ![SmilesAtomStereo]
+  , psBondStereo     :: ![SmilesBondStereo]
+  , psAromaticEdges  :: !(S.Set Edge)
+  , psAromaticAtoms  :: !(S.Set AtomId)
+  , psImplicitHydrogenHosts :: !(S.Set AtomId)
+  , psBranchStack    :: ![AtomRef]
+  , psRingOpens      :: !(M.Map Char RingOpen)
   }
 
 type ParserM = StateT ParseState (Except String)
@@ -66,7 +68,7 @@ parseSMILES :: String -> Either String Molecule
 parseSMILES rawText = do
   let text = trim rawText
       initialState = ParseState
-        { psText = text
+        { psRemaining = text
         , psIndex = 0
         , psNextAtomIndex = 1
         , psAtoms = M.empty
@@ -93,7 +95,7 @@ parseSMILES rawText = do
               let normalizedSystems =
                     normalizeSMILESSystems
                       (psLocalBonds st)
-                      (psSystems st)
+                      (reverse (psSystems st))
                       (psAromaticEdges st)
                       (psAromaticAtoms st)
                   (enrichedAtoms, enrichedBonds) =
@@ -108,8 +110,8 @@ parseSMILES rawText = do
                    , localBonds = enrichedBonds
                    , systems = assignedSystems
                    , smilesStereochemistry = SmilesStereochemistry
-                       { atomStereoAnnotations = psAtomStereo st
-                       , bondStereoAnnotations = psBondStereo st
+                       { atomStereoAnnotations = reverse (psAtomStereo st)
+                       , bondStereoAnnotations = reverse (psBondStereo st)
                        }
                    }
 
@@ -125,14 +127,16 @@ parseLoop current pendingBond = do
       case current of
         Nothing -> throwError "Branch opened before any atom"
         Just atomRef -> do
-          modify' $ \st -> st { psBranchStack = atomRef : psBranchStack st, psIndex = psIndex st + 1 }
+          modify' $ \st -> st { psBranchStack = atomRef : psBranchStack st }
+          advanceIndex 1
           parseLoop current pendingBond
     Just ')' -> do
       branchStack <- gets psBranchStack
       case branchStack of
         [] -> throwError "Unmatched ')'"
         (atomRef:rest) -> do
-          modify' $ \st -> st { psBranchStack = rest, psIndex = psIndex st + 1 }
+          modify' $ \st -> st { psBranchStack = rest }
+          advanceIndex 1
           parseLoop (Just atomRef) pendingBond
     Just '.' -> do
       advanceIndex 1
@@ -171,7 +175,9 @@ parseAtom = do
 parseBracketAtom :: ParserM AtomRef
 parseBracketAtom = do
   st <- get
-  let rest = drop (psIndex st + 1) (psText st)
+  let rest = case psRemaining st of
+        [] -> []
+        (_:suffix) -> suffix
       (content, suffix) = break (== ']') rest
   case suffix of
     [] -> throwError "Unclosed bracket atom"
@@ -189,14 +195,12 @@ parseBracketAtom = do
             (Just stereoClass, Just stereoConfig, Just stereoTokenText) ->
               modify' $ \state -> state
                 { psAtomStereo =
-                    psAtomStereo state ++
-                      [ SmilesAtomStereo
-                          { stereoCenter = atomID atom
-                          , stereoClass = stereoClass
-                          , stereoConfiguration = stereoConfig
-                          , stereoToken = stereoTokenText
-                          }
-                      ]
+                    SmilesAtomStereo
+                      { stereoCenter = atomID atom
+                      , stereoClass = stereoClass
+                      , stereoConfiguration = stereoConfig
+                      , stereoToken = stereoTokenText
+                      } : psAtomStereo state
                 }
             _ -> pure ()
           let atomRef = AtomRef (atomID atom) (bracketAromatic bracketAtom)
@@ -208,7 +212,7 @@ parseBracketAtom = do
 parseBareAtom :: ParserM AtomRef
 parseBareAtom = do
   st <- get
-  let rest = drop (psIndex st) (psText st)
+  let rest = psRemaining st
   case rest of
     c1:c2:_ ->
       case atomicSymbolFromToken [c1, c2] of
@@ -294,26 +298,22 @@ handleRingDigit digit current pendingBond = do
         Just direction ->
           modify' $ \st -> st
             { psBondStereo =
-                psBondStereo st ++
-                  [ SmilesBondStereo
-                      { bondStereoStart = refAtomId (ringAtom ringOpen)
-                      , bondStereoEnd = refAtomId current
-                      , bondStereoDirection = direction
-                      }
-                  ]
+                SmilesBondStereo
+                  { bondStereoStart = refAtomId (ringAtom ringOpen)
+                  , bondStereoEnd = refAtomId current
+                  , bondStereoDirection = direction
+                  } : psBondStereo st
             }
         Nothing -> pure ()
       case bondSpecDirection =<< pendingBond of
         Just direction ->
           modify' $ \st -> st
             { psBondStereo =
-                psBondStereo st ++
-                  [ SmilesBondStereo
-                      { bondStereoStart = refAtomId current
-                      , bondStereoEnd = refAtomId (ringAtom ringOpen)
-                      , bondStereoDirection = direction
-                      }
-                  ]
+                SmilesBondStereo
+                  { bondStereoStart = refAtomId current
+                  , bondStereoEnd = refAtomId (ringAtom ringOpen)
+                  , bondStereoDirection = direction
+                  } : psBondStereo st
             }
         Nothing -> pure ()
       modify' $ \st -> st { psRingOpens = M.delete digit (psRingOpens st) }
@@ -326,13 +326,11 @@ connectAtoms left right pendingBond =
       Just direction ->
         modify' $ \st -> st
           { psBondStereo =
-              psBondStereo st ++
-                [ SmilesBondStereo
-                    { bondStereoStart = refAtomId left
-                    , bondStereoEnd = refAtomId right
-                    , bondStereoDirection = direction
-                    }
-                ]
+              SmilesBondStereo
+                { bondStereoStart = refAtomId left
+                , bondStereoEnd = refAtomId right
+                , bondStereoDirection = direction
+                } : psBondStereo st
           }
       Nothing -> pure ()
   where
@@ -348,10 +346,10 @@ addBond left right bondKind = do
     BondSingle -> pure ()
     BondDouble ->
       modify' $ \st -> st
-        { psSystems = psSystems st ++ [mkBondingSystem (NonNegative 2) (S.singleton edge) Nothing] }
+        { psSystems = mkBondingSystem (NonNegative 2) (S.singleton edge) Nothing : psSystems st }
     BondTriple ->
       modify' $ \st -> st
-        { psSystems = psSystems st ++ [mkBondingSystem (NonNegative 4) (S.singleton edge) Nothing] }
+        { psSystems = mkBondingSystem (NonNegative 4) (S.singleton edge) Nothing : psSystems st }
     BondAromatic ->
       modify' $ \st -> st { psAromaticEdges = S.insert edge (psAromaticEdges st) }
 
@@ -359,12 +357,17 @@ currentChar :: ParserM (Maybe Char)
 currentChar = do
   st <- get
   pure $
-    if psIndex st >= length (psText st)
-      then Nothing
-      else Just (psText st !! psIndex st)
+    case psRemaining st of
+      [] -> Nothing
+      (char:_) -> Just char
 
 advanceIndex :: Int -> ParserM ()
-advanceIndex n = modify' $ \st -> st { psIndex = psIndex st + n }
+advanceIndex n =
+  modify' $ \st ->
+    st
+      { psRemaining = drop n (psRemaining st)
+      , psIndex = psIndex st + n
+      }
 
 parseBracketContent :: String -> Either String BracketAtom
 parseBracketContent content = do

@@ -7,12 +7,15 @@ module Main (main) where
 import Test.Hspec
 import Chem.IO.SDF (readSDF, parseSDF)
 import Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
+import Chem.IO.SMILESTiming (measureSmilesCsvTiming, timingFailureCount, timingStage, timingSuccessCount)
 import Chem.Molecule
 import Chem.Dietz
 import Chem.Validate (validateMolecule)
 import ExampleMolecules.Morphine (morphinePretty, morphineRingClosureSmiles)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
+import System.Directory (getTemporaryDirectory, removeFile)
+import System.IO (hClose, hPutStr, openTempFile)
 import Text.Megaparsec (errorBundlePretty)
 import SampleMolecules (methane, water)
 
@@ -164,6 +167,20 @@ spec = do
         Left err -> expectationFailure err
         Right mol -> do
           countSymbol C mol `shouldSatisfy` (> 0)
+
+    it "times CSV field materialization separately from MolADT parsing" $ do
+      tempDir <- getTemporaryDirectory
+      (path, handle) <- openTempFile tempDir "moladt-smiles-timing.csv"
+      hPutStr handle "smiles,name\nCCO,ethanol\nc1ccccc1,benzene\n"
+      hClose handle
+      result <- measureSmilesCsvTiming path (Just 2)
+      removeFile path
+      case result of
+        Left err -> expectationFailure err
+        Right stages -> do
+          map timingStage stages `shouldBe` ["smiles_csv_string_parse", "smiles_adt_parse"]
+          map timingSuccessCount stages `shouldBe` [2, 2]
+          map timingFailureCount stages `shouldBe` [0, 0]
 
   describe "Built-in Dietz examples" $ do
     it "validates the explicit morphine example and preserves both systems" $ do

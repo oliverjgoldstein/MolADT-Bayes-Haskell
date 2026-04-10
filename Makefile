@@ -1,6 +1,7 @@
 DATASET_PREFIX ?= freesolv_moladt
 METHOD ?= lwis
 ROW_LIMIT ?= 128
+CSV_PATH ?= ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.csv
 PROCESSED_DATA_DIR ?= ../MolADT-Bayes-Python/data/processed
 PYTHON_REPO_DIR ?= ../MolADT-Bayes-Python
 STACK_CMD ?= $(strip $(shell command -v stack 2>/dev/null || command -v stack.exe 2>/dev/null || printf "%s" stack))
@@ -12,7 +13,7 @@ AUTO_APPROVE_FIXES ?= 0
 TESTED_GHC := 9.6.5
 TESTED_STACK_RESOLVER := lts-22.25
 
-.PHONY: help haskell-check-stack haskell-check-dataset-data haskell-build haskell-test haskell-demo haskell-infer-benchmark haskell-parse haskell-parse-smiles haskell-to-smiles
+.PHONY: help haskell-check-stack haskell-check-dataset-data haskell-build haskell-test haskell-demo haskell-infer-benchmark haskell-parse haskell-parse-smiles haskell-parse-smiles-csv-timing haskell-to-smiles
 
 help:
 	@printf "%s\n" \
@@ -23,6 +24,7 @@ help:
 	"  make haskell-infer-benchmark Run the aligned LWIS/MH benchmark baseline" \
 	"  make haskell-parse          Parse molecules/benzene.sdf" \
 	"  make haskell-parse-smiles   Parse c1ccccc1" \
+	"  make haskell-parse-smiles-csv-timing Benchmark CSV field->String vs MolADT parse timing" \
 	"  make haskell-to-smiles      Render molecules/benzene.sdf to SMILES" \
 	"" \
 	"Current aligned benchmark configuration:" \
@@ -32,6 +34,7 @@ help:
 	"  dataset_prefix=$(DATASET_PREFIX)" \
 	"  method=$(METHOD)" \
 	"  row_limit=$(ROW_LIMIT)" \
+	"  csv_path=$(CSV_PATH)" \
 	"" \
 	"Tested toolchain versions:" \
 	"  GHC=$(TESTED_GHC) Stack resolver=$(TESTED_STACK_RESOLVER)"
@@ -213,6 +216,9 @@ haskell-parse: haskell-check-stack
 
 haskell-parse-smiles: haskell-check-stack
 	$(STACK_CMD) run moladtbayes -- parse-smiles "c1ccccc1"
+
+haskell-parse-smiles-csv-timing: haskell-check-stack
+	$(STACK_CMD) run moladtbayes -- parse-smiles-csv-timing $(CSV_PATH) $(ROW_LIMIT)
 
 haskell-to-smiles: haskell-check-stack
 	$(STACK_CMD) run moladtbayes -- to-smiles molecules/benzene.sdf

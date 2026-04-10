@@ -6,7 +6,7 @@ This page documents the current Haskell repo layout as it exists today.
 
 ### [`app/Main.hs`](../app/Main.hs)
 
-The main CLI entrypoint. It dispatches `demo`, `parse`, `parse-smiles`, `pretty-example`, `to-smiles`, and `infer-benchmark`.
+The main CLI entrypoint. It dispatches `demo`, `parse`, `parse-smiles`, `parse-smiles-csv-timing`, `pretty-example`, `to-smiles`, and `infer-benchmark`.
 
 ### [`examples/ParseMolecules.hs`](../examples/ParseMolecules.hs)
 
@@ -26,6 +26,7 @@ Core chemistry modules:
 - molecule and pretty-printing logic
 - SDF parsing
 - conservative SMILES parsing and rendering
+- local SMILES CSV timing helpers
 - validation
 
 ### [`src/ExampleMolecules/`](../src/ExampleMolecules/)

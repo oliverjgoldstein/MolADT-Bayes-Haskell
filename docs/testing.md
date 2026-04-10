@@ -23,6 +23,7 @@ For a quick self-contained CLI sanity check:
 ```bash
 stack run moladtbayes -- parse molecules/benzene.sdf
 stack run moladtbayes -- parse-smiles "c1ccccc1"
+stack run moladtbayes -- parse-smiles-csv-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.csv 128
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
@@ -43,6 +44,7 @@ Hspec tests for:
 - SDF round-trips
 - benzene aromatic-system detection
 - conservative SMILES parsing
+- CSV-field-to-String timing-path coverage for the local parser benchmark
 - bracketed water and methane rendering
 - deterministic benzene SMILES rendering
 
@@ -59,7 +61,7 @@ QuickCheck properties for validator invariants, including benzene relabeling and
 - Unsupported SMILES outside the conservative subset:
   the CLI will reject molecules outside the supported classical boundary. See [SMILES scope and validation](smiles-scope-and-validation.md).
 - Confusion about which repo owns which benchmark stage:
-  raw dataset download, feature export, and reviewer-facing `results/` artifacts belong to the Python repo; Haskell consumes the exported matrices and prints its own inference summaries to stdout.
+  raw dataset download, feature export, and reviewer-facing `results/` artifacts belong to the Python repo; Haskell consumes the exported matrices, prints its own inference summaries to stdout, and now has a local stdout parser-timing command.
 
 ## Related Pages
 

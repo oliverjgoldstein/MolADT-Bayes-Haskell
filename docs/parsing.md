@@ -40,6 +40,24 @@ Inside that boundary, `parse-smiles` now does three lifts after reading the SMIL
 - it promotes recoverable six-membered delocalized cycles into explicit Dietz `pi_ring` systems when the SMILES uses aromatic lowercase syntax, including ring-closure edges
 - it preserves atom-centered `@`/`@@` and bond-directed `/` `\` annotations in `smilesStereochemistry`
 
+The local parser is now tuned for this path: it advances through the remaining input instead of rescanning from the front, and it accumulates stereochemistry and bond-system annotations without repeated end-appends.
+
+## If You Want the CSV Baseline Against the Parser
+
+Use `parse-smiles-csv-timing`.
+
+```bash
+make haskell-parse-smiles-csv-timing
+```
+
+Equivalent raw command:
+
+```bash
+stack run moladtbayes -- parse-smiles-csv-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.csv 128
+```
+
+This reads a benchmark CSV, materializes the detected SMILES field as a plain `String`, then times the local `String -> MolADT` parser separately.
+
 ## If You Want SMILES Back Out
 
 Use `to-smiles`.

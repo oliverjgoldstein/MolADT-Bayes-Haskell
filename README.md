@@ -25,6 +25,7 @@ MolADT keeps those decisions in typed data. That is what the Haskell repo is for
 ```bash
 make haskell-build
 stack run moladtbayes -- parse-smiles "c1ccccc1"
+make haskell-parse-smiles-csv-timing
 ```
 
 ## Benchmark Outputs
@@ -55,15 +56,17 @@ Those outputs are local benchmark artifacts, not committed front-page snapshots.
 
 - the typed MolADT source implementation
 - conservative SDF and SMILES boundary parsing
+- a local CSV-field-to-String versus SMILES-to-MolADT timing entry point
 - example molecules, CLI tools, and aligned inference entry points
 
 ## Benchmarking
 
 ```bash
 make haskell-infer-benchmark
+make haskell-parse-smiles-csv-timing
 ```
 
-The Haskell side consumes the Python-exported MolADT matrices. If they are missing, the Makefile can offer to generate them through the sibling Python repo first. Large delegated Python-side downloads and archive extraction show live progress when the files are large enough to matter.
+The Haskell side consumes the Python-exported MolADT matrices for inference, and it can also time the local SMILES parser against a plain CSV-field-to-String baseline. Reviewer-facing timing bundles still belong to the Python repo. If the sibling raw or processed files are missing, the Makefile can offer to generate them through the Python repo first. Large delegated Python-side downloads and archive extraction show live progress when the files are large enough to matter.
 
 ## Read More
 
