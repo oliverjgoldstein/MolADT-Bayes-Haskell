@@ -50,7 +50,10 @@ The SDF parser accepts V2000 and the core V3000 CTAB subset used by ordinary str
 
 The Haskell side is intentionally a parser, not a full MDL toolkit. It reads those structures into MolADT; it does not attempt to support the full query/enhanced-feature surface of SDF.
 
-If one SDF file contains multiple molecules, use `case readSDFRecords "bundle.sdf" of Right ms -> take 3 ms; Left err -> error (show err)` from `Chem.IO.SDF`, or `either (error . show) (take 3) (parseSDFRecords multiRecordText)` if the records are already in memory.
+If one SDF file contains multiple molecules:
+
+- read a small eager slice from disk with `case readSDFRecords "bundle.sdf" of Right ms -> take 3 ms; Left err -> error (show err)`
+- parse an in-memory multi-record payload with `either (error . show) (take 3) (parseSDFRecords multiRecordText)`
 
 The local QM9 and vendored FreeSolv raw files in the sibling Python workspace are still V2000. The parser can read the core V3000 subset, but the current local benchmark raws are not being silently relabeled.
 

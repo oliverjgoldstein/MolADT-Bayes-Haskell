@@ -204,6 +204,18 @@ spec = do
           length annotations `shouldBe` 2
           map bondStereoDirection annotations `shouldBe` [BondUp, BondDown]
 
+  describe "Pretty rendering" $ do
+    it "renders molecules as structured reports" $ do
+      case parseSMILES "c1ccccc1" of
+        Left err -> expectationFailure err
+        Right mol -> do
+          let rendered = prettyPrintMolecule mol
+          rendered `shouldContain` "Molecule Report"
+          rendered `shouldContain` "Sigma Network"
+          rendered `shouldContain` "Bonding Systems"
+          rendered `shouldContain` "[#1] pi_ring"
+          rendered `shouldContain` "SMILES Stereochemistry"
+
     it "accepts silicon-containing SMILES used in the ZINC slice" $ do
       case parseSMILES "C[Si](C)(C)C" of
         Left err -> expectationFailure err

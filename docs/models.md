@@ -74,6 +74,38 @@ That small-data choice is deliberate. FreeSolv has too little data for a large u
 
 The main comparison is then MolADT versus MoleculeNet, not MolADT versus a second local representation.
 
+## Example Code
+
+This is the core model-selection branch in the Haskell benchmark consumer:
+
+```haskell
+modelFamilyFor :: BenchmarkDataset -> BenchmarkModelFamily
+modelFamilyFor dataset
+  | "freesolv_" `isPrefixOf` datasetPrefix dataset
+    && representationName dataset == "moladt_featurized" = UseGaussianProcessRbf
+  | otherwise = UseLinearStudentT
+```
+
+And this is the start of the actual GP model used for FreeSolv:
+
+```haskell
+gaussianProcessBenchmarkModel :: GaussianProcessSupport -> Meas BenchmarkParameters
+gaussianProcessBenchmarkModel support = do
+  meanOffset <- sample (normal 0.0 5.0)
+  logKernelScale <- sample (normal 0.0 1.0)
+  logLengthScale <- sample (normal 0.0 1.0)
+  logNoiseScale <- sample (normal (-1.0) 1.0)
+  let params =
+        GaussianProcessParameters
+          { gpMeanOffset = meanOffset
+          , gpKernelScale = max 1.0e-4 (exp logKernelScale)
+          , gpLengthScale = max 1.0e-3 (exp logLengthScale)
+          , gpNoiseScale = max 1.0e-4 (exp logNoiseScale)
+          }
+```
+
+The full implementation lives in [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs) and [`src/GaussianProcess.hs`](../src/GaussianProcess.hs). QM9 falls back to the local linear Student-`t` path, while FreeSolv uses this exact GP branch.
+
 ## Why This Matters For The Haskell Repo
 
 The Haskell repo keeps the typed source representation small and inspectable, then uses the aligned benchmark models to ask:

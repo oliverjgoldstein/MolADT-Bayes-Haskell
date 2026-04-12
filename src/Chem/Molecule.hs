@@ -158,7 +158,21 @@ effectiveOrder m e = sigma + piContribution
 -- | Simple pretty printer for molecules.
 prettyPrintMolecule :: Molecule -> String
 prettyPrintMolecule m =
-  intercalate "\n\n" (header : [atomsSection, bondsSection, systemsSection, stereoSection])
+  renderLines $
+    ["Molecule Report", "==============="]
+      ++ summarySection atomList sigmaEdges systemList atomStereoList bondStereoList
+      ++ [""]
+      ++ sectionHeader "Atoms"
+      ++ joinBlocks (map (formatAtomBlock m) atomList)
+      ++ [""]
+      ++ sectionHeader "Sigma Network"
+      ++ sigmaSection
+      ++ [""]
+      ++ sectionHeader "Bonding Systems"
+      ++ joinBlocks (map (formatSystemBlock m) systemList)
+      ++ [""]
+      ++ sectionHeader "SMILES Stereochemistry"
+      ++ stereoSection
   where
     atomList   = M.toAscList (atoms m)
     sigmaEdges = sort (S.toList (localBonds m))
@@ -166,49 +180,24 @@ prettyPrintMolecule m =
     atomStereoList = sortOn stereoCenter (atomStereoAnnotations (smilesStereochemistry m))
     bondStereoList = sortOn (\item -> (bondStereoStart item, bondStereoEnd item, bondStereoDirection item)) (bondStereoAnnotations (smilesStereochemistry m))
 
-    header =
-      "Molecule with " ++ intercalate ", "
-        [ countLabel (length atomList) "atom" "atoms"
-        , countLabel (length sigmaEdges) "σ bond" "σ bonds"
-        , countLabel (length systemList) "bonding system" "bonding systems" ]
-
-    atomsSection =
-      case atomList of
-        [] -> "Atoms: (none)"
-        _  -> "Atoms (" ++ show (length atomList) ++ "):\n"
-              ++ intercalate "\n\n"
-                   [ renderLines (indentBlock 2 (formatAtomBlock m entry))
-                   | entry <- atomList ]
-
-    bondsSection =
+    sigmaSection =
       case sigmaEdges of
-        [] -> "σ bonds: (none)"
-        _  -> "σ bonds (" ++ show (length sigmaEdges) ++ "):\n"
-              ++ renderLines (indentBlock 2 (map (formatBondLine m) sigmaEdges))
-
-    systemsSection =
-      case systemList of
-        [] -> "Bonding systems: (none)"
-        _  -> "Bonding systems (" ++ show (length systemList) ++ "):\n"
-              ++ intercalate "\n\n"
-                   [ renderLines (indentBlock 2 (formatSystemBlock m entry))
-                   | entry <- systemList ]
+        [] -> ["none"]
+        _  -> [printf "%02d. %s" idx (formatBondLine m edge) | (idx, edge) <- zip [1 :: Int ..] sigmaEdges]
 
     stereoSection
-      | null atomStereoList && null bondStereoList = "SMILES stereochemistry: (none)"
-      | otherwise =
-          "SMILES stereochemistry:\n"
-            ++ renderLines (indentBlock 2 (atomStereoSection ++ bondStereoSection))
+      | null atomStereoList && null bondStereoList = ["none"]
+      | otherwise = atomStereoSection ++ bondStereoSection
 
     atomStereoSection
       | null atomStereoList = []
-      | otherwise = "Atom-centered:" : indentBlock 2 (map formatAtomStereo atomStereoList)
+      | otherwise = "atom-centered:" : indentBlock 2 (map formatAtomStereo atomStereoList)
 
     bondStereoSection
       | null bondStereoList = []
       | otherwise =
           (if null atomStereoList then [] else [""])
-            ++ ["Bond-directed:"]
+            ++ ["bond-directed:"]
             ++ indentBlock 2 (map (formatBondStereo m) bondStereoList)
 
 -- | Pretty printer for an atom, including electron configuration.
@@ -227,9 +216,63 @@ formatCoord (Coordinate x y z) =
 
 -- ===== Pretty-print helpers =====
 
-countLabel :: Int -> String -> String -> String
-countLabel n singular plural =
-  show n ++ " " ++ if n == 1 then singular else plural
+summarySection
+  :: [(AtomId, Atom)]
+  -> [Edge]
+  -> [(SystemId, BondingSystem)]
+  -> [SmilesAtomStereo]
+  -> [SmilesBondStereo]
+  -> [String]
+summarySection atomList sigmaEdges systemList atomStereoList bondStereoList =
+  [ summaryLine "atoms" (show (length atomList))
+  , summaryLine "sigma bonds" (show (length sigmaEdges))
+  , summaryLine "bonding systems" (show (length systemList))
+  , summaryLine "net charge" (printf "%+d" (sum (map (formalCharge . snd) atomList)))
+  , summaryLine "composition" (molecularFormula atomList)
+  , summaryLine "stereo flags" stereoSummary
+  ]
+  where
+    stereoParts =
+      [ if null atomStereoList then Nothing else Just (show (length atomStereoList) ++ " atom")
+      , if null bondStereoList then Nothing else Just (show (length bondStereoList) ++ " bond")
+      ]
+    stereoSummary =
+      case catMaybes stereoParts of
+        [] -> "none"
+        xs -> intercalate ", " xs
+
+summaryLine :: String -> String -> String
+summaryLine label value = printf "%-16s %s" label value
+
+sectionHeader :: String -> [String]
+sectionHeader title = [title, replicate (length title) '-']
+
+joinBlocks :: [[String]] -> [String]
+joinBlocks [] = ["none"]
+joinBlocks blocks = concat (zipWith addSpacer [0 :: Int ..] blocks)
+  where
+    addSpacer idx block
+      | idx == 0 = block
+      | otherwise = "" : block
+
+molecularFormula :: [(AtomId, Atom)] -> String
+molecularFormula atomList =
+  case counts of
+    [] -> "(empty)"
+    _  -> unwords [ if n == 1 then sym else sym ++ show n | (sym, n) <- ordered ]
+  where
+    countsMap = foldr addSymbol M.empty atomList
+    counts = M.toList countsMap
+    ordered
+      | M.member "C" countsMap =
+          catMaybes
+            [ fmap (\n -> ("C", n)) (M.lookup "C" countsMap)
+            , fmap (\n -> ("H", n)) (M.lookup "H" countsMap)
+            ]
+            ++ [ (sym, n) | (sym, n) <- counts, sym /= "C", sym /= "H" ]
+      | otherwise = counts
+
+    addSymbol (_, atom) = M.insertWith (+) (show (symbol (attributes atom))) 1
 
 renderLines :: [String] -> String
 renderLines = intercalate "\n"
@@ -246,14 +289,14 @@ formatAtomBlock m (aid, atom) = atomLines atom neighbourLine
     neighbourValue
       | null neighbourRefs = "none"
       | otherwise          = intercalate ", " neighbourRefs
-    neighbourLine = [detailLine "σ neighbours:" neighbourValue]
+    neighbourLine = [detailLine "sigma:" neighbourValue]
 
 formatBondLine :: Molecule -> Edge -> String
 formatBondLine m e =
   let atomsMap   = atoms m
       systemsList = systems m
       pair       = formatEdgeShort atomsMap e
-      orderStr   = printf "%.2f" (effectiveOrder m e)
+      orderStr   = printf "order=%.2f" (effectiveOrder m e)
       systemRefs =
         [ formatSystemLabel sid bs
         | (sid, bs) <- sortOn fst systemsList
@@ -262,23 +305,22 @@ formatBondLine m e =
       systemSuffix =
         case systemRefs of
           [] -> ""
-          _  -> "; systems: " ++ intercalate ", " systemRefs
-  in pair ++ " (order " ++ orderStr ++ systemSuffix ++ ")"
+          _  -> "  systems=" ++ intercalate ", " systemRefs
+  in pair ++ "  " ++ orderStr ++ systemSuffix
 
 formatSystemBlock :: Molecule -> (SystemId, BondingSystem) -> [String]
-formatSystemBlock m (sid, bs) = header : indentBlock 2 body
+formatSystemBlock m (sid, bs) = title : body
   where
     atomsMap = atoms m
     SystemId sidNum = sid
     electrons = getNN (sharedElectrons bs)
-    labelSuffix = maybe "" (\lbl -> " [" ++ lbl ++ "]") (tag bs)
-    header = printf "System %d%s: %d shared electrons" sidNum labelSuffix electrons
+    title = maybe (printf "[#%d]" sidNum) (\lbl -> printf "[#%d] %s" sidNum lbl) (tag bs)
 
     atomRefs = [ renderAtomRef (atomsMap M.! aid)
                | aid <- S.toList (memberAtoms bs) ]
     atomsLine
       | null atomRefs = []
-      | otherwise     = ["Atoms: " ++ intercalate ", " atomRefs]
+      | otherwise     = [printf "  member atoms:     %s" (intercalate ", " atomRefs)]
 
     edgesList = sort (S.toList (memberEdges bs))
     perEdgeContribution
@@ -289,12 +331,12 @@ formatSystemBlock m (sid, bs) = header : indentBlock 2 body
           in Just (eCount / (2 * eEdges))
     edgesSection =
       case edgesList of
-        [] -> []
+        [] -> ["  member edges:     none"]
         _  ->
           let headerLine = case perEdgeContribution of
-                              Nothing      -> "Edges:"
-                              Just contrib -> printf "Edges (+%.2f to bond order each):" contrib
-              edgeLines  = indentBlock 2 (map (formatEdgeShort atomsMap) edgesList)
+                              Nothing      -> "  member edges:"
+                              Just contrib -> printf "  edge bonus:       +%.2f to each listed edge" contrib
+              edgeLines  = "  member edges:" : indentBlock 4 (map (\edge -> "- " ++ formatEdgeShort atomsMap edge) edgesList)
           in headerLine : edgeLines
 
     body = atomsLine ++ edgesSection
@@ -306,18 +348,18 @@ atomLines atom extraDetail = header : indentBlock 2 detailLines
     detailLines = baseDetails ++ extraDetail ++ shellSection
 
     baseDetails =
-      [ detailLine "Coordinates (Å):" (formatCoord (coordinate atom))
-      , detailLine "Formal charge:" (printf "%+d" (formalCharge atom))
+      [ detailLine "xyz:" (formatCoord (coordinate atom))
+      , detailLine "charge:" (printf "%+d" (formalCharge atom))
       ]
 
     shellLines = prettyShellLines (shells atom)
     shellSection =
       case shellLines of
         [] -> []
-        _  -> "Electron shells:" : indentBlock 2 shellLines
+        _  -> "shells:" : indentBlock 2 shellLines
 
 detailLine :: String -> String -> String
-detailLine label value = printf "%-18s %s" label value
+detailLine label value = printf "%-8s %s" label value
 
 formatAtomHeader :: Atom -> String
 formatAtomHeader atom =
@@ -325,7 +367,7 @@ formatAtomHeader atom =
       symStr  = show (symbol attr)
       AtomId idx = atomID atom
       idxInt  = fromInteger idx :: Int
-  in printf "%s #%d (Z=%d, %.4f u)" symStr idxInt (atomicNumber attr) (atomicWeight attr)
+  in printf "[%s#%d] Z=%d  mass=%.4f u" symStr idxInt (atomicNumber attr) (atomicWeight attr)
 
 renderAtomRef :: Atom -> String
 renderAtomRef atom =
@@ -335,13 +377,13 @@ renderAtomRef atom =
 
 formatEdgeShort :: Map AtomId Atom -> Edge -> String
 formatEdgeShort atomMap (Edge i j) =
-  renderAtomRef (atomMap M.! i) ++ " ↔ " ++ renderAtomRef (atomMap M.! j)
+  renderAtomRef (atomMap M.! i) ++ " <-> " ++ renderAtomRef (atomMap M.! j)
 
 formatSystemLabel :: SystemId -> BondingSystem -> String
 formatSystemLabel sid bs =
   let SystemId sidNum = sid
       base = "#" ++ show sidNum
-  in maybe base (\lbl -> base ++ " [" ++ lbl ++ "]") (tag bs)
+  in maybe base (\lbl -> base ++ "[" ++ lbl ++ "]") (tag bs)
 
 formatAtomStereo :: SmilesAtomStereo -> String
 formatAtomStereo stereo =
@@ -380,35 +422,36 @@ prettyShellLines = concatMap formatShell
             , formatSubShell 'p' (Orb.pSubShell sh)
             , formatSubShell 'd' (Orb.dSubShell sh)
             , formatSubShell 'f' (Orb.fSubShell sh) ]
-          body = concat subs
+          summaryBits = map fst subs
+          body = concatMap snd subs
       in case body of
            [] -> [printf "n=%d (empty)" n]
-           _  -> printf "n=%d" n : indentBlock 2 body
+           _  -> printf "n=%d :: %s" n (intercalate " | " summaryBits) : indentBlock 2 body
 
     formatSubShell :: Show subshellType
                    => Char
                    -> Maybe (Orb.SubShell subshellType)
-                   -> Maybe [String]
+                   -> Maybe (String, [String])
     formatSubShell _ Nothing = Nothing
     formatSubShell label (Just (Orb.SubShell orbitals)) =
       let totalElectrons = sum [ Orb.electronCount o | o <- orbitals ]
-          header = printf "%c: %d e" label totalElectrons
-          orbitalLines = indentBlock 2 (map formatOrbital orbitals)
-      in Just (header : orbitalLines)
+          header = printf "%c %de" label totalElectrons
+          orbitalLines = map (\orbital -> "- " ++ formatOrbital orbital) orbitals
+      in Just (header, orbitalLines)
 
     formatOrbital :: Show subshellType => Orb.Orbital subshellType -> String
     formatOrbital o =
-      let base = printf "%s (%d e)" (show (Orb.orbitalType o)) (Orb.electronCount o)
+      let base = printf "%s (%d e)" (map toLower (show (Orb.orbitalType o))) (Orb.electronCount o)
           orientationPart =
-            maybe "" (\coord -> ", orientation " ++ formatOrientation coord) (Orb.orientation o)
+            maybe "" (\coord -> " @ " ++ formatOrientation coord) (Orb.orientation o)
           hybridPart =
-            maybe "" (\hyb -> ", hybrid " ++ formatHybrid hyb) (Orb.hybridComponents o)
+            maybe "" (\hyb -> " hybrid " ++ formatHybrid hyb) (Orb.hybridComponents o)
       in base ++ orientationPart ++ hybridPart
 
 formatOrientation :: Coordinate -> String
 formatOrientation (Coordinate x y z) =
   let showA = printf "% .3f" . unAngstrom
-  in "⟨" ++ intercalate ", " [showA x, showA y, showA z] ++ "⟩"
+  in "<" ++ intercalate ", " [showA x, showA y, showA z] ++ ">"
 
 formatHybrid :: [(Double, Orb.PureOrbital)] -> String
 formatHybrid = intercalate " + " . map formatComponent
