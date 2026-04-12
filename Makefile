@@ -1,5 +1,5 @@
 DATASET_PREFIX ?= freesolv_moladt_featurized
-METHOD ?= lwis
+METHOD ?= mh:0.2
 ROW_LIMIT ?= 128
 CSV_PATH ?= ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.csv
 PROCESSED_DATA_DIR ?= ../MolADT-Bayes-Python/data/processed
@@ -21,7 +21,7 @@ help:
 	"  make haskell-build          Build the Haskell project" \
 	"  make haskell-test           Run the Haskell test suites" \
 	"  make haskell-demo           Run the demo executable" \
-	"  make haskell-infer-benchmark Run the aligned LWIS/MH benchmark baseline" \
+	"  make haskell-infer-benchmark Run the aligned benchmark consumer" \
 	"  make haskell-parse          Parse molecules/benzene.sdf" \
 	"  make haskell-parse-smiles   Parse c1ccccc1" \
 	"  make haskell-parse-smiles-csv-timing Benchmark CSV field->String vs MolADT parse timing" \
@@ -192,10 +192,10 @@ haskell-demo: haskell-check-stack
 	"  repo: MolADT-Bayes-Haskell" \
 	"  processed_data_dir: $(PROCESSED_DATA_DIR)" \
 	"  delegated Python repo for missing exports: $(PYTHON_REPO_DIR)" \
-	"  required benchmark exports: freesolv_moladt_featurized and qm9_moladt" \
+	"  required benchmark exports: freesolv_moladt_featurized and qm9_moladt_featurized" \
 	"  stack_cmd: $(STACK_CMD)"
 	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="freesolv_moladt_featurized" haskell-check-dataset-data
-	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="qm9_moladt" haskell-check-dataset-data
+	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="qm9_moladt_featurized" haskell-check-dataset-data
 	MOLADT_PROCESSED_DATA_DIR="$(PROCESSED_DATA_DIR)" $(STACK_CMD) run moladtbayes -- demo
 
 haskell-infer-benchmark: haskell-check-stack

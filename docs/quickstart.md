@@ -65,15 +65,17 @@ make haskell-infer-benchmark
 This uses Python-exported matrices. By default it runs:
 
 - dataset prefix `freesolv_moladt_featurized`
-- method `lwis`
+- method `mh:0.2`
 - row limit `128`
+
+That default path uses the local exact GP on the FreeSolv MolADT featurized export. The QM9 path keeps the local linear Student-`t` benchmark model.
 
 If the required exports are missing, the Makefile can offer to build them through the Python repo first. In that delegated path, Python-side downloads and large archive extractions above GitHub's 100 MB limit show byte counts, entry counts, throughput, and elapsed time.
 
 Override the processed-data path with:
 
 ```bash
-MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized lwis
+MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized mh:0.2
 ```
 
 ## 6. If Setup Fails

@@ -28,12 +28,38 @@ stack run moladtbayes -- parse-smiles "c1ccccc1"
 make haskell-parse-smiles-csv-timing
 ```
 
+## Parsing
+
+Use the CLI when you want to inspect the typed MolADT object directly.
+
+```bash
+stack run moladtbayes -- parse molecules/benzene.sdf
+stack run moladtbayes -- parse-smiles "c1ccccc1"
+stack run moladtbayes -- to-smiles molecules/benzene.sdf
+```
+
+- `parse` reads one SDF record, validates it, pretty-prints the MolADT structure, and then tries to render SMILES
+- `parse-smiles` reads the conservative SMILES subset and lifts it into the typed MolADT object
+- `to-smiles` renders validated classical MolADT structures back into the supported SMILES subset
+
+The SDF parser accepts V2000 and the core V3000 CTAB subset used by ordinary structure exports:
+
+- atom coordinates
+- bond tables
+- atom-local formal charges
+
+The Haskell side is intentionally a parser, not a full MDL toolkit. It reads those structures into MolADT; it does not attempt to support the full query/enhanced-feature surface of SDF.
+
+If one SDF file contains multiple molecules, use `case readSDFRecords "bundle.sdf" of Right ms -> take 3 ms; Left err -> error (show err)` from `Chem.IO.SDF`, or `either (error . show) (take 3) (parseSDFRecords multiRecordText)` if the records are already in memory.
+
+The local QM9 and vendored FreeSolv raw files in the sibling Python workspace are still V2000. The parser can read the core V3000 subset, but the current local benchmark raws are not being silently relabeled.
+
 ## What This Repo Contains
 
 - the typed MolADT source implementation
 - conservative SDF and SMILES boundary parsing
 - a local CSV-field-to-String versus SMILES-to-MolADT timing entry point
-- example molecules, CLI tools, and aligned inference entry points
+- example molecules, CLI tools, and aligned benchmark entry points
 
 ## Benchmarking
 
@@ -46,10 +72,23 @@ make haskell-parse-smiles-csv-timing
 
 The Haskell side consumes the Python-exported MolADT matrices for inference, and it can also time the local SMILES parser against a plain CSV-field-to-String baseline.
 
+The local Haskell model split is:
+
+- FreeSolv: a finite exact RBF Gaussian process over screened `moladt_featurized` inputs
+- QM9: the `moladt_featurized` export with the local linear Student-`t` baseline
+
+For FreeSolv, the Haskell GP does three things:
+
+- it starts from the Python-exported MolADT feature matrix
+- it keeps the strongest `24` training-selected feature channels
+- it fits a finite exact RBF kernel model and predicts from the posterior over GP hyperparameters using the local LazyPPL `mh` or `lwis` kernels
+
+That makes the Haskell model different from the Python Stan FreeSolv path. Python uses `bayes_gp_rbf_screened` with `laplace`; Haskell uses the same MolADT-featurized export but runs a local exact GP implementation over it.
+
 The current Python benchmark contract is:
 
 - FreeSolv: `moladt_featurized` with `bayes_gp_rbf_screened` fit by `laplace`
-- QM9: the compact `moladt` export with the Python Stan sweep
+- QM9: `moladt_featurized` with `bayes_linear_student_t` fit by `optimize`
 
 The comparison figures still come from the Python repo:
 
@@ -68,10 +107,11 @@ Timing bundles still belong to the Python repo. If the sibling raw or processed 
 ## Read More
 
 - [Quickstart](docs/quickstart.md)
+- [Parsing and rendering](docs/parsing.md)
 - [CLI and demo](docs/cli-and-demo.md)
 - [Models and exported features](docs/models.md)
 - [Python interop](docs/python-interop.md)
-- [Inference baseline](docs/inference.md)
+- [Inference](docs/inference.md)
 - [Examples](docs/examples.md)
 
 ## Related Repo

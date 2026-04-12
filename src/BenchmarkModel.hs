@@ -21,9 +21,18 @@ import Control.DeepSeq (NFData)
 import Control.Monad (forM_, replicateM, unless, when)
 import Control.Parallel.Strategies (parMap, rdeepseq)
 import Data.Char (isSpace)
-import Data.List (foldl', isSuffixOf, sortOn, zipWith3)
+import Data.List (foldl', intercalate, isPrefixOf, isSuffixOf, sortOn, zipWith3)
 import Data.Ord (Down(..))
 import Distr (normal)
+import GaussianProcess
+  ( GaussianProcessParameters(..)
+  , GaussianProcessSupport
+  , defaultGaussianProcessFeatureCap
+  , gaussianProcessFeatureNames
+  , gaussianProcessLogLikelihood
+  , predictGaussianProcess
+  , prepareGaussianProcessSupport
+  )
 import GHC.Generics (Generic)
 import LazyPPL (Meas, lwis, mh, sample, scoreLog)
 import Numeric.Log (Log(Exp))
@@ -54,11 +63,16 @@ data BenchmarkDataset = BenchmarkDataset
 instance NFData BenchmarkDataset
 
 
-data BenchmarkParameters = BenchmarkParameters
-  { paramIntercept :: !Double
-  , paramCoeffs    :: ![Double]
-  , paramSigma     :: !Double
-  } deriving (Show, Eq, Generic)
+data BenchmarkParameters
+  = LinearParameters
+      { paramIntercept :: !Double
+      , paramCoeffs    :: ![Double]
+      , paramSigma     :: !Double
+      }
+  | GaussianProcessPosterior
+      { paramGaussianProcess :: !GaussianProcessParameters
+      }
+  deriving (Show, Eq, Generic)
 
 instance NFData BenchmarkParameters
 
@@ -101,6 +115,19 @@ data BenchmarkInferenceMethod
   = UseLWIS { lwisSampleCount :: !Int }
   | UseMH { mhJitter :: !Double }
   deriving (Eq, Show)
+
+
+data BenchmarkModelFamily
+  = UseLinearStudentT
+  | UseGaussianProcessRbf
+  deriving (Eq, Show)
+
+
+data PreparedBenchmark = PreparedBenchmark
+  { preparedDataset :: !BenchmarkDataset
+  , preparedModel   :: !BenchmarkModelFamily
+  , preparedGP      :: !(Maybe GaussianProcessSupport)
+  }
 
 
 defaultProcessedDataDir :: FilePath
@@ -179,12 +206,17 @@ parseInferenceMethod config raw =
 
 runBenchmarkRegressionWith :: SamplingConfig -> BenchmarkInferenceMethod -> FilePath -> String -> Maybe Int -> IO ()
 runBenchmarkRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
-                          method
+                          requestedMethod
                           processedDir
                           prefix
                           mLimit = do
   dataset <- loadBenchmarkDataset processedDir prefix mLimit
-  let trainCount = length (trainObservations dataset)
+  let prepared = prepareBenchmark dataset
+      modelFamily = preparedModel prepared
+      method = adjustedInferenceMethod modelFamily requestedMethod
+      actualBurnIn = adjustedBurnIn modelFamily burnInIterations
+      actualPosteriorSamples = adjustedPosteriorSamples modelFamily posteriorSamples
+      trainCount = length (trainObservations dataset)
       validCount = length (validObservations dataset)
       testCount  = length (testObservations dataset)
   putStrLn $ "Benchmark dataset: " ++ datasetPrefix dataset
@@ -195,36 +227,37 @@ runBenchmarkRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
     "Split sizes: train=" ++ show trainCount
     ++ ", valid=" ++ show validCount
     ++ ", test=" ++ show testCount
-  putStrLn "Model alignment: linear Student-t regression baseline over the exact standardized X/y exports written by the Python benchmark pipeline."
+  putStrLn $ "Model alignment: " ++ describeModelAlignment prepared
   putStrLn $ "Inference method: " ++ describeInferenceMethod method
+  putStrLn $
+    "Execution budget: burn-in=" ++ show actualBurnIn
+    ++ ", posterior_samples=" ++ show actualPosteriorSamples
+  printPreparedModelDetails prepared
 
-  parameterSamples <- benchmarkModelWith method dataset
+  parameterSamples <- benchmarkModelWith method prepared
 
-  let (skippedBurnIn, postBurnSamples) = splitAt burnInIterations parameterSamples
-      actualBurnIn = length skippedBurnIn
-  when (burnInIterations > 0 && actualBurnIn < burnInIterations && not (null parameterSamples)) $
+  let (skippedBurnIn, postBurnSamples) = splitAt actualBurnIn parameterSamples
+      usedBurnIn = length skippedBurnIn
+  when (actualBurnIn > 0 && usedBurnIn < actualBurnIn && not (null parameterSamples)) $
     putStrLn $
-      "Warning: only " ++ show actualBurnIn
+      "Warning: only " ++ show usedBurnIn
       ++ " burn-in samples were available out of the requested "
-      ++ show burnInIterations ++ "."
+      ++ show actualBurnIn ++ "."
 
   let posteriorSampleList =
         case method of
-          UseLWIS {} -> take (max 1 posteriorSamples) parameterSamples
-          UseMH {}   -> take (max 1 posteriorSamples) postBurnSamples
+          UseLWIS {} -> take (max 1 actualPosteriorSamples) parameterSamples
+          UseMH {}   -> take (max 1 actualPosteriorSamples) postBurnSamples
       collectedSamples = length posteriorSampleList
       effectiveSamples =
         if null posteriorSampleList
-          then [zeroParameters (length (featureNames dataset))]
+          then [defaultParametersFor prepared]
           else posteriorSampleList
-      meanParameters = averageParameters effectiveSamples
-      validPredictions = predictSplit effectiveSamples (validObservations dataset)
-      testPredictions = predictSplit effectiveSamples (testObservations dataset)
+      validPredictions = predictSplit prepared effectiveSamples (validObservations dataset)
+      testPredictions = predictSplit prepared effectiveSamples (testObservations dataset)
 
   putStrLn $ "Posterior samples used: " ++ show collectedSamples
-  putStrLn $ "Posterior mean intercept: " ++ show (paramIntercept meanParameters)
-  putStrLn $ "Posterior mean sigma: " ++ show (paramSigma meanParameters)
-  printTopCoefficients (featureNames dataset) meanParameters
+  printPosteriorSummary prepared effectiveSamples
 
   unless (null validPredictions) $ do
     let validMetrics = summarizeMetrics validPredictions
@@ -249,22 +282,80 @@ runBenchmarkRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
       ++ ", n=" ++ show (metricRowCount testMetrics)
 
 
-benchmarkModelWith :: BenchmarkInferenceMethod -> BenchmarkDataset -> IO [BenchmarkParameters]
-benchmarkModelWith UseLWIS { lwisSampleCount } dataset =
-  lwis (max 1 lwisSampleCount) (benchmarkModel dataset)
-benchmarkModelWith UseMH { mhJitter } dataset = do
-  samples <- mh mhJitter (benchmarkModel dataset)
+prepareBenchmark :: BenchmarkDataset -> PreparedBenchmark
+prepareBenchmark dataset =
+  case modelFamilyFor dataset of
+    UseLinearStudentT ->
+      PreparedBenchmark
+        { preparedDataset = dataset
+        , preparedModel = UseLinearStudentT
+        , preparedGP = Nothing
+        }
+    UseGaussianProcessRbf ->
+      let trainRows = map predictorValues (trainObservations dataset)
+          trainTargets = map observedTarget (trainObservations dataset)
+          support =
+            prepareGaussianProcessSupport
+              defaultGaussianProcessFeatureCap
+              (featureNames dataset)
+              trainRows
+              trainTargets
+      in PreparedBenchmark
+           { preparedDataset = dataset
+           , preparedModel = UseGaussianProcessRbf
+           , preparedGP = Just support
+           }
+
+
+modelFamilyFor :: BenchmarkDataset -> BenchmarkModelFamily
+modelFamilyFor dataset
+  | "freesolv_" `isPrefixOf` datasetPrefix dataset
+    && representationName dataset == "moladt_featurized" = UseGaussianProcessRbf
+  | otherwise = UseLinearStudentT
+
+
+adjustedInferenceMethod :: BenchmarkModelFamily -> BenchmarkInferenceMethod -> BenchmarkInferenceMethod
+adjustedInferenceMethod UseGaussianProcessRbf UseLWIS { lwisSampleCount } =
+  UseLWIS (min 128 (max 32 lwisSampleCount))
+adjustedInferenceMethod _ method = method
+
+
+adjustedBurnIn :: BenchmarkModelFamily -> Int -> Int
+adjustedBurnIn UseGaussianProcessRbf requested = min 256 requested
+adjustedBurnIn _ requested = requested
+
+
+adjustedPosteriorSamples :: BenchmarkModelFamily -> Int -> Int
+adjustedPosteriorSamples UseGaussianProcessRbf requested = min 64 requested
+adjustedPosteriorSamples _ requested = requested
+
+
+benchmarkModelWith :: BenchmarkInferenceMethod -> PreparedBenchmark -> IO [BenchmarkParameters]
+benchmarkModelWith UseLWIS { lwisSampleCount } prepared =
+  lwis (max 1 lwisSampleCount) (benchmarkModel prepared)
+benchmarkModelWith UseMH { mhJitter } prepared = do
+  samples <- mh mhJitter (benchmarkModel prepared)
   pure (map fst samples)
 
 
-benchmarkModel :: BenchmarkDataset -> Meas BenchmarkParameters
-benchmarkModel dataset = do
+benchmarkModel :: PreparedBenchmark -> Meas BenchmarkParameters
+benchmarkModel PreparedBenchmark { preparedDataset, preparedModel, preparedGP } =
+  case preparedModel of
+    UseLinearStudentT -> linearBenchmarkModel preparedDataset
+    UseGaussianProcessRbf ->
+      case preparedGP of
+        Nothing -> error "Gaussian-process benchmark requested without prepared support."
+        Just support -> gaussianProcessBenchmarkModel support
+
+
+linearBenchmarkModel :: BenchmarkDataset -> Meas BenchmarkParameters
+linearBenchmarkModel dataset = do
   intercept <- sample (normal 0.0 1.5)
   coeffs <- replicateM featureCount (sample (normal 0.0 1.0))
   sigmaRaw <- sample (normal 0.0 1.0)
   let sigma = max 1.0e-6 (abs sigmaRaw)
       params =
-        BenchmarkParameters
+        LinearParameters
           { paramIntercept = intercept
           , paramCoeffs = coeffs
           , paramSigma = sigma
@@ -278,14 +369,55 @@ benchmarkModel dataset = do
     featureCount = length (featureNames dataset)
 
 
-predictSplit :: [BenchmarkParameters] -> [BenchmarkObservation] -> [BenchmarkPrediction]
-predictSplit parameterSamples =
-  parMap rdeepseq (predictObservation parameterSamples)
+gaussianProcessBenchmarkModel :: GaussianProcessSupport -> Meas BenchmarkParameters
+gaussianProcessBenchmarkModel support = do
+  meanOffset <- sample (normal 0.0 5.0)
+  logKernelScale <- sample (normal 0.0 1.0)
+  logLengthScale <- sample (normal 0.0 1.0)
+  logNoiseScale <- sample (normal (-1.0) 1.0)
+  let params =
+        GaussianProcessParameters
+          { gpMeanOffset = meanOffset
+          , gpKernelScale = max 1.0e-4 (exp logKernelScale)
+          , gpLengthScale = max 1.0e-3 (exp logLengthScale)
+          , gpNoiseScale = max 1.0e-4 (exp logNoiseScale)
+          }
+      logLikelihood =
+        maybe (-1.0e12) id (gaussianProcessLogLikelihood support params)
+  scoreLog (Exp logLikelihood)
+  pure (GaussianProcessPosterior params)
 
 
-predictObservation :: [BenchmarkParameters] -> BenchmarkObservation -> BenchmarkPrediction
-predictObservation parameterSamples BenchmarkObservation { observationLabel, predictorValues, observedTarget } =
-  let draws = map (\params -> linearPredictor params predictorValues) parameterSamples
+predictSplit :: PreparedBenchmark -> [BenchmarkParameters] -> [BenchmarkObservation] -> [BenchmarkPrediction]
+predictSplit PreparedBenchmark { preparedModel = UseLinearStudentT } parameterSamples observations =
+  let linearSamples = [params | params@LinearParameters {} <- parameterSamples]
+  in parMap rdeepseq (predictLinearObservation linearSamples) observations
+predictSplit PreparedBenchmark { preparedModel = UseGaussianProcessRbf, preparedGP = Just support } parameterSamples observations =
+  let gpSamples =
+        [ params
+        | GaussianProcessPosterior { paramGaussianProcess = params } <- parameterSamples
+        ]
+      predictedPairs = predictGaussianProcess support gpSamples (map predictorValues observations)
+  in zipWith attachPrediction observations predictedPairs
+  where
+    attachPrediction observation (meanValue, sdValue) =
+      let residual = meanValue - observedTarget observation
+      in BenchmarkPrediction
+           { predictionLabel = observationLabel observation
+           , predictedMean = meanValue
+           , predictedSd = sdValue
+           , actualValue = observedTarget observation
+           , residualValue = residual
+           }
+predictSplit _ _ _ = []
+
+
+predictLinearObservation :: [BenchmarkParameters] -> BenchmarkObservation -> BenchmarkPrediction
+predictLinearObservation parameterSamples BenchmarkObservation { observationLabel, predictorValues, observedTarget } =
+  let draws =
+        [ linearPredictor params predictorValues
+        | params@LinearParameters {} <- parameterSamples
+        ]
       meanValue = meanDouble draws
       sdValue = stddevDouble draws
       residual = meanValue - observedTarget
@@ -315,7 +447,7 @@ describeInferenceMethod :: BenchmarkInferenceMethod -> String
 describeInferenceMethod UseLWIS { lwisSampleCount } =
   "Likelihood-weighted importance sampling with " ++ show lwisSampleCount ++ " particles"
 describeInferenceMethod UseMH { mhJitter } =
-  "Metropolis-Hastings with jitter " ++ show mhJitter
+  "Metropolis-Hastings with site-mutation probability " ++ show mhJitter
 
 
 describeRepresentation :: String -> String
@@ -326,8 +458,48 @@ describeRepresentation "moladt" =
 describeRepresentation other = other
 
 
+describeModelAlignment :: PreparedBenchmark -> String
+describeModelAlignment PreparedBenchmark { preparedModel = UseLinearStudentT } =
+  "linear Student-t regression baseline over the exact standardized X/y exports written by the Python benchmark pipeline."
+describeModelAlignment PreparedBenchmark { preparedModel = UseGaussianProcessRbf } =
+  "finite exact RBF Gaussian process over the screened MolADT featurized matrix, adapted from the LazyPPL GP pattern to the benchmark's exported feature rows."
+
+
+printPreparedModelDetails :: PreparedBenchmark -> IO ()
+printPreparedModelDetails PreparedBenchmark { preparedModel = UseLinearStudentT } = pure ()
+printPreparedModelDetails PreparedBenchmark { preparedModel = UseGaussianProcessRbf, preparedGP = Just support } =
+  putStrLn $
+    "Screened GP features: " ++ intercalate ", " (gaussianProcessFeatureNames support)
+printPreparedModelDetails _ = pure ()
+
+
+printPosteriorSummary :: PreparedBenchmark -> [BenchmarkParameters] -> IO ()
+printPosteriorSummary PreparedBenchmark { preparedModel = UseLinearStudentT, preparedDataset } parameterSamples = do
+  let linearSamples = [params | params@LinearParameters {} <- parameterSamples]
+      meanParameters =
+        if null linearSamples
+          then zeroLinearParameters (length (featureNames preparedDataset))
+          else averageLinearParameters linearSamples
+  putStrLn $ "Posterior mean intercept: " ++ show (paramIntercept meanParameters)
+  putStrLn $ "Posterior mean sigma: " ++ show (paramSigma meanParameters)
+  printTopCoefficients (featureNames preparedDataset) meanParameters
+printPosteriorSummary PreparedBenchmark { preparedModel = UseGaussianProcessRbf } parameterSamples = do
+  let gpSamples =
+        [ params
+        | GaussianProcessPosterior { paramGaussianProcess = params } <- parameterSamples
+        ]
+      meanParameters =
+        if null gpSamples
+          then zeroGaussianProcessParameters
+          else averageGaussianProcessParameters gpSamples
+  putStrLn $ "Posterior mean offset: " ++ show (gpMeanOffset meanParameters)
+  putStrLn $ "Posterior mean kernel scale: " ++ show (gpKernelScale meanParameters)
+  putStrLn $ "Posterior mean length scale: " ++ show (gpLengthScale meanParameters)
+  putStrLn $ "Posterior mean noise scale: " ++ show (gpNoiseScale meanParameters)
+
+
 printTopCoefficients :: [String] -> BenchmarkParameters -> IO ()
-printTopCoefficients names BenchmarkParameters { paramCoeffs } = do
+printTopCoefficients names LinearParameters { paramCoeffs } = do
   let ranked =
         take 8 $
           sortOn (Down . abs . snd) (zip names paramCoeffs)
@@ -335,10 +507,11 @@ printTopCoefficients names BenchmarkParameters { paramCoeffs } = do
     putStrLn "Top posterior mean coefficients:"
     forM_ ranked $ \(name, coeff) ->
       putStrLn $ "  " ++ name ++ ": " ++ show coeff
+printTopCoefficients _ _ = pure ()
 
 
-averageParameters :: [BenchmarkParameters] -> BenchmarkParameters
-averageParameters samples =
+averageLinearParameters :: [BenchmarkParameters] -> BenchmarkParameters
+averageLinearParameters samples =
   let sampleCount = fromIntegral (length samples)
       interceptMean = meanDouble (map paramIntercept samples)
       sigmaMean = meanDouble (map paramSigma samples)
@@ -346,16 +519,27 @@ averageParameters samples =
         [ foldl' (\acc params -> acc + paramCoeffs params !! index) 0.0 samples / sampleCount
         | index <- [0 .. length (paramCoeffs (head samples)) - 1]
         ]
-  in BenchmarkParameters
+  in LinearParameters
        { paramIntercept = interceptMean
        , paramCoeffs = coeffMeans
        , paramSigma = sigmaMean
        }
 
 
+averageGaussianProcessParameters :: [GaussianProcessParameters] -> GaussianProcessParameters
+averageGaussianProcessParameters samples =
+  GaussianProcessParameters
+    { gpMeanOffset = meanDouble (map gpMeanOffset samples)
+    , gpKernelScale = meanDouble (map gpKernelScale samples)
+    , gpLengthScale = meanDouble (map gpLengthScale samples)
+    , gpNoiseScale = meanDouble (map gpNoiseScale samples)
+    }
+
+
 linearPredictor :: BenchmarkParameters -> [Double] -> Double
-linearPredictor BenchmarkParameters { paramIntercept, paramCoeffs } xs =
+linearPredictor LinearParameters { paramIntercept, paramCoeffs } xs =
   paramIntercept + sum (zipWith (*) paramCoeffs xs)
+linearPredictor _ _ = 0.0
 
 
 studentTLogPdf :: Double -> Double -> Double -> Double -> Double
@@ -367,12 +551,29 @@ studentTLogPdf nu mu sigma y =
   in a + b + c
 
 
-zeroParameters :: Int -> BenchmarkParameters
-zeroParameters featureCount =
-  BenchmarkParameters
+defaultParametersFor :: PreparedBenchmark -> BenchmarkParameters
+defaultParametersFor PreparedBenchmark { preparedModel = UseLinearStudentT, preparedDataset } =
+  zeroLinearParameters (length (featureNames preparedDataset))
+defaultParametersFor PreparedBenchmark { preparedModel = UseGaussianProcessRbf } =
+  GaussianProcessPosterior zeroGaussianProcessParameters
+
+
+zeroLinearParameters :: Int -> BenchmarkParameters
+zeroLinearParameters featureCount =
+  LinearParameters
     { paramIntercept = 0.0
     , paramCoeffs = replicate featureCount 0.0
     , paramSigma = 1.0
+    }
+
+
+zeroGaussianProcessParameters :: GaussianProcessParameters
+zeroGaussianProcessParameters =
+  GaussianProcessParameters
+    { gpMeanOffset = 0.0
+    , gpKernelScale = 1.0
+    , gpLengthScale = 1.0
+    , gpNoiseScale = 1.0
     }
 
 

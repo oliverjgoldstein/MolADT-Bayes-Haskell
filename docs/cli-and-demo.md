@@ -25,11 +25,14 @@ stack run moladtbayes -- parse molecules/benzene.sdf
 What it does now:
 
 - reads the SDF file
+- accepts SDF V2000 and the core V3000 CTAB subset
 - validates the resulting MolADT structure
 - pretty-prints the molecule
 - attempts to render and print `SMILES: ...`
 
 Use `parse` when the source of truth is a file-backed molecule.
+
+The current V3000 support is intentionally narrow: atom coordinates, bond tables, and atom-local formal charges.
 
 ## `parse-smiles`
 
@@ -95,24 +98,26 @@ make haskell-demo
 - parsing and validating `molecules/water.sdf`
 - rendering SMILES where supported
 - running aligned benchmark smoke passes for:
-  - FreeSolv / MolADT featurized with LWIS
-  - QM9 / MolADT with MH
+  - FreeSolv / MolADT featurized with the local exact GP using MH
+  - QM9 / MolADT featurized with MH
 
 The `make haskell-demo` helper only wraps the same `demo` subcommand while setting `MOLADT_PROCESSED_DATA_DIR` from the `Makefile`.
 
 ## `infer-benchmark`
 
 ```bash
-stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized lwis
-stack run moladtbayes -- infer-benchmark qm9_moladt mh:0.9 256
+stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized mh:0.2
+stack run moladtbayes -- infer-benchmark qm9_moladt_featurized mh:0.9 256
 ```
 
-This command loads one Python-exported dataset prefix and runs the aligned Haskell baseline over it.
+This command loads one Python-exported dataset prefix and runs the aligned Haskell benchmark model over it.
 
 In the current docs story, that means:
 
-- `freesolv_moladt_featurized` for the FreeSolv MolADT featurized export
-- `qm9_moladt` for the QM9 MolADT export
+- `freesolv_moladt_featurized` for the FreeSolv MolADT featurized export and the local exact GP
+- `qm9_moladt_featurized` for the QM9 MolADT featurized export
+
+On the FreeSolv path, the Haskell model is a finite exact RBF Gaussian process over the screened MolADT feature matrix. It screens the train split down to the strongest feature channels, then runs local LazyPPL inference over the GP hyperparameters.
 
 ## How `parse` and `parse-smiles` Differ
 

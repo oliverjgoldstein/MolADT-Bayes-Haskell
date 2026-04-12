@@ -48,6 +48,7 @@ library:
     - Group
     - Orbital
     - SlaterTypeOrbital
+    - GaussianProcess
     - Chem.IO.SDF
     - Chem.IO.SMILES
     - Chem.IO.SMILESTiming

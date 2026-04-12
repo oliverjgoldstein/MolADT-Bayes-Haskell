@@ -5,7 +5,7 @@
 module Main (main) where
 
 import Test.Hspec
-import Chem.IO.SDF (readSDF, parseSDF)
+import Chem.IO.SDF (readSDF, parseSDF, parseSDFRecords)
 import Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
 import Chem.IO.SMILESTiming (measureSmilesCsvTiming, timingFailureCount, timingStage, timingSuccessCount)
 import Chem.Molecule
@@ -18,6 +18,54 @@ import System.Directory (getTemporaryDirectory, removeFile)
 import System.IO (hClose, hPutStr, openTempFile)
 import Text.Megaparsec (errorBundlePretty)
 import SampleMolecules (methane, water)
+
+v3000Water :: String
+v3000Water = unlines
+  [ "water"
+  , "MolADT"
+  , "generated"
+  , "  0  0  0  0  0  0            999 V3000"
+  , "M  V30 BEGIN CTAB"
+  , "M  V30 COUNTS 3 2 0 0 0"
+  , "M  V30 BEGIN ATOM"
+  , "M  V30 1 O 0.0000 0.0000 0.0000 0"
+  , "M  V30 2 H 0.9572 0.0000 0.0000 0"
+  , "M  V30 3 H -0.2390 0.9270 0.0000 0"
+  , "M  V30 END ATOM"
+  , "M  V30 BEGIN BOND"
+  , "M  V30 1 1 1 2"
+  , "M  V30 2 1 1 3"
+  , "M  V30 END BOND"
+  , "M  V30 END CTAB"
+  , "M  END"
+  , "$$$$"
+  ]
+
+v3000Ammonium :: String
+v3000Ammonium = unlines
+  [ "ammonium"
+  , "MolADT"
+  , "generated"
+  , "  0  0  0  0  0  0            999 V3000"
+  , "M  V30 BEGIN CTAB"
+  , "M  V30 COUNTS 5 4 0 0 0"
+  , "M  V30 BEGIN ATOM"
+  , "M  V30 1 N 0.0000 0.0000 0.0000 0 CHG=1"
+  , "M  V30 2 H 0.9000 0.0000 0.0000 0"
+  , "M  V30 3 H -0.3000 0.8500 0.0000 0"
+  , "M  V30 4 H -0.3000 -0.4000 0.8000 0"
+  , "M  V30 5 H -0.3000 -0.4000 -0.8000 0"
+  , "M  V30 END ATOM"
+  , "M  V30 BEGIN BOND"
+  , "M  V30 1 1 1 2"
+  , "M  V30 2 1 1 3"
+  , "M  V30 3 1 1 4"
+  , "M  V30 4 1 1 5"
+  , "M  V30 END BOND"
+  , "M  V30 END CTAB"
+  , "M  END"
+  , "$$$$"
+  ]
 
 -- | Run the Hspec suite defined in 'spec'.
 main :: IO ()
@@ -44,6 +92,27 @@ spec = do
       case parsed of
         Left err -> expectationFailure (errorBundlePretty err)
         Right mol -> length (systems mol) `shouldBe` 1
+
+    it "parses the core V3000 atom and bond blocks" $
+      case parseSDF v3000Water of
+        Left err -> expectationFailure (errorBundlePretty err)
+        Right mol -> do
+          M.size (atoms mol) `shouldBe` 3
+          S.size (localBonds mol) `shouldBe` 2
+
+    it "reads V3000 CHG tokens into formal charges" $
+      case parseSDF v3000Ammonium of
+        Left err -> expectationFailure (errorBundlePretty err)
+        Right mol ->
+          fmap formalCharge (M.lookup (AtomId 1) (atoms mol)) `shouldBe` Just 1
+
+    it "parses multiple SDF records from one payload" $
+      case parseSDFRecords (v3000Water ++ v3000Ammonium) of
+        Left err -> expectationFailure (errorBundlePretty err)
+        Right molecules -> do
+          length molecules `shouldBe` 2
+          M.size (atoms (head molecules)) `shouldBe` 3
+          M.size (atoms (last molecules)) `shouldBe` 5
 
   describe "SMILES boundary" $ do
     it "recovers a pi ring from aromatic benzene SMILES" $ do

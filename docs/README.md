@@ -1,20 +1,20 @@
 # Haskell Docs
 
-The Haskell repo is the typed source implementation and the aligned baseline consumer.
+The Haskell repo is the typed source implementation and the aligned benchmark consumer.
 
 ## Our Approach
 
 - keep the typed MolADT source implementation small and inspectable
 - consume the Python-exported MolADT matrices
-- run the aligned Haskell inference baseline over those same exports
+- run the aligned Haskell benchmark models over those same exports
 - treat the Python MoleculeNet figures as the main comparison figures
 
-For the shortest path, start with [Quickstart](quickstart.md). For the benchmark path, go to [Inference baseline](inference.md).
+For the shortest path, start with [Quickstart](quickstart.md). For the benchmark path, go to [Inference](inference.md).
 
 ## Start Here
 
 - [Quickstart](quickstart.md)
-- [Inference baseline](inference.md)
+- [Inference](inference.md)
 - [Representation](representation.md)
 - [Models and exported features](models.md)
 - [Parsing and rendering](parsing.md)

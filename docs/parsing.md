@@ -18,6 +18,15 @@ stack run moladtbayes -- parse molecules/benzene.sdf
 
 This parses the file-backed molecule, validates it, pretty-prints the MolADT structure, and then tries to render SMILES from the validated result.
 
+The SDF parser accepts:
+
+- V2000 records
+- the core V3000 CTAB subset with atom coordinates, bond tables, and atom-local formal charges
+
+The reader is deliberately narrow. It is meant to get ordinary structure files into MolADT, not to cover the entire MDL query feature surface.
+
+If the SDF payload contains several molecules, use `readSDFRecords "bundle.sdf"` from `Chem.IO.SDF`, or `parseSDFRecords multiRecordText` if the records are already in memory.
+
 ## If You Have a SMILES String
 
 Use `parse-smiles`.

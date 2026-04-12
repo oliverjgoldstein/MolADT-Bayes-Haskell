@@ -40,7 +40,7 @@ Built-in MolADT example objects:
 
 ### [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs)
 
-The aligned Haskell benchmark consumer. It loads Python-exported matrices, parses the inference syntax, runs the linear Student-`t` baseline, and prints metrics and predictions to stdout.
+The aligned Haskell benchmark consumer. It loads Python-exported matrices, parses the inference syntax, selects the local exact GP for FreeSolv or the local linear Student-`t` baseline for QM9, and prints metrics and predictions to stdout.
 
 ### [`test/`](../test/)
 

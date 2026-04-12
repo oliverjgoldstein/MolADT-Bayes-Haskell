@@ -24,7 +24,7 @@ main = hspec $ do
       length (validObservations dataset) `shouldSatisfy` (> 0)
       length (testObservations dataset) `shouldSatisfy` (> 0)
 
-    it "loads the exported QM9 MolADT matrix" $ do
-      dataset <- loadBenchmarkDataset defaultProcessedDataDir "qm9_moladt" (Just 8)
-      representationName dataset `shouldBe` "moladt"
+    it "loads the exported QM9 MolADT featurized matrix" $ do
+      dataset <- loadBenchmarkDataset defaultProcessedDataDir "qm9_moladt_featurized" (Just 8)
+      representationName dataset `shouldBe` "moladt_featurized"
       targetName dataset `shouldBe` "mu"
