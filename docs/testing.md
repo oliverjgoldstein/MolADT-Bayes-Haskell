@@ -31,7 +31,7 @@ stack run moladtbayes -- to-smiles molecules/benzene.sdf
 
 ### [`test/benchmark-alignment`](../test/benchmark-alignment/)
 
-Checks that the Haskell side can load the Python-exported `freesolv_moladt` and `qm9_moladt` matrices and sees the expected target/representation structure.
+Checks that the Haskell side can load the Python-exported `freesolv_moladt_featurized` and `qm9_moladt` matrices and sees the expected target/representation structure.
 
 ### [`test/edge-properties`](../test/edge-properties/)
 
@@ -61,7 +61,7 @@ QuickCheck properties for validator invariants, including benzene relabeling and
 - Unsupported SMILES outside the conservative subset:
   the CLI will reject molecules outside the supported classical boundary. See [SMILES scope and validation](smiles-scope-and-validation.md).
 - Confusion about which repo owns which benchmark stage:
-  raw dataset download, feature export, and reviewer-facing `results/` artifacts belong to the Python repo; Haskell consumes the exported matrices, prints its own inference summaries to stdout, and now has a local stdout parser-timing command.
+  raw dataset download, feature export, and `results/` artifacts belong to the Python repo; Haskell consumes the exported matrices, prints its own inference summaries to stdout, and has a local stdout parser-timing command.
 
 ## Related Pages
 

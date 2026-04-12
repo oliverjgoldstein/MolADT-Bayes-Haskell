@@ -122,6 +122,7 @@ loadBenchmarkDataset processedDir prefix mLimit = do
       valid = mkObservations "valid" xValidRows yValidRows
       test  = mkObservations "test" xTestRows yTestRows
       representation
+        | "_moladt_featurized" `isSuffixOf` prefix = "moladt_featurized"
         | "_moladt" `isSuffixOf` prefix = "moladt"
         | otherwise                     = "unknown"
   pure
@@ -194,7 +195,7 @@ runBenchmarkRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
     "Split sizes: train=" ++ show trainCount
     ++ ", valid=" ++ show validCount
     ++ ", test=" ++ show testCount
-  putStrLn "Model alignment: linear Student-t regression over the exact standardized X/y exports used by Python's bayes_linear_student_t benchmark."
+  putStrLn "Model alignment: linear Student-t regression baseline over the exact standardized X/y exports written by the Python benchmark pipeline."
   putStrLn $ "Inference method: " ++ describeInferenceMethod method
 
   parameterSamples <- benchmarkModelWith method dataset
@@ -318,6 +319,8 @@ describeInferenceMethod UseMH { mhJitter } =
 
 
 describeRepresentation :: String -> String
+describeRepresentation "moladt_featurized" =
+  "MolADT featurized descriptor matrix exported by the Python benchmark"
 describeRepresentation "moladt" =
   "typed MolADT descriptor matrix exported by the Python benchmark"
 describeRepresentation other = other

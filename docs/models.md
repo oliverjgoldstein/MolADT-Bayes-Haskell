@@ -9,7 +9,7 @@ The Haskell-side approach is:
 - keep the MolADT source representation explicit and typed
 - reuse the Python MolADT benchmark exports
 - run the aligned Haskell baseline over those same exports
-- use the Python MoleculeNet figures as the reviewer-facing paper comparison
+- use the Python MoleculeNet figures as the paper comparison
 
 The short version is:
 
@@ -36,27 +36,28 @@ make haskell-infer-benchmark
 or directly:
 
 ```bash
-stack run moladtbayes -- infer-benchmark freesolv_moladt lwis
+stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized lwis
 ```
 
 ## Where The Features Come From
 
 The Haskell baseline reads standardized `X/y` matrices exported by the Python repo.
 
-For a dataset prefix such as `freesolv_moladt` or `qm9_moladt`, the Haskell side expects:
+For a dataset prefix such as `freesolv_moladt_featurized` or `qm9_moladt`, the Haskell side expects:
 
 - `*_X_train.csv`, `*_X_valid.csv`, `*_X_test.csv`
 - `*_y_train.csv`, `*_y_valid.csv`, `*_y_test.csv`
 
 ## What Those Features Represent
 
-The current benchmark contract is MolADT-only:
+The current cross-repo contract is MolADT-only:
 
 - Python builds the typed `Molecule` object
 - Python computes MolADT-native descriptors from that object
+- Python's current FreeSolv benchmark path uses the richer `moladt_featurized` export
 - Haskell consumes the exported standardized `X/y` matrices
 
-The reviewer-facing comparison is then MolADT versus MoleculeNet, not MolADT versus a second local representation.
+The main comparison is then MolADT versus MoleculeNet, not MolADT versus a second local representation.
 
 ## Why This Matters For The Haskell Repo
 

@@ -62,7 +62,7 @@ What it does now:
 - times the local `String -> MolADT` parser as `smiles_adt_parse`
 - prints a small stdout report with counts, throughput, median latency, and p95 latency
 
-This is a local parser-timing command, not the reviewer-facing Python timing bundle.
+This is a local parser-timing command, not the Python timing bundle.
 
 ## `pretty-example`
 
@@ -95,7 +95,7 @@ make haskell-demo
 - parsing and validating `molecules/water.sdf`
 - rendering SMILES where supported
 - running aligned benchmark smoke passes for:
-  - FreeSolv / MolADT with LWIS
+  - FreeSolv / MolADT featurized with LWIS
   - QM9 / MolADT with MH
 
 The `make haskell-demo` helper only wraps the same `demo` subcommand while setting `MOLADT_PROCESSED_DATA_DIR` from the `Makefile`.
@@ -103,7 +103,7 @@ The `make haskell-demo` helper only wraps the same `demo` subcommand while setti
 ## `infer-benchmark`
 
 ```bash
-stack run moladtbayes -- infer-benchmark freesolv_moladt lwis
+stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized lwis
 stack run moladtbayes -- infer-benchmark qm9_moladt mh:0.9 256
 ```
 
@@ -111,7 +111,7 @@ This command loads one Python-exported dataset prefix and runs the aligned Haske
 
 In the current docs story, that means:
 
-- `freesolv_moladt` for the FreeSolv MolADT export
+- `freesolv_moladt_featurized` for the FreeSolv MolADT featurized export
 - `qm9_moladt` for the QM9 MolADT export
 
 ## How `parse` and `parse-smiles` Differ

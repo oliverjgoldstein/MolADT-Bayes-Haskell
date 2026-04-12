@@ -7,7 +7,7 @@ The Haskell repo is the typed source implementation and the aligned baseline con
 - keep the typed MolADT source implementation small and inspectable
 - consume the Python-exported MolADT matrices
 - run the aligned Haskell inference baseline over those same exports
-- treat the Python MoleculeNet figures as the reviewer-facing comparison
+- treat the Python MoleculeNet figures as the main comparison figures
 
 For the shortest path, start with [Quickstart](quickstart.md). For the benchmark path, go to [Inference baseline](inference.md).
 

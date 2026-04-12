@@ -28,7 +28,7 @@ MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed
 
 ## What Haskell Expects
 
-For a dataset prefix such as `freesolv_moladt` or `qm9_moladt`, Haskell expects:
+For a dataset prefix such as `freesolv_moladt_featurized` or `qm9_moladt`, Haskell expects:
 
 - `*_X_train.csv`, `*_X_valid.csv`, `*_X_test.csv`
 - `*_y_train.csv`, `*_y_valid.csv`, `*_y_test.csv`
@@ -57,10 +57,10 @@ That contract is what lets the Haskell baseline compare inference behavior witho
 2. In the Haskell repo, point at that processed-data directory:
 
    ```bash
-   MOLADT_PROCESSED_DATA_DIR=../MolADT-Bayes-Python/data/processed stack run moladtbayes -- infer-benchmark freesolv_moladt lwis
+   MOLADT_PROCESSED_DATA_DIR=../MolADT-Bayes-Python/data/processed stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized lwis
    ```
 
-3. For the typed QM9 path:
+3. For the QM9 path:
 
    ```bash
    MOLADT_PROCESSED_DATA_DIR=../MolADT-Bayes-Python/data/processed stack run moladtbayes -- infer-benchmark qm9_moladt mh:0.9 256
@@ -70,7 +70,7 @@ That contract is what lets the Haskell baseline compare inference behavior witho
 
 Keep this split clear:
 
-- Python owns dataset download, feature extraction, split export, Stan benchmarking, and reviewer-facing `results/` files.
+- Python owns dataset download, feature extraction, split export, Stan benchmarking, and `results/` files.
 - Haskell owns the typed source implementation, CLI, and the aligned LWIS/MH baseline over Python-exported matrices.
 
 If a benchmark stage needs raw FreeSolv, QM9, or ZINC processing, it belongs on the Python side first.

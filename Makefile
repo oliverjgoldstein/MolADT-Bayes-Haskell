@@ -1,4 +1,4 @@
-DATASET_PREFIX ?= freesolv_moladt
+DATASET_PREFIX ?= freesolv_moladt_featurized
 METHOD ?= lwis
 ROW_LIMIT ?= 128
 CSV_PATH ?= ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.csv
@@ -147,7 +147,7 @@ haskell-check-dataset-data:
 	fi; \
 	python_target=""; \
 	case "$$dataset_prefix" in \
-		freesolv_*) python_target="python-benchmark-smoke" ;; \
+		freesolv_*) python_target="freesolv" ;; \
 		qm9_*) python_target="python-benchmark-qm9" ;; \
 	esac; \
 	if [ -n "$$python_target" ] && [ -f "$$python_repo_dir/Makefile" ] && confirm_fix "Processed benchmark exports for $$dataset_prefix are missing. Generate them now via the Python repo? [y/N] "; then \
@@ -192,9 +192,9 @@ haskell-demo: haskell-check-stack
 	"  repo: MolADT-Bayes-Haskell" \
 	"  processed_data_dir: $(PROCESSED_DATA_DIR)" \
 	"  delegated Python repo for missing exports: $(PYTHON_REPO_DIR)" \
-	"  required benchmark exports: freesolv_moladt and qm9_moladt" \
+	"  required benchmark exports: freesolv_moladt_featurized and qm9_moladt" \
 	"  stack_cmd: $(STACK_CMD)"
-	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="freesolv_moladt" haskell-check-dataset-data
+	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="freesolv_moladt_featurized" haskell-check-dataset-data
 	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="qm9_moladt" haskell-check-dataset-data
 	MOLADT_PROCESSED_DATA_DIR="$(PROCESSED_DATA_DIR)" $(STACK_CMD) run moladtbayes -- demo
 
