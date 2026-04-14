@@ -7,7 +7,7 @@ module Main (main) where
 import Test.Hspec
 import Chem.IO.SDF (readSDF, parseSDF, parseSDFRecords)
 import Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
-import Chem.IO.SMILESTiming (measureSmilesCsvTiming, timingFailureCount, timingStage, timingSuccessCount)
+import Chem.IO.SDFTiming (measureSdfTiming, timingFailureCount, timingStage, timingSuccessCount)
 import Chem.Molecule
 import Chem.Dietz
 import Chem.Validate (validateMolecule)
@@ -249,17 +249,17 @@ spec = do
         Right mol -> do
           countSymbol C mol `shouldSatisfy` (> 0)
 
-    it "times CSV field materialization separately from MolADT parsing" $ do
+    it "times raw SDF block reads separately from MolADT parsing" $ do
       tempDir <- getTemporaryDirectory
-      (path, handle) <- openTempFile tempDir "moladt-smiles-timing.csv"
-      hPutStr handle "smiles,name\nCCO,ethanol\nc1ccccc1,benzene\n"
+      (path, handle) <- openTempFile tempDir "moladt-sdf-timing.sdf"
+      hPutStr handle (v3000Water ++ v3000Ammonium)
       hClose handle
-      result <- measureSmilesCsvTiming path (Just 2)
+      result <- measureSdfTiming path (Just 2)
       removeFile path
       case result of
         Left err -> expectationFailure err
         Right stages -> do
-          map timingStage stages `shouldBe` ["smiles_csv_string_parse", "smiles_adt_parse"]
+          map timingStage stages `shouldBe` ["raw_file_read", "sdf_record_parse"]
           map timingSuccessCount stages `shouldBe` [2, 2]
           map timingFailureCount stages `shouldBe` [0, 0]
 

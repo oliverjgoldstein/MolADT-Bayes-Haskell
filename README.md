@@ -25,7 +25,7 @@ MolADT keeps those decisions in typed data. That is what the Haskell repo is for
 ```bash
 make haskell-build
 stack run moladtbayes -- parse-smiles "c1ccccc1"
-make haskell-parse-smiles-csv-timing
+make haskell-parse-sdf-timing
 ```
 
 ## Parsing
@@ -61,7 +61,7 @@ The local QM9 and vendored FreeSolv raw files in the sibling Python workspace ar
 
 - the typed MolADT source implementation
 - conservative SDF and SMILES boundary parsing
-- a local CSV-field-to-String versus SMILES-to-MolADT timing entry point
+- a local SDF timing entry point for raw block reads versus Haskell SDF parsing
 - example molecules, CLI tools, and aligned benchmark entry points
 
 ## Benchmarking
@@ -70,15 +70,15 @@ This repo does not ship precomputed benchmark results. The benchmark figures are
 
 ```bash
 make haskell-infer-benchmark
-make haskell-parse-smiles-csv-timing
+make haskell-parse-sdf-timing
 ```
 
-The Haskell side consumes the Python-exported MolADT matrices for inference, and it can also time the local SMILES parser against a plain CSV-field-to-String baseline.
+The Haskell side consumes the Python-exported MolADT matrices for inference, and it can also time the local SDF parser against raw single-record SDF block reads from the ZINC timing corpus.
 
-The local Haskell model split is:
+The local Haskell benchmark consumer uses:
 
 - FreeSolv: a finite exact RBF Gaussian process over screened `moladt_featurized` inputs
-- QM9: the `moladt_featurized` export with the local linear Student-`t` baseline
+- QM9: the `qm9_moladt_featurized` export with the local linear Student-`t` baseline when you run the Haskell consumer directly
 
 For FreeSolv, the Haskell GP does three things:
 
@@ -91,12 +91,12 @@ That makes the Haskell model different from the Python Stan FreeSolv path. Pytho
 The current Python benchmark contract is:
 
 - FreeSolv: `moladt_featurized` with `bayes_gp_rbf_screened` fit by `laplace`
-- QM9: `moladt_featurized` with `bayes_linear_student_t` fit by `optimize`
+- QM9: `visnet_ensemble` on `moladt_featurized_geom` over the full local QM9 alignment, with one seed-`102` member capped at `25` epochs
 
 The comparison figures still come from the Python repo:
 
 - `results/freesolv/run_.../freesolv_rmse_vs_moleculenet.svg`
-- `results/qm9/run_.../qm9_mae_vs_moleculenet.svg`
+- `results/qm9/long/run_.../qm9_mae_vs_moleculenet.svg`
 
 That predictive comparison is deliberately narrow:
 

@@ -23,7 +23,7 @@ For a quick self-contained CLI sanity check:
 ```bash
 stack run moladtbayes -- parse molecules/benzene.sdf
 stack run moladtbayes -- parse-smiles "c1ccccc1"
-stack run moladtbayes -- parse-smiles-csv-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.csv 128
+stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.sdf 128
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
@@ -44,7 +44,7 @@ Hspec tests for:
 - SDF round-trips
 - benzene aromatic-system detection
 - conservative SMILES parsing
-- CSV-field-to-String timing-path coverage for the local parser benchmark
+- raw-SDF-read versus SDF-parse timing-path coverage for the local parser benchmark
 - bracketed water and methane rendering
 - deterministic benzene SMILES rendering
 

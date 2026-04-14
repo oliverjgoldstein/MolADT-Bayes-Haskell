@@ -1,20 +1,18 @@
-module Chem.IO.SMILESTiming
+module Chem.IO.SDFTiming
   ( TimingStageResult(..)
-  , measureSmilesCsvTiming
+  , measureSdfTiming
   , renderTimingReport
   ) where
 
 import           Control.DeepSeq (force)
 import           Control.Exception (evaluate)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as BSC
-import           Data.Char (isSpace, toLower)
-import           Data.List (findIndex, sort)
+import           Data.Char (isSpace)
+import           Data.List (sort)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           Numeric (showFFloat)
 
-import           Chem.IO.SMILES (parseSMILES)
+import           Chem.IO.SDF (parseSDF)
 
 data TimingStageResult = TimingStageResult
   { timingStage :: String
@@ -29,25 +27,16 @@ data TimingStageResult = TimingStageResult
   , timingP95LatencyUs :: Double
   } deriving (Eq, Show)
 
-measureSmilesCsvTiming :: FilePath -> Maybe Int -> IO (Either String [TimingStageResult])
-measureSmilesCsvTiming path mLimit = do
-  csvBytes <- BS.readFile path
-  let rawLines = filter (not . BSC.all isSpace) (BSC.lines csvBytes)
-  case rawLines of
-    [] -> pure (Left "CSV file is empty")
-    (header:rows) ->
-      case detectSmilesColumn (splitCsvRow header) of
-        Nothing -> pure (Left "Could not detect a SMILES column in the CSV header")
-        Just smilesColumn -> do
-          let limitedRows = maybe rows (`take` rows) mLimit
-          (smilesTexts, csvStage) <- measureCsvStringStage path smilesColumn limitedRows
-          adtStage <- measureAdtParseStage path smilesTexts
-          pure (Right [csvStage, adtStage])
+measureSdfTiming :: FilePath -> Maybe Int -> IO (Either String [TimingStageResult])
+measureSdfTiming path mLimit = do
+  (blocks, rawStage) <- measureRawSdfStage path mLimit
+  parseStage <- measureSdfParseStage path blocks
+  pure (Right [rawStage, parseStage])
 
 renderTimingReport :: [TimingStageResult] -> String
 renderTimingReport stages =
   unlines $
-    [ "Haskell SMILES timing"
+    [ "Haskell SDF timing"
     , ""
     ]
       ++ concatMap renderStage stages
@@ -65,24 +54,25 @@ renderTimingReport stages =
       , ""
       ]
 
-measureCsvStringStage :: FilePath -> Int -> [BS.ByteString] -> IO ([String], TimingStageResult)
-measureCsvStringStage path smilesColumn rows = do
+measureRawSdfStage :: FilePath -> Maybe Int -> IO ([String], TimingStageResult)
+measureRawSdfStage path mLimit = do
   startTotal <- getMonotonicTimeNSec
-  (outputsRev, successCount, failureCount, latenciesRev) <- go rows [] 0 0 []
+  contents <- readFile path
+  forcedBlocks <- evaluate (force (applyLimit mLimit (splitSdfBlocks contents)))
+  (successCount, latenciesRev) <- go forcedBlocks 0 []
   endTotal <- getMonotonicTimeNSec
-  let outputs = reverse outputsRev
-      latencies = reverse latenciesRev
+  let latencies = reverse latenciesRev
       elapsed = secondsBetween startTotal endTotal
-      moleculeCount = length rows
+      moleculeCount = length forcedBlocks
   pure
-    ( outputs
+    ( forcedBlocks
     , TimingStageResult
-        { timingStage = "smiles_csv_string_parse"
-        , timingDescription = "Materialize the SMILES column from the CSV as a plain Haskell String without chemistry parsing."
+        { timingStage = "raw_file_read"
+        , timingDescription = "Read raw single-record SDF blocks from the source file without chemistry parsing."
         , timingSourcePath = path
         , timingMoleculeCount = moleculeCount
         , timingSuccessCount = successCount
-        , timingFailureCount = failureCount
+        , timingFailureCount = 0
         , timingTotalRuntimeSeconds = elapsed
         , timingMoleculesPerSecond = moleculesPerSecond moleculeCount elapsed
         , timingMedianLatencyUs = medianUs latencies
@@ -90,30 +80,28 @@ measureCsvStringStage path smilesColumn rows = do
         }
     )
   where
-    go [] outputsRev successCount failureCount latenciesRev =
-      pure (outputsRev, successCount, failureCount, latenciesRev)
-    go (row:rest) outputsRev successCount failureCount latenciesRev = do
+    go [] successCount latenciesRev =
+      pure (successCount, latenciesRev)
+    go (block:rest) successCount latenciesRev = do
       startItem <- getMonotonicTimeNSec
-      result <- materializeSmilesField smilesColumn row
+      forcedBlock <- evaluate (force block)
       endItem <- getMonotonicTimeNSec
       let latencyUs = microsBetween startItem endItem
-      case result of
-        Right smilesText ->
-          go rest (smilesText : outputsRev) (successCount + 1) failureCount (latencyUs : latenciesRev)
-        Left _ ->
-          go rest outputsRev successCount (failureCount + 1) (latencyUs : latenciesRev)
+      if all isSpace forcedBlock
+        then go rest successCount (latencyUs : latenciesRev)
+        else go rest (successCount + 1) (latencyUs : latenciesRev)
 
-measureAdtParseStage :: FilePath -> [String] -> IO TimingStageResult
-measureAdtParseStage path smilesTexts = do
+measureSdfParseStage :: FilePath -> [String] -> IO TimingStageResult
+measureSdfParseStage path blocks = do
   startTotal <- getMonotonicTimeNSec
-  (successCount, failureCount, latenciesRev) <- go smilesTexts 0 0 []
+  (successCount, failureCount, latenciesRev) <- go blocks 0 0 []
   endTotal <- getMonotonicTimeNSec
   let latencies = reverse latenciesRev
       elapsed = secondsBetween startTotal endTotal
-      moleculeCount = length smilesTexts
+      moleculeCount = length blocks
   pure TimingStageResult
-    { timingStage = "smiles_adt_parse"
-    , timingDescription = "Parse each SMILES String into the MolADT representation using the local Haskell parser."
+    { timingStage = "sdf_record_parse"
+    , timingDescription = "Parse each single-record SDF block into the local MolADT object using the Haskell SDF parser."
     , timingSourcePath = path
     , timingMoleculeCount = moleculeCount
     , timingSuccessCount = successCount
@@ -126,55 +114,29 @@ measureAdtParseStage path smilesTexts = do
   where
     go [] successCount failureCount latenciesRev =
       pure (successCount, failureCount, latenciesRev)
-    go (smilesText:rest) successCount failureCount latenciesRev = do
+    go (block:rest) successCount failureCount latenciesRev = do
       startItem <- getMonotonicTimeNSec
-      parsed <- evaluate (force (parseSMILES smilesText))
+      parsed <- evaluate (force (parseSDF block))
       endItem <- getMonotonicTimeNSec
       let latencyUs = microsBetween startItem endItem
       case parsed of
         Right _ -> go rest (successCount + 1) failureCount (latencyUs : latenciesRev)
         Left _  -> go rest successCount (failureCount + 1) (latencyUs : latenciesRev)
 
-materializeSmilesField :: Int -> BS.ByteString -> IO (Either String String)
-materializeSmilesField smilesColumn row =
-  case extractCsvField smilesColumn row of
-    Left err -> pure (Left err)
-    Right field -> do
-      let smilesText = BSC.unpack (trimCsvField field)
-      materialized <- evaluate (force smilesText)
-      pure $
-        if null materialized
-          then Left "Empty SMILES field"
-          else Right materialized
+applyLimit :: Maybe Int -> [a] -> [a]
+applyLimit Nothing xs = xs
+applyLimit (Just limitCount) xs = take limitCount xs
 
-detectSmilesColumn :: [BS.ByteString] -> Maybe Int
-detectSmilesColumn fields =
-  findIndex (`elem` candidates) normalized
+splitSdfBlocks :: String -> [String]
+splitSdfBlocks = go [] [] . lines
   where
-    normalized = map (map toLower . BSC.unpack . trimCsvField) fields
-    candidates = ["smiles", "smile", "molecule"]
+    emit acc blocks =
+      let block = unlines (reverse acc)
+      in if all isSpace block then blocks else block : blocks
 
-extractCsvField :: Int -> BS.ByteString -> Either String BS.ByteString
-extractCsvField smilesColumn row =
-  case drop smilesColumn (splitCsvRow row) of
-    field : _ -> Right field
-    [] -> Left "CSV row does not contain the detected SMILES column"
-
-splitCsvRow :: BS.ByteString -> [BS.ByteString]
-splitCsvRow = BSC.split ','
-
-trimCsvField :: BS.ByteString -> BS.ByteString
-trimCsvField rawField =
-  stripQuotes (BSC.dropWhileEnd isSpace (BSC.dropWhile isSpace rawField))
-  where
-    stripQuotes field
-      | BS.length field >= 2
-          && BS.head field == doubleQuote
-          && BS.last field == doubleQuote =
-          BS.init (BS.tail field)
-      | otherwise = field
-
-    doubleQuote = fromIntegral (fromEnum '"')
+    go acc blocks [] = reverse (emit acc blocks)
+    go acc blocks ("$$$$" : rest) = go [] (emit acc blocks) rest
+    go acc blocks (line : rest) = go (line : acc) blocks rest
 
 secondsBetween :: Word64 -> Word64 -> Double
 secondsBetween startNs endNs = fromIntegral (endNs - startNs) / 1000000000.0

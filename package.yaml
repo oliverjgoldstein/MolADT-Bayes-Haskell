@@ -51,7 +51,7 @@ library:
     - GaussianProcess
     - Chem.IO.SDF
     - Chem.IO.SMILES
-    - Chem.IO.SMILESTiming
+    - Chem.IO.SDFTiming
     - Reaction
     - Serialisable
     - SampleMolecules

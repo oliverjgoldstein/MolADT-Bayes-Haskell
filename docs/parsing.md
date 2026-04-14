@@ -51,21 +51,21 @@ Inside that boundary, `parse-smiles` now does three lifts after reading the SMIL
 
 The local parser is now tuned for this path: it advances through the remaining input instead of rescanning from the front, and it accumulates stereochemistry and bond-system annotations without repeated end-appends.
 
-## If You Want the CSV Baseline Against the Parser
+## If You Want the SDF Timing Baseline
 
-Use `parse-smiles-csv-timing`.
+Use `parse-sdf-timing`.
 
 ```bash
-make haskell-parse-smiles-csv-timing
+make haskell-parse-sdf-timing
 ```
 
 Equivalent raw command:
 
 ```bash
-stack run moladtbayes -- parse-smiles-csv-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.csv 128
+stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.sdf 128
 ```
 
-This reads a benchmark CSV, materializes the detected SMILES field as a plain `String`, then times the local `String -> MolADT` parser separately.
+This reads the ZINC timing SDF, materializes raw single-record SDF blocks, then times the local `SDF -> MolADT` parser separately.
 
 ## If You Want SMILES Back Out
 

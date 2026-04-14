@@ -11,7 +11,7 @@ Current usage includes:
 - `demo`
 - `parse`
 - `parse-smiles`
-- `parse-smiles-csv-timing`
+- `parse-sdf-timing`
 - `pretty-example`
 - `to-smiles`
 - `infer-benchmark`
@@ -51,18 +51,18 @@ What it does now:
 
 Unlike `parse`, it does not load an SDF file and it does not print an SDF-derived title or properties block.
 
-## `parse-smiles-csv-timing`
+## `parse-sdf-timing`
 
 ```bash
-stack run moladtbayes -- parse-smiles-csv-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.csv 128
-make haskell-parse-smiles-csv-timing
+stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.sdf 128
+make haskell-parse-sdf-timing
 ```
 
 What it does now:
 
-- reads the detected SMILES column from a normalized benchmark CSV
-- times the plain `CSV field -> String` baseline as `smiles_csv_string_parse`
-- times the local `String -> MolADT` parser as `smiles_adt_parse`
+- reads raw single-record SDF blocks from the normalized benchmark SDF
+- times the raw SDF block read as `raw_file_read`
+- times the local `SDF -> MolADT` parser as `sdf_record_parse`
 - prints a small stdout report with counts, throughput, median latency, and p95 latency
 
 This is a local parser-timing command, not the Python timing bundle.
@@ -123,7 +123,7 @@ On the FreeSolv path, the Haskell model is a finite exact RBF Gaussian process o
 
 - `parse` starts from an SDF file on disk and then tries to render SMILES from the validated result.
 - `parse-smiles` starts from a SMILES string in the conservative subset and only pretty-prints the validated MolADT structure.
-- `parse-smiles-csv-timing` starts from a benchmark CSV and compares field materialization against the local SMILES-to-MolADT parser.
+- `parse-sdf-timing` starts from a benchmark SDF and compares raw block reads against the local SDF-to-MolADT parser.
 - `pretty-example` starts from a built-in Dietz object rather than a file or boundary string.
 
 ## Environment Variable

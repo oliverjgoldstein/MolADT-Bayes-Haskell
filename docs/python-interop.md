@@ -51,7 +51,7 @@ That contract is what lets the Haskell side compare inference behavior without r
 
    ```bash
    make freesolv
-   make qm9
+   make qm9long
    ```
 
 2. In the Haskell repo, point at that processed-data directory:
