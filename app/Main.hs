@@ -8,7 +8,10 @@ import           BenchmarkModel
   , posteriorSamples
   , runBenchmarkRegressionWith
   )
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Lazy.Char8 as BL8
 import           Chem.IO.SDF (readSDF)
+import           Chem.IO.MoleculeJSON (moleculeFromJSON, moleculeToJSON)
 import           Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
 import           Chem.IO.SDFTiming (measureSdfTiming, renderTimingReport)
 import           Chem.Molecule (Molecule, atoms, prettyPrintMolecule)
@@ -34,6 +37,8 @@ main = do
     ["parse-sdf-timing", path, limitText] -> runParseSdfTiming path (readMaybe limitText)
     ["pretty-example", name] -> runPrettyExample name
     ["to-smiles", path] -> runToSMILES path
+    ["to-json", path] -> runToJSON path
+    ["from-json", path] -> runFromJSON path
     ["infer-benchmark", datasetPrefix, methodName] ->
       runInferBenchmark processedDataDir datasetPrefix methodName Nothing
     ["infer-benchmark", datasetPrefix, methodName, limitText] ->
@@ -50,6 +55,8 @@ usage = unlines
   , "  stack run moladtbayes -- parse-sdf-timing path/to/file.sdf 1000"
   , "  stack run moladtbayes -- pretty-example morphine"
   , "  stack run moladtbayes -- to-smiles molecules/benzene.sdf"
+  , "  stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json"
+  , "  stack run moladtbayes -- from-json benzene.moladt.json"
   , "  stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized mh:0.2"
   , "  stack run moladtbayes -- infer-benchmark qm9_moladt_featurized mh:0.9 256"
   , ""
@@ -144,6 +151,23 @@ runToSMILES path = do
           case moleculeToSMILES validMolecule of
             Left err3 -> putStrLn err3
             Right smilesText -> putStrLn smilesText
+
+runToJSON :: FilePath -> IO ()
+runToJSON path = do
+  parsed <- readSDF path
+  case parsed of
+    Left err -> putStrLn (errorBundlePretty err)
+    Right molecule ->
+      case validateMolecule molecule of
+        Left err2 -> putStrLn err2
+        Right validMolecule -> BL8.putStrLn (moleculeToJSON validMolecule)
+
+runFromJSON :: FilePath -> IO ()
+runFromJSON path = do
+  payload <- BL.readFile path
+  case moleculeFromJSON payload of
+    Left err -> putStrLn err
+    Right molecule -> renderValidated molecule
 
 renderValidated :: Molecule -> IO ()
 renderValidated molecule =

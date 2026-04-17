@@ -16,12 +16,14 @@ That wraps `stack build`. If `stack` is missing and Homebrew or `apt-get` is ava
 
 ```bash
 stack run moladtbayes -- parse molecules/benzene.sdf
+stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
+stack run moladtbayes -- from-json benzene.moladt.json
 stack run moladtbayes -- parse-smiles "c1ccccc1"
 stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.sdf 128
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
-If those commands work, the local Haskell CLI is installed correctly and the parser timing entry point can read the sibling Python SDF timing source.
+If those commands work, the local Haskell CLI is installed correctly, the shared MolADT JSON path works end to end, and the parser timing entry point can read the sibling Python SDF timing source.
 
 ## 3. First Test Run
 

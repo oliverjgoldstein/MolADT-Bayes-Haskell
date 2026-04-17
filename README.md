@@ -30,17 +30,42 @@ make haskell-parse-sdf-timing
 
 ## Parsing
 
-Use the CLI when you want to inspect the typed MolADT object directly.
+Use the CLI when you want to inspect or serialize the typed MolADT object directly.
 
 ```bash
 stack run moladtbayes -- parse molecules/benzene.sdf
+stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
+stack run moladtbayes -- from-json benzene.moladt.json
 stack run moladtbayes -- parse-smiles "c1ccccc1"
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
 - `parse` reads one SDF record, validates it, pretty-prints the MolADT structure, and then tries to render SMILES
+- `to-json` reads one SDF record, validates it, and writes the shared MolADT JSON boundary format used by both repos
+- `from-json` reads that MolADT JSON back into the typed Haskell `Molecule` and prints the usual MolADT report
 - `parse-smiles` reads the conservative SMILES subset and lifts it into the typed MolADT object
 - `to-smiles` renders validated classical MolADT structures back into the supported SMILES subset
+
+Programmatically, the shortest `SDF -> MolADT -> JSON -> MolADT` path is:
+
+```haskell
+import Chem.IO.MoleculeJSON (moleculeFromJSON, moleculeToJSON)
+import Chem.IO.SDF (readSDF)
+import Chem.Molecule (atoms)
+import Text.Megaparsec (errorBundlePretty)
+
+main :: IO ()
+main = do
+  parsed <- readSDF "molecules/benzene.sdf"
+  case parsed of
+    Left err -> putStrLn (errorBundlePretty err)
+    Right molecule ->
+      case moleculeFromJSON (moleculeToJSON molecule) of
+        Left jsonErr -> putStrLn jsonErr
+        Right roundTripped -> print (length (atoms roundTripped))
+```
+
+The emitted JSON is the same MolADT boundary format used by the Python repo's `python -m moladt.cli to-json ...` and `from-json ...` commands.
 
 The SDF parser accepts V2000 and the core V3000 CTAB subset used by ordinary structure exports:
 

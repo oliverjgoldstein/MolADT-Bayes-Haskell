@@ -10,6 +10,8 @@ Current usage includes:
 
 - `demo`
 - `parse`
+- `to-json`
+- `from-json`
 - `parse-smiles`
 - `parse-sdf-timing`
 - `pretty-example`
@@ -50,6 +52,35 @@ What it does now:
 - pretty-prints the molecule
 
 Unlike `parse`, it does not load an SDF file and it does not print an SDF-derived title or properties block.
+
+## `to-json`
+
+```bash
+stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
+```
+
+What it does now:
+
+- reads the SDF file
+- validates the resulting MolADT structure
+- writes the shared MolADT JSON boundary format used by both repos
+
+Use `to-json` when you want a file-backed typed MolADT payload instead of the pretty report.
+
+## `from-json`
+
+```bash
+stack run moladtbayes -- from-json benzene.moladt.json
+```
+
+What it does now:
+
+- reads a MolADT JSON payload from disk
+- rebuilds the typed `Molecule`
+- validates the decoded structure
+- pretty-prints the molecule
+
+Use `from-json` when the JSON file is already your boundary format and you want the typed Haskell object back.
 
 ## `parse-sdf-timing`
 
@@ -122,6 +153,8 @@ On the FreeSolv path, the Haskell model is a finite exact RBF Gaussian process o
 ## How `parse` and `parse-smiles` Differ
 
 - `parse` starts from an SDF file on disk and then tries to render SMILES from the validated result.
+- `to-json` starts from an SDF file and emits the shared MolADT JSON boundary payload.
+- `from-json` starts from a MolADT JSON file and pretty-prints the validated typed structure.
 - `parse-smiles` starts from a SMILES string in the conservative subset and only pretty-prints the validated MolADT structure.
 - `parse-sdf-timing` starts from a benchmark SDF and compares raw block reads against the local SDF-to-MolADT parser.
 - `pretty-example` starts from a built-in Dietz object rather than a file or boundary string.

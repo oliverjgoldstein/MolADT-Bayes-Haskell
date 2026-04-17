@@ -31,6 +31,7 @@ library
         SlaterTypeOrbital
         GaussianProcess
         Chem.IO.SDF
+        Chem.IO.MoleculeJSON
         Chem.IO.SMILES
         Chem.IO.SDFTiming
         Reaction
@@ -50,6 +51,7 @@ library
         src
     default-language: Haskell2010
     build-depends:
+        aeson,
         array,
         base >=4.13 && <4.21,
         binary,
@@ -67,6 +69,7 @@ library
         mtl,
         parallel,
         random,
+        scientific,
         statistics,
         text,
         time,
@@ -83,6 +86,7 @@ executable moladtbayes
         app
     default-language: Haskell2010
     build-depends:
+        aeson,
         array,
         base >=4.13 && <4.21,
         binary,
@@ -101,6 +105,7 @@ executable moladtbayes
         mtl,
         parallel,
         random,
+        scientific,
         statistics,
         text,
         time,
@@ -117,6 +122,7 @@ executable parse-molecules
         examples
     default-language: Haskell2010
     build-depends:
+        aeson,
         array,
         base >=4.13 && <4.21,
         binary,
@@ -135,6 +141,7 @@ executable parse-molecules
         mtl,
         parallel,
         random,
+        scientific,
         statistics,
         text,
         time,
@@ -151,6 +158,7 @@ test-suite benchmark-alignment
     hs-source-dirs:
         test/benchmark-alignment
     build-depends:
+        aeson,
         array,
         base >=4.13 && <4.21,
         binary,
@@ -170,6 +178,7 @@ test-suite benchmark-alignment
         mtl,
         parallel,
         random,
+        scientific,
         statistics,
         text,
         time,
@@ -189,6 +198,7 @@ test-suite edge-properties
     default-language: Haskell2010
     build-depends:
         QuickCheck,
+        aeson,
         array,
         base >=4.13 && <4.21,
         binary,
@@ -207,6 +217,7 @@ test-suite edge-properties
         mtl,
         parallel,
         random,
+        scientific,
         statistics,
         text,
         time,
@@ -224,6 +235,7 @@ test-suite parser-roundtrip
         test/parser-roundtrip
     default-language: Haskell2010
     build-depends:
+        aeson,
         array,
         base >=4.13 && <4.21,
         binary,
@@ -243,6 +255,7 @@ test-suite parser-roundtrip
         mtl,
         parallel,
         random,
+        scientific,
         statistics,
         text,
         time,
@@ -261,6 +274,7 @@ test-suite validation-properties
     default-language: Haskell2010
     build-depends:
         QuickCheck,
+        aeson,
         array,
         base >=4.13 && <4.21,
         binary,
@@ -279,6 +293,7 @@ test-suite validation-properties
         mtl,
         parallel,
         random,
+        scientific,
         statistics,
         text,
         time,

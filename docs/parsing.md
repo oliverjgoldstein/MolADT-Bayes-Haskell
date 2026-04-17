@@ -27,6 +27,54 @@ The reader is deliberately narrow. It is meant to get ordinary structure files i
 
 If the SDF payload contains several molecules, use `readSDFRecords "bundle.sdf"` from `Chem.IO.SDF`, or `parseSDFRecords multiRecordText` if the records are already in memory.
 
+## If You Want MolADT JSON
+
+Use `to-json`.
+
+```bash
+stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
+```
+
+This reads the SDF file, validates the resulting `Molecule`, and writes the shared MolADT JSON boundary format used by both repos.
+
+If you want the same step in Haskell code:
+
+```haskell
+import Chem.IO.MoleculeJSON (moleculeToJSON)
+import Chem.IO.SDF (readSDF)
+import qualified Data.ByteString.Lazy as BL
+import Text.Megaparsec (errorBundlePretty)
+
+main :: IO ()
+main = do
+  parsed <- readSDF "molecules/benzene.sdf"
+  case parsed of
+    Left err -> putStrLn (errorBundlePretty err)
+    Right molecule -> BL.writeFile "benzene.moladt.json" (moleculeToJSON molecule)
+```
+
+## If You Want MolADT JSON Back Into Haskell
+
+Use `from-json`.
+
+```bash
+stack run moladtbayes -- from-json benzene.moladt.json
+```
+
+This reads the shared MolADT JSON payload, rebuilds the typed `Molecule`, validates it, and pretty-prints the result.
+
+If you want the same step in Haskell code:
+
+```haskell
+import Chem.IO.MoleculeJSON (moleculeFromJSON)
+import qualified Data.ByteString.Lazy as BL
+
+main :: IO ()
+main = do
+  payload <- BL.readFile "benzene.moladt.json"
+  print (moleculeFromJSON payload)
+```
+
 ## If You Have a SMILES String
 
 Use `parse-smiles`.

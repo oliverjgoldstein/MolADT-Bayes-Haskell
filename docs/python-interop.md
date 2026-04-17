@@ -11,6 +11,17 @@ Simple version:
 - Python builds the MolADT benchmark matrices
 - Python writes the MoleculeNet comparison figures
 - Haskell reads the same MolADT matrices and runs the aligned local benchmark models
+- both repos now share the same `Molecule <-> JSON` boundary format through `to-json` and `from-json`
+
+For the direct structure boundary, these commands are intentionally symmetric:
+
+```bash
+cd ../MolADT-Bayes-Python
+./.venv/bin/python -m moladt.cli to-json molecules/benzene.sdf > /tmp/benzene.moladt.json
+
+cd ../MolADT-Bayes-Haskell
+stack run moladtbayes -- from-json /tmp/benzene.moladt.json
+```
 
 ## Default Processed-Data Location
 

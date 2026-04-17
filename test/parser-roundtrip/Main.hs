@@ -6,6 +6,7 @@ module Main (main) where
 
 import Test.Hspec
 import Chem.IO.SDF (readSDF, parseSDF, parseSDFRecords)
+import Chem.IO.MoleculeJSON (moleculeFromJSON, moleculeToJSON)
 import Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
 import Chem.IO.SDFTiming (measureSdfTiming, timingFailureCount, timingStage, timingSuccessCount)
 import Chem.Molecule
@@ -203,6 +204,29 @@ spec = do
           let annotations = bondStereoAnnotations (smilesStereochemistry mol)
           length annotations `shouldBe` 2
           map bondStereoDirection annotations `shouldBe` [BondUp, BondDown]
+
+  describe "MolADT JSON boundary" $ do
+    it "round-trips benzene through the shared MolADT JSON schema" $ do
+      parsed <- readSDF "molecules/benzene.sdf"
+      case parsed of
+        Left err -> expectationFailure (errorBundlePretty err)
+        Right mol ->
+          case moleculeFromJSON (moleculeToJSON mol) of
+            Left err -> expectationFailure err
+            Right mol' -> do
+              atoms mol' `shouldBe` atoms mol
+              localBonds mol' `shouldBe` localBonds mol
+              systems mol' `shouldBe` systems mol
+              smilesStereochemistry mol' `shouldBe` smilesStereochemistry mol
+
+    it "preserves stored SMILES stereochemistry through MolADT JSON" $ do
+      case parseSMILES "F/C=C\\F" of
+        Left err -> expectationFailure err
+        Right mol ->
+          case moleculeFromJSON (moleculeToJSON mol) of
+            Left err -> expectationFailure err
+            Right mol' ->
+              smilesStereochemistry mol' `shouldBe` smilesStereochemistry mol
 
   describe "Pretty rendering" $ do
     it "renders molecules as structured reports" $ do

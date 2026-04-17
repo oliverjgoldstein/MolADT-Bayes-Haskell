@@ -14,6 +14,7 @@ extra-source-files:
   - README.md
 dependencies:
   - base >= 4.13 && < 4.21
+  - aeson
   - monad-extras
   - transformers
   - mtl
@@ -30,6 +31,7 @@ dependencies:
   - random
   - log-domain
   - statistics
+  - scientific
   - array
   - parallel
   - massiv
@@ -50,6 +52,7 @@ library:
     - SlaterTypeOrbital
     - GaussianProcess
     - Chem.IO.SDF
+    - Chem.IO.MoleculeJSON
     - Chem.IO.SMILES
     - Chem.IO.SDFTiming
     - Reaction
