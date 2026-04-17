@@ -2,7 +2,7 @@
 
 MolADT is a typed molecular data format for Bayesian work over molecules. This repo is the compact typed source implementation: the chemistry object is central, and notation stays at the boundary.
 
-[Quickstart](docs/quickstart.md) · [Representation](docs/representation.md) · [Data Model](docs/data-model.md) · [Models](docs/models.md) · [Examples](docs/examples.md)
+[Quickstart](docs/quickstart.md) · [Representation](docs/representation.md) · [ADT Representation](docs/data-model.md) · [Models](docs/models.md) · [Examples](docs/examples.md)
 
 ## Why MolADT
 
@@ -135,7 +135,7 @@ Timing bundles still belong to the Python repo. If the sibling raw or processed 
 ## Read More
 
 - [Quickstart](docs/quickstart.md)
-- [Data model](docs/data-model.md)
+- [ADT representation](docs/data-model.md)
 - [Parsing and rendering](docs/parsing.md)
 - [CLI and demo](docs/cli-and-demo.md)
 - [Models and exported features](docs/models.md)
