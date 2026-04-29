@@ -1,90 +1,69 @@
 # Quickstart
 
-This is the shortest path from a fresh clone to a working Haskell CLI, then to the Python-backed benchmark path.
+This is the shortest path to a working Haskell checkout.
 
-## 1. Build
+## Build
 
-From the repo root:
+From `MolADT-Bayes-Haskell`:
 
 ```bash
 make haskell-build
 ```
 
-That wraps `stack build`. If `stack` is missing and Homebrew or `apt-get` is available, the Makefile can offer to install it for you.
+If Stack is missing, the Makefile explains how to install it.
 
-## 2. First Successful CLI Run
+## Try The CLI
 
 ```bash
 stack run moladtbayes -- parse molecules/benzene.sdf
-stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
-stack run moladtbayes -- from-json benzene.moladt.json
 stack run moladtbayes -- parse-smiles "c1ccccc1"
-stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/processed/zinc_timing/zinc15_250K_2D/full/sdf_library
+stack run moladtbayes -- pretty-example ferrocene
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
-If those commands work, the local Haskell CLI is installed correctly, the shared MolADT JSON path works end to end, and the parser timing entry point can read the sibling Python cached SDF timing corpus. `make haskell-parse-sdf-timing` can offer to generate that corpus through the Python repo if it is missing.
+Those commands prove that SDF parsing, SMILES parsing, built-in examples, and
+SMILES rendering are wired up.
 
-## 3. First Test Run
+## Test
 
 ```bash
 make haskell-test
 ```
 
-Use `make help` if you want the list of repo-local wrappers.
-
-## 4. First Demo Run
+## Demo
 
 ```bash
 make haskell-demo
 ```
 
-This is the best first end-to-end check on the Haskell side. It runs the local demo and small aligned benchmark smoke checks.
+The demo parses local molecules and runs a small FreeSolv benchmark smoke pass.
+It prints molecule counts and a rough runtime expectation before inference
+starts.
 
-By default it looks for processed exports in:
-
-```bash
-../MolADT-Bayes-Python/data/processed
-```
-
-If those exports are missing, the Makefile can offer to generate them through the sibling Python repo.
-
-## 5. First Aligned Benchmark Run
-
-Before the first benchmark-backed run, install CmdStan once in the sibling Python repo:
-
-```bash
-cd ../MolADT-Bayes-Python
-make python-cmdstan-install
-```
-
-Then run:
+## Full Benchmark Consumer
 
 ```bash
 make haskell-infer-benchmark
 ```
 
-This uses Python-exported matrices. By default it runs:
-
-- dataset prefix `freesolv_moladt_featurized`
-- method `mh:0.2`
-- row limit `full`
-
-That default path uses the local exact GP on the FreeSolv MolADT featurized export. The Haskell benchmark consumer is scoped to this FreeSolv path only.
-
-If the required exports are missing, the Makefile can offer to build them through the Python repo first. In that delegated path, Python-side downloads and large archive extractions above GitHub's 100 MB limit show byte counts, entry counts, throughput, and elapsed time.
-
-Override the processed-data path with:
+This reads processed exports from the sibling Python repo:
 
 ```bash
-MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized mh:0.2
+../MolADT-Bayes-Python/data/processed
 ```
 
-## 6. If Setup Fails
+Override that path with:
 
-- Missing `stack`:
-  rerun `make haskell-build` and allow the offered repair step, or install `stack` yourself.
-- Missing processed benchmark exports:
-  let the Makefile delegate to the Python repo, or prepare them there first.
-- Cross-repo benchmark contract:
-  see [Python interop](python-interop.md).
+```bash
+MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed \
+  stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized mh:0.2
+```
+
+## Common Fixes
+
+- Missing Stack: run `make haskell-build` and follow the install hint.
+- Missing benchmark exports: generate them in the Python repo, then rerun.
+- Unsure what command exists: run `make help`.
+
+Next: [CLI and demo](cli-and-demo.md), [Inference](inference.md),
+[Python interop](python-interop.md).

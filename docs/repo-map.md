@@ -1,56 +1,46 @@
 # Repo Map
 
-This page documents the current Haskell repo layout as it exists today.
+Use this page when you need to find the right file quickly.
 
-## Top-Level Areas
+## App
 
-### [`app/Main.hs`](../app/Main.hs)
+- [`app/Main.hs`](../app/Main.hs): CLI dispatcher.
+- [`examples/ParseMolecules.hs`](../examples/ParseMolecules.hs): small standalone parse example.
 
-The main CLI entrypoint. It dispatches `demo`, `parse`, `parse-smiles`, `parse-sdf-timing`, `pretty-example`, `to-smiles`, and `infer-benchmark`.
+## Chemistry Core
 
-### [`examples/ParseMolecules.hs`](../examples/ParseMolecules.hs)
+- [`src/Chem/Molecule.hs`](../src/Chem/Molecule.hs): typed molecule and pretty report.
+- [`src/Chem/Dietz.hs`](../src/Chem/Dietz.hs): atoms, edges, bonding systems.
+- [`src/Chem/Validate.hs`](../src/Chem/Validate.hs): validation.
+- [`src/Chem/Molecule/Coordinate.hs`](../src/Chem/Molecule/Coordinate.hs): coordinates.
 
-A small standalone example program that parses and validates the local benzene and water SDF files before pretty-printing them.
+## IO
 
-### [`molecules/`](../molecules/)
+- [`src/Chem/IO/SDF.hs`](../src/Chem/IO/SDF.hs): SDF parser.
+- [`src/Chem/IO/SMILES.hs`](../src/Chem/IO/SMILES.hs): conservative SMILES parser and renderer.
+- [`src/Chem/IO/MoleculeJSON.hs`](../src/Chem/IO/MoleculeJSON.hs): shared MolADT JSON.
+- [`src/Chem/IO/SDFTiming.hs`](../src/Chem/IO/SDFTiming.hs): parser timing.
 
-Local file-backed examples:
+## Examples
 
-- `benzene.sdf`
-- `water.sdf`
+- [`src/ExampleMolecules/Benzene.hs`](../src/ExampleMolecules/Benzene.hs)
+- [`src/ExampleMolecules/Morphine.hs`](../src/ExampleMolecules/Morphine.hs)
+- [`src/ExampleMolecules/Diborane.hs`](../src/ExampleMolecules/Diborane.hs)
+- [`src/ExampleMolecules/Ferrocene.hs`](../src/ExampleMolecules/Ferrocene.hs)
+- [`molecules/`](../molecules/): small SDF inputs.
 
-### [`src/Chem/`](../src/Chem/)
+## Bayesian Work
 
-Core chemistry modules:
+- [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs): Haskell FreeSolv benchmark consumer.
+- [`src/GaussianProcess.hs`](../src/GaussianProcess.hs): finite exact RBF GP.
+- [`src/LazyPPL.hs`](../src/LazyPPL.hs): `mh` and `lwis` kernels.
+- [`src/FreeSolvInverseDesign.hs`](../src/FreeSolvInverseDesign.hs): typed inverse-design search.
 
-- molecule and pretty-printing logic
-- SDF parsing
-- conservative SMILES parsing and rendering
-- local SDF timing helpers
-- validation
+## Tests
 
-### [`src/ExampleMolecules/`](../src/ExampleMolecules/)
+- [`test/benchmark-alignment`](../test/benchmark-alignment/)
+- [`test/edge-properties`](../test/edge-properties/)
+- [`test/parser-roundtrip`](../test/parser-roundtrip/)
+- [`test/validation-properties`](../test/validation-properties/)
 
-Built-in MolADT example objects:
-
-- benzene
-- diborane
-- ferrocene
-- morphine
-
-### [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs)
-
-The aligned Haskell benchmark consumer. It loads the Python-exported FreeSolv matrix, parses the inference syntax, runs the local exact GP path, and prints metrics and predictions to stdout.
-
-### [`test/`](../test/)
-
-Test suites split by concern:
-
-- `benchmark-alignment`
-- `edge-properties`
-- `parser-roundtrip`
-- `validation-properties`
-
-### [`docs/`](./)
-
-GitHub-native documentation for setup, CLI use, aligned inference, SMILES scope, interop, and troubleshooting.
+Next: [Testing](testing.md), [CLI and demo](cli-and-demo.md).

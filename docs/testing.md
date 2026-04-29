@@ -1,71 +1,40 @@
 # Testing
 
-Use this page to verify the Haskell install and to understand what the current test suites cover.
-
-## Verify the Install
-
-From the repo root:
+Run the Haskell tests with:
 
 ```bash
-make haskell-build
 make haskell-test
 ```
 
-Equivalent raw commands:
+That wraps:
 
 ```bash
-stack build
 stack test
-```
-
-For a quick self-contained CLI sanity check:
-
-```bash
-stack run moladtbayes -- parse molecules/benzene.sdf
-stack run moladtbayes -- parse-smiles "c1ccccc1"
-stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/processed/zinc_timing/zinc15_250K_2D/full/sdf_library
-stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
 ## Test Suites
 
-### [`test/benchmark-alignment`](../test/benchmark-alignment/)
+| Suite | Covers |
+| --- | --- |
+| `benchmark-alignment` | Python export loading and inverse-design smoke search |
+| `edge-properties` | edge invariants |
+| `parser-roundtrip` | SDF, SMILES, JSON, pretty rendering, timing helpers |
+| `validation-properties` | molecule validation invariants |
 
-Checks that the Haskell side can load the Python-exported `freesolv_moladt_featurized` matrix and sees the expected representation structure.
+## Useful Smoke Checks
 
-### [`test/edge-properties`](../test/edge-properties/)
+```bash
+make haskell-build
+make haskell-parse
+make haskell-parse-smiles
+make haskell-to-smiles
+make haskell-demo
+```
 
-QuickCheck properties for basic Dietz edge behavior such as edge canonicalization and idempotent sigma insertion.
+## Common Failures
 
-### [`test/parser-roundtrip`](../test/parser-roundtrip/)
+- Stack cannot write to its cache: rerun outside a restricted sandbox.
+- Processed benchmark exports are missing: generate them in the Python repo.
+- The timing corpus is missing: run the Python ZINC timing preparation first.
 
-Hspec tests for:
-
-- SDF round-trips
-- benzene aromatic-system detection
-- conservative SMILES parsing
-- raw-SDF-read versus SDF-parse timing-path coverage for the local parser benchmark
-- bracketed water and methane rendering
-- deterministic benzene SMILES rendering
-
-### [`test/validation-properties`](../test/validation-properties/)
-
-QuickCheck properties for validator invariants, including benzene relabeling and electron accounting.
-
-## Common Failure Cases
-
-- Missing Stack or GHC:
-  `make haskell-build` can offer to install `stack` through Homebrew or `apt-get` when one of those package managers is available.
-- Missing processed data for interop:
-  `make haskell-demo` and `make haskell-infer-benchmark` can offer to generate the needed FreeSolv export from the sibling Python repo when `../MolADT-Bayes-Python/data/processed` is missing and `MOLADT_PROCESSED_DATA_DIR` is not set. In that delegated Python path, only downloads and extractions above GitHub's 100 MB file limit show the live meter, including byte counts, extraction entry counts, throughput, and elapsed time.
-- Unsupported SMILES outside the conservative subset:
-  the CLI will reject molecules outside the supported classical boundary. See [SMILES scope and validation](smiles-scope-and-validation.md).
-- Confusion about which repo owns which benchmark stage:
-  raw dataset download, feature export, and `results/` artifacts belong to the Python repo; Haskell consumes the exported matrices, prints its own inference summaries to stdout, and has a local stdout parser-timing command.
-
-## Related Pages
-
-- [Quickstart](quickstart.md)
-- [CLI and demo](cli-and-demo.md)
-- [Inference](inference.md)
-- [Python interop](python-interop.md)
+Next: [Quickstart](quickstart.md), [Repo map](repo-map.md).

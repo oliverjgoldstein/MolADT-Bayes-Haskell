@@ -25,6 +25,7 @@ import           Chem.Molecule
 import           Chem.Molecule.Coordinate (Coordinate(..), mkAngstrom, unAngstrom)
 import           Chem.Validate (usedElectronsAt, validateMolecule)
 import           Constants (elementAttributes, elementShells)
+import           Control.Exception (evaluate)
 import           Control.Monad (forM, unless)
 import           Control.Monad.ST (ST, runST)
 import           Data.Aeson (FromJSON(..), eitherDecode, withObject, (.:))
@@ -36,11 +37,13 @@ import           Data.Maybe (fromMaybe, mapMaybe)
 import           Data.Ord (Down(..))
 import qualified Data.Set as S
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
+import           Data.Time.Clock (diffUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import qualified Data.Vector.Unboxed.Mutable as MU
 import           System.Directory (createDirectoryIfMissing, doesFileExist)
 import           System.FilePath ((</>))
+import           System.IO (hFlush, stdout)
 import           System.Random (StdGen, mkStdGen, randomR)
 import           Text.Printf (printf)
 import           Text.Read (readMaybe)
@@ -133,6 +136,12 @@ data SearchResult = SearchResult
   , resultDrawSource          :: !(Maybe FilePath)
   , resultPosteriorDrawsUsed  :: !Int
   , resultPosteriorDrawsFound :: !Int
+  , resultTrainMolecules      :: !Int
+  , resultValidMolecules      :: !Int
+  , resultTestMolecules       :: !Int
+  , resultSeedCount           :: !Int
+  , resultStepsPerSeed        :: !Int
+  , resultElapsedSeconds      :: !(Maybe Double)
   } deriving (Eq, Show)
 
 data SeedMoleculeName = SeedWater | SeedMethane
@@ -210,20 +219,39 @@ data FreeSolvPredictor = FreeSolvPredictor
   , predictorCoefficientSource :: !FilePath
   , predictorDrawSource        :: !FilePath
   , predictorDrawsFound        :: !Int
+  , predictorTrainMolecules    :: !Int
+  , predictorValidMolecules    :: !Int
+  , predictorTestMolecules     :: !Int
   } deriving (Show)
 
 runFreeSolvInverseDesign :: FilePath -> InverseDesignConfig -> IO SearchResult
 runFreeSolvInverseDesign processedDir config = do
+  putStrLn "Loading FreeSolv predictor and MolADT feature matrix."
+  putStrLn $ "  processed data directory: " ++ processedDir
+  hFlush stdout
   predictor <- loadFreeSolvPredictor processedDir
   defaultTarget <-
     if configTarget config == Nothing
       then Just <$> defaultTargetFromFreeSolv processedDir
       else pure Nothing
   let resolvedTarget = fromMaybe (fromMaybe 0.0 defaultTarget) (configTarget config)
-      result =
+      seedCount = max 1 (configSeeds config)
+      stepsPerSeed = max 0 (configSteps config)
+      proposalBudget = seedCount * stepsPerSeed
+  printInverseDesignPlan predictor config resolvedTarget proposalBudget
+  startTime <- getCurrentTime
+  let result =
         runInverseDesignWithPredictor
           config { configTarget = Just resolvedTarget }
           (predictWithFreeSolv predictor)
+  _ <-
+    evaluate
+      ( totalProposals (resultDiagnostics result)
+          + uniqueValidMoleculesSeen (resultDiagnostics result)
+          + length (resultTopCandidates result)
+      )
+  endTime <- getCurrentTime
+  let elapsedSeconds = realToFrac (diffUTCTime endTime startTime) :: Double
       enriched =
         result
           { resultTarget = resolvedTarget
@@ -232,7 +260,21 @@ runFreeSolvInverseDesign processedDir config = do
           , resultDrawSource = Just (predictorDrawSource predictor)
           , resultPosteriorDrawsUsed = length (predictorDrawWeights predictor)
           , resultPosteriorDrawsFound = predictorDrawsFound predictor
+          , resultTrainMolecules = predictorTrainMolecules predictor
+          , resultValidMolecules = predictorValidMolecules predictor
+          , resultTestMolecules = predictorTestMolecules predictor
+          , resultSeedCount = seedCount
+          , resultStepsPerSeed = stepsPerSeed
+          , resultElapsedSeconds = Just elapsedSeconds
           }
+  putStrLn $
+    "Inverse-design search complete: "
+      ++ show (totalProposals (resultDiagnostics enriched))
+      ++ " proposals, "
+      ++ show (uniqueValidMoleculesSeen (resultDiagnostics enriched))
+      ++ " unique valid molecules, "
+      ++ formatSeconds elapsedSeconds ++ "."
+  hFlush stdout
   if configWriteResults config
     then writeCandidateFiles (configResultsDir config) enriched
     else pure enriched
@@ -265,6 +307,12 @@ runInverseDesignWithPredictor config predictFn =
        , resultDrawSource = Nothing
        , resultPosteriorDrawsUsed = 0
        , resultPosteriorDrawsFound = 0
+       , resultTrainMolecules = 0
+       , resultValidMolecules = 0
+       , resultTestMolecules = 0
+       , resultSeedCount = seedCount
+       , resultStepsPerSeed = max 0 (configSteps config)
+       , resultElapsedSeconds = Nothing
        }
 
 runSeedSearch
@@ -384,6 +432,9 @@ loadFreeSolvPredictor processedDir = do
     , predictorCoefficientSource = coefficientSource
     , predictorDrawSource = drawsPath
     , predictorDrawsFound = length allDraws
+    , predictorTrainMolecules = length (trainObservations dataset)
+    , predictorValidMolecules = length (validObservations dataset)
+    , predictorTestMolecules = length (testObservations dataset)
     }
 
 loadMetadata :: FilePath -> IO FreeSolvMetadata
@@ -1481,6 +1532,13 @@ renderSearchResult result =
       ++ modelLines
       ++ [ "  seed molecule: " ++ seedMoleculeLabel (resultSeedMolecule result)
          , "  deterministic seed: " ++ show randomSeedDefault
+         , "  benchmark molecules: train=" ++ show (resultTrainMolecules result)
+             ++ ", valid=" ++ show (resultValidMolecules result)
+             ++ ", test=" ++ show (resultTestMolecules result)
+             ++ ", total=" ++ show benchmarkTotal
+         , "  search budget: " ++ show (resultSeedCount result)
+             ++ " seed chains x " ++ show (resultStepsPerSeed result)
+             ++ " proposals = " ++ show (resultSeedCount result * resultStepsPerSeed result)
          , "  posterior draws used: " ++ show (resultPosteriorDrawsUsed result)
              ++ " of " ++ show (resultPosteriorDrawsFound result)
          , "  total proposals: " ++ show (totalProposals diagnostics)
@@ -1491,6 +1549,7 @@ renderSearchResult result =
          , "  invalid proposal rate: " ++ printf "%.3f" (safeRate (invalidProposals diagnostics) (totalProposals diagnostics))
          , "  unique valid molecules seen: " ++ show (uniqueValidMoleculesSeen diagnostics)
          ]
+      ++ elapsedLines
       ++ fileLines
       ++ [ ""
          , "Top generated molecules"
@@ -1501,6 +1560,8 @@ renderSearchResult result =
            ]
   where
     diagnostics = resultDiagnostics result
+    benchmarkTotal =
+      resultTrainMolecules result + resultValidMolecules result + resultTestMolecules result
     defaultTargetLine =
       if resultUsedDefaultTarget result
         then ["No --target supplied; using median experimental FreeSolv target: " ++ printf "%.3f" (resultTarget result)]
@@ -1512,6 +1573,48 @@ renderSearchResult result =
       case resultMoleculeFilePaths result of
         [] -> []
         paths -> "  molecule files:" : map ("    " ++) paths
+    elapsedLines =
+      maybe [] (\seconds -> ["  search runtime: " ++ formatSeconds seconds]) (resultElapsedSeconds result)
+
+printInverseDesignPlan :: FreeSolvPredictor -> InverseDesignConfig -> Double -> Int -> IO ()
+printInverseDesignPlan predictor config target proposalBudget = do
+  let trainCount = predictorTrainMolecules predictor
+      validCount = predictorValidMolecules predictor
+      testCount = predictorTestMolecules predictor
+      totalCount = trainCount + validCount + testCount
+      seedCount = max 1 (configSeeds config)
+      stepsPerSeed = max 0 (configSteps config)
+  putStrLn "FreeSolv inverse-design setup:"
+  putStrLn $
+    "  benchmark molecules: train=" ++ show trainCount
+      ++ ", valid=" ++ show validCount
+      ++ ", test=" ++ show testCount
+      ++ ", total=" ++ show totalCount
+  putStrLn $ "  feature count: " ++ show (length (predictorFeatureNames predictor))
+  putStrLn $ "  selected GP features: " ++ show (length (predictorSelectedIndices predictor))
+  putStrLn $
+    "  posterior draws: " ++ show (length (predictorDrawWeights predictor))
+      ++ " used of " ++ show (predictorDrawsFound predictor)
+  putStrLn $ "  target: " ++ printf "%.3f" target ++ " kcal/mol"
+  putStrLn $ "  seed molecule: " ++ seedMoleculeLabel (configSeedMolecule config)
+  putStrLn $
+    "  search budget: " ++ show seedCount
+      ++ " seed chains x " ++ show stepsPerSeed
+      ++ " proposals = " ++ show proposalBudget
+  putStrLn $ "  runtime expectation: " ++ inverseRuntimeExpectation trainCount proposalBudget
+  hFlush stdout
+
+inverseRuntimeExpectation :: Int -> Int -> String
+inverseRuntimeExpectation trainCount proposalBudget
+  | proposalBudget <= 2500 =
+      "usually under a minute; each valid unique molecule is scored against the GP posterior."
+  | trainCount <= 600 && proposalBudget <= 10000 =
+      "expect seconds to a few minutes; runtime depends on how many proposals validate into unique molecules."
+  | otherwise =
+      "expect several minutes or more; increase comes from proposal count, validation, and GP scoring."
+
+formatSeconds :: Double -> String
+formatSeconds seconds = printf "%.2fs" seconds
 
 renderCandidate :: Int -> Candidate -> Double -> [String]
 renderCandidate rank candidate target =

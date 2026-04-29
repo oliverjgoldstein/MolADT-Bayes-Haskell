@@ -1,167 +1,141 @@
 # MolADT-Bayes-Haskell
 
-Molecular modelling code often starts from strings or plain graphs, then has to recover the chemistry that was flattened away. That is a poor fit for Bayesian inference and inverse design, where the program needs to inspect and validate atoms, bonds, charges, geometry, stereochemistry, and delocalised or multicentre bonding directly.
+## Molecules, as data.
 
-MolADT is the typed molecule object for that job. This Haskell repo is the compact typed implementation: the chemistry object is central, notation stays at the boundary, and the same JSON representation can move between Haskell and the sibling Python benchmark repo.
+MolADT is a compact Haskell representation for molecules that need to be
+inspected, validated, serialized, and scored by probabilistic models.
 
-[Quickstart](docs/quickstart.md) · [Representation](docs/representation.md) · [ADT Representation](docs/data-model.md) · [Models](docs/models.md) · [Examples](docs/examples.md)
+Boundary formats stay at the edge. The molecule stays in the ADT.
 
-## What This Repo Does
+```text
+Molecule = atoms + sigma edges + bonding systems + stereochemistry
+```
 
-- Defines the typed MolADT molecule representation.
-- Parses and validates conservative SDF and boundary-string inputs.
-- Serializes the shared MolADT JSON format used by both repos.
-- Consumes Python-exported benchmark matrices for the narrower Haskell FreeSolv inference path.
-- Provides small examples and CLI tools for inspecting the representation.
+[Quickstart](docs/quickstart.md) | [ADT](docs/data-model.md) |
+[Representation](docs/representation.md) | [Examples](docs/examples.md) |
+[CLI](docs/cli-and-demo.md) | [Inference](docs/inference.md)
 
-Use this repo when you want the smaller typed reference implementation, parser/serializer behaviour, or Haskell-side inference consumer. Use the Python repo when you want the full benchmark runner, paper artifacts, feature generation, and FreeSolv inverse-design experiment.
+## Why MolADT
 
-## Why The Representation Matters
+String formats are useful for exchange. Plain graphs are useful for traversal.
+Neither is a great home for all of the chemistry a model may need to reason
+about.
 
-MolADT is designed for cases where ordinary graph or string encodings make the important chemistry hard to address directly:
+MolADT keeps the important structure explicit:
 
-- diborane wants explicit `3c-2e` bridge systems
-- ferrocene wants shared Cp/metal bonding systems
-- morphine wants fused topology and stereochemical bookkeeping available as data
+- atoms with element data, coordinates, formal charge, shells, and orbitals
+- localized sigma bonds as ordinary undirected edges
+- Dietz bonding systems for delocalized and multicentre chemistry
+- SMILES stereochemistry annotations as their own typed layer
+- shared JSON serialization for Haskell and the sibling Python repo
 
-MolADT keeps those decisions in typed data. That matters for inference and inverse design because models and proposal operators can work on the molecule being studied, not on a lossy boundary notation that has to be reinterpreted at every step.
+That gives inference and inverse-design code a molecule it can inspect directly,
+instead of a string it has to reinterpret at every step.
 
-## Quick Start
+Read more in [MolADT ADT Representation](docs/data-model.md) and
+[MolADT Representation](docs/representation.md).
+
+## The Shape
+
+The core Haskell value is deliberately small:
+
+```haskell
+data Molecule = Molecule
+  { atoms :: Map AtomId Atom
+  , localBonds :: Set Edge
+  , systems :: [(SystemId, BondingSystem)]
+  , smilesStereochemistry :: SmilesStereochemistry
+  }
+```
+
+The point is not to replace SMILES or SDF. The point is to parse them into a
+typed structure where the chemistry is available as data.
+
+## What It Unlocks
+
+- **Clearer chemistry**: diborane bridges, ferrocene Cp/metal systems, and
+  morphine fused topology can be represented explicitly.
+- **Safer boundaries**: SDF, SMILES, and JSON parsing happen at the edge, then
+  validation runs on the typed molecule.
+- **Shared contracts**: Haskell and Python use the same MolADT JSON shape for
+  round-trips and benchmark exports.
+- **Better model inputs**: the Haskell benchmark consumer works from
+  Python-exported MolADT feature matrices rather than raw notation.
+- **Editable structure**: inverse-design experiments can operate on atoms,
+  bonds, hydrogens, and bonding systems as separate concepts.
+
+See [Example Molecules](docs/examples.md), [Parsing and Rendering](docs/parsing.md),
+and [Python Interop](docs/python-interop.md).
+
+## Why It Helps Bayesian Work
+
+MolADT is useful as a general explicit typed generative model for Bayesian
+chemistry tasks. The model can generate, edit, validate, and score molecules as
+structured values:
+
+- priors can be written over atoms, edges, charges, rings, and bonding systems
+- proposal kernels can make local typed edits instead of string rewrites
+- invalid chemistry can be rejected at the molecule boundary
+- likelihoods and descriptors can inspect the same explicit object
+- posterior samples can be serialized through the shared MolADT JSON contract
+
+That is the point of the ADT: Bayesian inference and inverse design can work on
+the molecule itself, not a notation that has to be decoded on every move.
+
+## Start
 
 ```bash
 make haskell-build
+stack run moladtbayes -- parse molecules/benzene.sdf
 stack run moladtbayes -- parse-smiles "c1ccccc1"
-make haskell-parse-sdf-timing
+stack run moladtbayes -- pretty-example ferrocene
 ```
 
-## Parsing
+For the full first-run path, use [Quickstart](docs/quickstart.md).
 
-Use the CLI when you want to inspect or serialize the typed MolADT object directly.
+## Explore By Task
+
+| Task | Go to |
+| --- | --- |
+| Understand the ADT | [ADT Representation](docs/data-model.md) |
+| See why MolADT is not just a graph | [Representation](docs/representation.md) |
+| Inspect benzene, morphine, diborane, or ferrocene | [Examples](docs/examples.md) |
+| Parse SDF, SMILES, or MolADT JSON | [CLI and Demo](docs/cli-and-demo.md) |
+| Check parser scope and validation rules | [SMILES Scope and Validation](docs/smiles-scope-and-validation.md) |
+| Run the Haskell benchmark consumer | [Inference](docs/inference.md) |
+| Understand exported feature matrices | [Models and Exported Features](docs/models.md) |
+| Work across the Python repo boundary | [Python Interop](docs/python-interop.md) |
+| Find files quickly | [Repo Map](docs/repo-map.md) |
+| Run tests | [Testing](docs/testing.md) |
+
+## Commands
 
 ```bash
-stack run moladtbayes -- parse molecules/benzene.sdf
+stack run moladtbayes -- --help
 stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
 stack run moladtbayes -- from-json benzene.moladt.json
-stack run moladtbayes -- parse-smiles "c1ccccc1"
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
-```
-
-- `parse` reads one SDF record, validates it, pretty-prints the MolADT structure, and then tries to render SMILES
-- `to-json` reads one SDF record, validates it, and writes the shared MolADT JSON boundary format used by both repos
-- `from-json` reads that MolADT JSON back into the typed Haskell `Molecule` and prints the usual MolADT report
-- `parse-smiles` reads the conservative SMILES subset and lifts it into the typed MolADT object
-- `to-smiles` renders validated classical MolADT structures back into the supported SMILES subset
-
-Programmatically, the shortest `SDF -> MolADT -> JSON -> MolADT` path is:
-
-```haskell
-import Chem.IO.MoleculeJSON (moleculeFromJSON, moleculeToJSON)
-import Chem.IO.SDF (readSDF)
-import Chem.Molecule (atoms)
-import Text.Megaparsec (errorBundlePretty)
-
-main :: IO ()
-main = do
-  parsed <- readSDF "molecules/benzene.sdf"
-  case parsed of
-    Left err -> putStrLn (errorBundlePretty err)
-    Right molecule ->
-      case moleculeFromJSON (moleculeToJSON molecule) of
-        Left jsonErr -> putStrLn jsonErr
-        Right roundTripped -> print (length (atoms roundTripped))
-```
-
-The emitted JSON is the same MolADT boundary format used by the Python repo's `python -m moladt.cli to-json ...` and `from-json ...` commands.
-
-The SDF parser accepts V2000 and the core V3000 CTAB subset used by ordinary structure exports:
-
-- atom coordinates
-- bond tables
-- atom-local formal charges
-
-The Haskell side is intentionally a parser, not a full MDL toolkit. It reads those structures into MolADT; it does not attempt to support the full query/enhanced-feature surface of SDF.
-
-If one SDF file contains multiple molecules:
-
-- read a small eager slice from disk with `case readSDFRecords "bundle.sdf" of Right ms -> take 3 ms; Left err -> error (show err)`
-- parse an in-memory multi-record payload with `either (error . show) (take 3) (parseSDFRecords multiRecordText)`
-
-The local vendored FreeSolv raw files in the sibling Python workspace are still V2000. The parser can read the core V3000 subset, but the current local benchmark raws are not being silently relabeled.
-
-## What This Repo Contains
-
-- the typed MolADT source implementation
-- conservative SDF and SMILES boundary parsing
-- a local SDF timing entry point for raw block reads versus Haskell SDF parsing
-- example molecules, CLI tools, and aligned benchmark entry points
-
-## Benchmarking
-
-This repo does not ship precomputed benchmark results. The benchmark figures are generated by real runs from the sibling Python repo, and `results/` is meant to be populated only by those local runs.
-
-```bash
+make haskell-test
+make haskell-demo
 make haskell-infer-benchmark
-make haskell-parse-sdf-timing
 ```
 
-The Haskell side consumes the Python-exported MolADT matrices for inference, and it can also time the local SDF parser against raw single-record SDF reads from the sibling Python cached ZINC timing corpus.
+The Haskell benchmark path is intentionally narrow: it consumes the Python
+`freesolv_moladt_featurized` export and runs a local exact RBF Gaussian process
+over the typed MolADT feature matrix. The Python repo owns the larger benchmark
+runner and paper artifacts.
 
-By default, `make haskell-infer-benchmark` now uses the full exported dataset splits, and `make haskell-parse-sdf-timing` targets the sibling Python `full` cached ZINC timing corpus rather than the old `128`-row smoke subset.
+## Scope
 
-The local Haskell benchmark consumer uses:
+This repo is the typed Haskell implementation and aligned benchmark consumer.
+It includes:
 
-- FreeSolv: a finite exact RBF Gaussian process over screened `moladt_featurized` inputs
+- the MolADT molecule ADT
+- conservative SDF and SMILES boundary parsing
+- shared MolADT JSON serialization
+- built-in typed molecule examples
+- a compact FreeSolv inference and inverse-design path
 
-For FreeSolv, the Haskell GP does three things:
-
-- it starts from the Python-exported MolADT feature matrix
-- it keeps the strongest `24` training-selected feature channels
-- it fits a finite exact RBF kernel model and predicts from the posterior over GP hyperparameters using the local LazyPPL `mh` or `lwis` kernels
-
-That makes the Haskell model different from the Python Stan FreeSolv path. Python uses `bayes_gp_rbf_screened` with `laplace`; Haskell uses the same MolADT-featurized export but runs a local exact GP implementation over it.
-
-The current Python benchmark contract is:
-
-- FreeSolv: `moladt_featurized` with `bayes_gp_rbf_screened` fit by `laplace`
-
-The Haskell benchmark surface is intentionally narrower than the Python repo. On the Haskell side, `infer-benchmark` is now scoped to the FreeSolv export only.
-
-## FreeSolv Inverse Design
-
-The Haskell repo also includes a compact typed mirror of the FreeSolv inverse-design experiment. It starts from a built-in MolADT seed molecule, applies conservative local edits to atoms, sigma edges, terminal hydrogens, and optional Dietz pi-ring systems, validates every accepted molecule, and scores candidates against the fixed FreeSolv Bayesian GP artifact from the sibling Python repo.
-
-```bash
-make haskell-inverse-design TARGET=-5.0 SEED_MOLECULE=water
-stack run moladtbayes -- inverse-design --target -5.0 --seed-molecule water
-```
-
-`--target` is the desired hydration free energy in kcal/mol. `--seed-molecule` can be `water` or `methane`; the Makefile defaults to water for reproducibility. The command loads the Python-exported `freesolv_moladt_featurized` metadata, standardized training matrix, coefficient summary, and Laplace posterior draws, then keeps the most target-compatible low-uncertainty candidates. It prints the top molecules as readable MolADT/Dietz structures and writes `results/inverse_design/reference/top_XX_molecule.hs`.
-
-This is a small proof-of-concept for property-conditioned MolADT growth, not a synthesizability claim or a state-of-the-art generator. The Python repo remains the authoritative benchmark and paper-artifact runner; the Haskell version demonstrates the same representation and validation logic in the typed implementation.
-
-The comparison figure still comes from the Python repo:
-
-- `results/freesolv/run_.../freesolv_rmse_vs_moleculenet.svg`
-
-That predictive comparison is deliberately narrow:
-
-- FreeSolv compares the local MolADT RMSE to the MoleculeNet MPNN RMSE row `1.15`
-
-Those are local benchmark artifacts, not committed front-page snapshots. The metric matches the MoleculeNet row, but the local split and Stan model family still differ from the paper.
-
-Timing bundles still belong to the Python repo. If the sibling raw or processed files are missing, the Makefile can offer to generate them through the Python repo first. Large delegated Python-side downloads and archive extraction show live progress when the files are large enough to matter.
-
-## Read More
-
-- [Quickstart](docs/quickstart.md)
-- [ADT representation](docs/data-model.md)
-- [Parsing and rendering](docs/parsing.md)
-- [CLI and demo](docs/cli-and-demo.md)
-- [Models and exported features](docs/models.md)
-- [Python interop](docs/python-interop.md)
-- [Inference](docs/inference.md)
-- [Examples](docs/examples.md)
-
-## Related Repo
-
-- [MolADT-Bayes-Python](https://github.com/oliverjgoldstein/MolADT-Bayes-Python)
+For the full benchmark pipeline, data processing, figures, and Python-side
+experiments, use
+[MolADT-Bayes-Python](https://github.com/oliverjgoldstein/MolADT-Bayes-Python).

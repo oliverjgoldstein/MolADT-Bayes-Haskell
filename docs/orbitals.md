@@ -1,106 +1,47 @@
 # Orbitals
 
-This page explains the orbital layer in the Haskell MolADT and why its types fit theoretical chemistry rather than just acting as extra metadata.
+Orbital information lives on each atom.
 
-## What Is In The ADT
+That matters because MolADT is not only a graph of element labels. It can carry
+the typed chemical structure that later descriptors or models may inspect.
 
-In Haskell, orbitals sit directly on atoms:
-
-`Molecule -> Atom -> Shells -> Shell -> SubShell -> Orbital`
-
-The core declarations live in [`src/Orbital.hs`](../src/Orbital.hs):
-
-- `So`, `P`, `D`, and `F` describe the pure orbital families
-- `Orbital subshellType` stores:
-  - `orbitalType`
-  - `electronCount`
-  - optional `orientation`
-  - optional `hybridComponents`
-- `SubShell subshellType` stores orbitals from one angular-momentum family
-- `Shell` stores one principal quantum number plus optional `s`, `p`, `d`, and `f` subshells
-
-Atoms then carry `shells`, so the orbital layer is part of the molecule value itself.
-
-## Worked Example
-
-There are two useful ways to read the orbital layer: inspect one of the built-in atomic shell descriptions, or construct one orbital value directly.
-
-The shipped `carbon` value already contains a typed valence-shell picture:
+## Shape
 
 ```haskell
-import Orbital (carbon)
+data Atom = Atom
+  { shells :: Shells
+  }
 
-coreShell = carbon !! 0     -- 1s^2
-valenceShell = carbon !! 1  -- 2s^2, 2p^2
+type Shells = [Shell]
 ```
 
-That second shell contains one filled `2s` orbital plus two singly occupied directional `p` orbitals, so the ADT is storing local electronic structure explicitly rather than reconstructing it later from the atom label.
+An atom points to shells. A shell points to subshells. A subshell points to
+orbitals.
 
-If you want to build one orbital value directly, the shape is explicit there too:
-
-```haskell
-import Orbital (Orbital(..), P(..), PureOrbital(..), So(..), angCoord)
-
-sp2LikePx :: Orbital P
-sp2LikePx =
-  Orbital
-    { orbitalType = Px
-    , electronCount = 1
-    , orientation = Just (angCoord 1 0 0)
-    , hybridComponents =
-        Just
-          [ (1 / sqrt 3, PureSo So)
-          , (sqrt (2 / 3), PureP Px)
-          ]
-    }
+```text
+Molecule -> Atom -> Shells -> Shell -> SubShell -> Orbital
 ```
 
-This is still one orbital value. `orientation` gives the local directional axis, and `hybridComponents` says that the orbital is being described as a local `s`/`p` mixture instead of as a purely atomic `px`.
+## What An Orbital Stores
 
-## Why The Types Fit Theoretical Chemistry
+An orbital can store:
 
-The type structure follows the chemistry closely.
+- orbital type
+- electron count
+- optional orientation
+- optional hybrid components
 
-- `Shell` separates data by principal quantum number `n`.
-- `SubShell P` contains only `p` orbitals, `SubShell D` only `d` orbitals, and so on. That rules out category mistakes that are chemically meaningless.
-- `electronCount` is explicit on each orbital, so occupancy is represented directly.
-- `orientation` gives a place for directional orbital information.
-- `hybridComponents` lets an orbital be described as a weighted combination of pure orbitals, which matches the shape of hybridization talk without requiring the whole ADT to become a full quantum-chemistry solver.
+## Why Keep It
 
-That is why the design fits theoretical chemistry: the types express shell structure, angular character, occupancy, and optional hybridization in the same shape that the theory talks about them.
+For many tasks, a graph is enough. For theoretical-chemistry-facing tasks, the
+model may need a richer typed object.
 
-## Why This Is Better Than A Reduced Graph
+Keeping shells and orbitals in the ADT means later code can ask structured
+questions without bolting a separate object model onto the side.
 
-A graph-only molecular object is good at connectivity, but poor at local electronic structure.
+## What It Does Not Claim
 
-The orbital layer keeps visible:
+This is not a full quantum chemistry engine. It is a typed representation that
+can carry orbital-shaped data when the task needs it.
 
-- shell filling
-- directional `p`, `d`, and `f` content
-- explicit hybrid decomposition when it matters
-
-That makes the ADT better aligned with chemical reasoning than a representation that stops at atoms and edges.
-
-## What This Does Not Claim
-
-This is not a complete quantum-chemistry package.
-
-It does not represent:
-
-- a full basis-set calculation
-- SCF or post-SCF state
-- global molecular orbitals
-- overlap, Fock, or Hamiltonian matrices
-- full radial parameterization
-
-So the right interpretation is: typed local orbital structure on atoms, not a complete wavefunction description.
-
-## Why Keep It Anyway
-
-For MolADT, the orbital layer is useful because it keeps more chemistry inside the ADT itself.
-
-- It makes printed atoms more informative.
-- It gives other code a typed place to inspect shell and orbital structure.
-- It stays faithful to the Haskell style of explicit algebraic data with clear invariants.
-
-That is the point of the design: richer than a graph-only molecule, but still simple enough to be a reusable typed core.
+Next: [ADT representation](data-model.md), [Representation](representation.md).

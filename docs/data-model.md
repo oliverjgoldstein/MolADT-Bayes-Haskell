@@ -1,41 +1,12 @@
 # MolADT ADT Representation
 
-In Haskell, MolADT is already a direct algebraic data type. The full representation is a small family of records and sums that make the molecule explicit instead of flattening it into a boundary string.
-
-## Full Shape
-
-At a high level, the nested shape is:
+MolADT is a molecule as typed Haskell data.
 
 ```text
-Molecule
-  = atoms :: Map AtomId Atom
-  + localBonds :: Set Edge
-  + systems :: [(SystemId, BondingSystem)]
-  + smilesStereochemistry :: SmilesStereochemistry
-
-Atom
-  = atomID
-  + attributes :: ElementAttributes
-  + coordinate :: Coordinate
-  + shells :: Shells
-  + formalCharge
-
-BondingSystem
-  = sharedElectrons
-  + memberAtoms
-  + memberEdges
-  + tag
+Molecule = atoms + sigma edges + bonding systems + stereochemistry
 ```
 
-So MolADT is not just a graph and not just a notation. It is:
-
-- a typed atom table
-- an explicit sigma-network
-- a Dietz bonding-system layer for delocalized or multicenter chemistry
-- a stereo annotation layer
-- orbital shell structure carried directly on each atom
-
-## Core Molecule Record
+## Core Shape
 
 ```haskell
 data Molecule = Molecule
@@ -46,22 +17,40 @@ data Molecule = Molecule
   }
 ```
 
-This is the ADT story in the simplest possible form: one product type whose fields are the molecule.
+That gives one explicit object with four layers:
 
-- `atoms` is the main atom table
-- `localBonds` is the undirected sigma-network
-- `systems` is the non-local Dietz layer
-- `smilesStereochemistry` is the stereo layer from a SMILES-style boundary format
+- `atoms`: atom table
+- `localBonds`: localized sigma network
+- `systems`: Dietz bonding systems for delocalized or multicentre chemistry
+- `smilesStereochemistry`: stereo annotations from boundary notation
 
-## Dietz Layer
+## Minimal Example
 
-The constitution-level primitives live in `Chem.Dietz`.
+This is the shape of water as a typed molecule:
 
 ```haskell
-newtype AtomId   = AtomId Integer
-newtype SystemId = SystemId Int
-newtype NonNegative = NonNegative { getNN :: Int }
+water :: Molecule
+water = Molecule
+  { atoms = M.fromList
+      [ (AtomId 1, oxygen)
+      , (AtomId 2, hydrogen1)
+      , (AtomId 3, hydrogen2)
+      ]
+  , localBonds = S.fromList
+      [ mkEdge (AtomId 1) (AtomId 2)
+      , mkEdge (AtomId 1) (AtomId 3)
+      ]
+  , systems = []
+  , smilesStereochemistry = emptySmilesStereochemistry
+  }
+```
 
+The important part is not the specific molecule. It is the separation between
+atoms, local bonds, bonding systems, and stereo.
+
+## Bonding Systems
+
+```haskell
 data Edge = Edge AtomId AtomId
 
 data BondingSystem = BondingSystem
@@ -72,26 +61,36 @@ data BondingSystem = BondingSystem
   }
 ```
 
-This is what makes MolADT more expressive than a plain graph.
+`localBonds` and `systems` are separate layers. A sigma edge can exist in the
+ordinary graph and also belong to a delocalized system.
 
-- `Edge` is a canonical undirected pair
-- `localBonds` stores the localized sigma framework
-- `BondingSystem` adds one electron-sharing system over a set of edges
-- `tag` is an optional label for a ring, bridge, or other named system
+That is how MolADT can represent things like:
 
-So `localBonds` and `systems` are different layers of the same molecule, not duplicates of each other.
+- benzene `pi_ring`
+- diborane `3c-2e` bridges
+- ferrocene Cp/metal systems
 
-## Atom Record
-
-Each atom is also explicit:
+Example shape for one benzene-style pi system:
 
 ```haskell
-data ElementAttributes = ElementAttributes
-  { symbol       :: AtomicSymbol
-  , atomicNumber :: Int
-  , atomicWeight :: Double
-  }
+piRing :: BondingSystem
+piRing =
+  mkBondingSystem
+    (NonNegative 6)
+    (S.fromList
+      [ mkEdge (AtomId 1) (AtomId 2)
+      , mkEdge (AtomId 2) (AtomId 3)
+      , mkEdge (AtomId 3) (AtomId 4)
+      , mkEdge (AtomId 4) (AtomId 5)
+      , mkEdge (AtomId 5) (AtomId 6)
+      , mkEdge (AtomId 1) (AtomId 6)
+      ])
+    (Just "pi_ring")
+```
 
+## Atoms
+
+```haskell
 data Atom = Atom
   { atomID       :: AtomId
   , attributes   :: ElementAttributes
@@ -101,96 +100,21 @@ data Atom = Atom
   }
 ```
 
-That means an atom carries:
+Each atom carries identity, element data, coordinates, shell structure, and
+formal charge.
 
-- identity
-- element information
-- coordinates
-- shell structure
-- explicit formal charge
+## Stereo
 
-## Stereo Layer
+SMILES stereochemistry is kept in its own layer. It is not hidden inside an
+edge or atom string.
 
-The boundary stereo layer is explicit and separate from the bonding layer.
+This keeps the core molecule inspectable while still preserving boundary
+stereo information.
 
-```haskell
-data SmilesAtomStereo = SmilesAtomStereo
-  { stereoCenter        :: AtomId
-  , stereoClass         :: SmilesAtomStereoClass
-  , stereoConfiguration :: Int
-  , stereoToken         :: String
-  }
+## Python Match
 
-data SmilesBondStereo = SmilesBondStereo
-  { bondStereoStart     :: AtomId
-  , bondStereoEnd       :: AtomId
-  , bondStereoDirection :: SmilesBondStereoDirection
-  }
+The Python repo mirrors the same shape with frozen dataclasses. That is why the
+shared JSON boundary can move molecules between Haskell and Python without
+changing the chemistry object.
 
-data SmilesStereochemistry = SmilesStereochemistry
-  { atomStereoAnnotations :: [SmilesAtomStereo]
-  , bondStereoAnnotations :: [SmilesBondStereo]
-  }
-```
-
-This matters structurally:
-
-- stereochemistry is not hidden inside the edge set
-- atom stereo and bond stereo are separate records
-- the full `Molecule` still keeps them as one explicit field
-
-## Orbitals And Shells
-
-The orbital side is also part of the ADT.
-
-```haskell
-data Orbital subshellType = Orbital
-  { orbitalType      :: subshellType
-  , electronCount    :: Int
-  , orientation      :: Maybe Coordinate
-  , hybridComponents :: Maybe [(Double, PureOrbital)]
-  }
-
-newtype SubShell subshellType = SubShell
-  { orbitals :: [Orbital subshellType]
-  }
-
-data Shell = Shell
-  { principalQuantumNumber :: Int
-  , sSubShell              :: Maybe (SubShell So)
-  , pSubShell              :: Maybe (SubShell P)
-  , dSubShell              :: Maybe (SubShell D)
-  , fSubShell              :: Maybe (SubShell F)
-  }
-
-type Shells = [Shell]
-```
-
-So the structural path is:
-
-`Molecule -> Atom -> Shells -> Shell -> SubShell -> Orbital`
-
-That is why MolADT is better understood as a typed ADT tree than as a thin molecule string wrapper.
-
-## Relation To Python
-
-The Python repo mirrors this ADT closely:
-
-```python
-@dataclass(frozen=True, slots=True)
-class Molecule:
-    atoms: Mapping[AtomId, Atom]
-    local_bonds: frozenset[Edge]
-    systems: tuple[tuple[SystemId, BondingSystem], ...]
-    smiles_stereochemistry: SmilesStereochemistry = field(default_factory=SmilesStereochemistry)
-```
-
-That Python `Molecule` is meant to feel like this Haskell record, not like a method-heavy object model.
-
-Python also has a `MutableMolecule` helper for local edits before calling `freeze()`. There is no separate mutable type on the Haskell side; the normal approach is to build a new immutable `Molecule` value.
-
-If you want the shortest summary, MolADT is:
-
-`Molecule = atoms + sigma edges + bonding systems + stereo annotations`
-
-with shell and orbital structure stored directly on each atom.
+Next: [Representation](representation.md), [Python interop](python-interop.md).

@@ -17,12 +17,14 @@ module BenchmarkModel
   , runBenchmarkRegressionWith
   ) where
 
-import Control.DeepSeq (NFData)
+import Control.DeepSeq (NFData, force)
+import Control.Exception (evaluate)
 import Control.Monad (forM_, replicateM, unless, when)
 import Control.Parallel.Strategies (parMap, rdeepseq)
 import Data.Char (isSpace)
 import Data.List (foldl', intercalate, isPrefixOf, isSuffixOf, sortOn, zipWith3)
 import Data.Ord (Down(..))
+import Data.Time.Clock (diffUTCTime, getCurrentTime)
 import Distr (normal)
 import GaussianProcess
   ( GaussianProcessParameters(..)
@@ -38,6 +40,8 @@ import LazyPPL (Meas, lwis, mh, sample, scoreLog)
 import Numeric.Log (Log(Exp))
 import Numeric.SpecFunctions (logGamma)
 import System.FilePath ((</>))
+import System.IO (hFlush, stdout)
+import Text.Printf (printf)
 import Text.Read (readMaybe)
 
 
@@ -219,22 +223,33 @@ runBenchmarkRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
       trainCount = length (trainObservations dataset)
       validCount = length (validObservations dataset)
       testCount  = length (testObservations dataset)
+      totalCount = trainCount + validCount + testCount
+      drawBudget = inferenceDrawBudget method actualBurnIn actualPosteriorSamples
+      requiredSamples = requiredParameterSamples method actualBurnIn actualPosteriorSamples
   putStrLn $ "Benchmark dataset: " ++ datasetPrefix dataset
   putStrLn $ "Target: " ++ targetName dataset
   putStrLn $ "Representation: " ++ describeRepresentation (representationName dataset)
   putStrLn $ "Feature count: " ++ show (length (featureNames dataset))
   putStrLn $
-    "Split sizes: train=" ++ show trainCount
+    "Molecule counts: train=" ++ show trainCount
     ++ ", valid=" ++ show validCount
     ++ ", test=" ++ show testCount
+    ++ ", total=" ++ show totalCount
   putStrLn $ "Model alignment: " ++ describeModelAlignment prepared
   putStrLn $ "Inference method: " ++ describeInferenceMethod method
   putStrLn $
     "Execution budget: burn-in=" ++ show actualBurnIn
     ++ ", posterior_samples=" ++ show actualPosteriorSamples
+    ++ ", parameter_draw_budget=" ++ show drawBudget
+  putStrLn $ "Runtime expectation: " ++ runtimeExpectation prepared trainCount testCount drawBudget
+  hFlush stdout
   printPreparedModelDetails prepared
+  hFlush stdout
 
-  parameterSamples <- benchmarkModelWith method prepared
+  startTime <- getCurrentTime
+  rawParameterSamples <- benchmarkModelWith method prepared
+  parameterSamples <- evaluate (force (take requiredSamples rawParameterSamples))
+  endTime <- getCurrentTime
 
   let (skippedBurnIn, postBurnSamples) = splitAt actualBurnIn parameterSamples
       usedBurnIn = length skippedBurnIn
@@ -257,6 +272,7 @@ runBenchmarkRegressionWith SamplingConfig { burnInIterations, posteriorSamples }
       testPredictions = predictSplit prepared effectiveSamples (testObservations dataset)
 
   putStrLn $ "Posterior samples used: " ++ show collectedSamples
+  putStrLn $ "Inference runtime: " ++ formatSeconds (diffUTCTime endTime startTime)
   printPosteriorSummary prepared effectiveSamples
 
   unless (null validPredictions) $ do
@@ -448,6 +464,45 @@ describeInferenceMethod UseLWIS { lwisSampleCount } =
   "Likelihood-weighted importance sampling with " ++ show lwisSampleCount ++ " particles"
 describeInferenceMethod UseMH { mhJitter } =
   "Metropolis-Hastings with site-mutation probability " ++ show mhJitter
+
+
+inferenceDrawBudget :: BenchmarkInferenceMethod -> Int -> Int -> Int
+inferenceDrawBudget UseLWIS { lwisSampleCount } _ _ = max 1 lwisSampleCount
+inferenceDrawBudget UseMH {} burnIn sampleCount = max 0 burnIn + max 1 sampleCount
+
+
+requiredParameterSamples :: BenchmarkInferenceMethod -> Int -> Int -> Int
+requiredParameterSamples UseLWIS {} _ sampleCount = max 1 sampleCount
+requiredParameterSamples UseMH {} burnIn sampleCount = max 0 burnIn + max 1 sampleCount
+
+
+runtimeExpectation :: PreparedBenchmark -> Int -> Int -> Int -> String
+runtimeExpectation PreparedBenchmark { preparedModel = UseGaussianProcessRbf } trainCount testCount drawBudget =
+  "exact GP work uses " ++ show trainCount ++ " training molecules, "
+    ++ "up to " ++ show defaultGaussianProcessFeatureCap ++ " screened MolADT features, "
+    ++ show drawBudget ++ " parameter draws, and "
+    ++ show testCount ++ " test molecules; "
+    ++ roughRuntime trainCount drawBudget
+runtimeExpectation PreparedBenchmark { preparedModel = UseLinearStudentT } trainCount testCount drawBudget =
+  "linear Bayesian regression uses " ++ show trainCount ++ " training molecules, "
+    ++ show drawBudget ++ " parameter draws, and "
+    ++ show testCount ++ " test molecules; "
+    ++ roughRuntime trainCount drawBudget
+
+
+roughRuntime :: Int -> Int -> String
+roughRuntime trainCount drawBudget
+  | trainCount <= 128 && drawBudget <= 320 =
+      "expect this to finish quickly, usually under a minute on a laptop."
+  | trainCount <= 600 && drawBudget <= 320 =
+      "expect a few minutes on a laptop because the GP repeatedly works over the training covariance."
+  | otherwise =
+      "expect several minutes or more; runtime grows with molecule count and draw budget."
+
+
+formatSeconds :: Real a => a -> String
+formatSeconds duration =
+  printf "%.2fs" (realToFrac duration :: Double)
 
 
 describeRepresentation :: String -> String

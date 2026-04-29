@@ -1,48 +1,32 @@
 # Parsing and Rendering
 
-This is the shortest way to see the typed MolADT implementation directly.
+MolADT treats SDF, SMILES, and JSON as boundary formats.
 
-## If You Have an SDF File
+The typed `Molecule` value is the internal object.
 
-Use `parse`.
-
-```bash
-make haskell-parse
-```
-
-Equivalent raw command:
+## SDF To MolADT
 
 ```bash
 stack run moladtbayes -- parse molecules/benzene.sdf
 ```
 
-This parses the file-backed molecule, validates it, pretty-prints the MolADT structure, and then tries to render SMILES from the validated result.
+This reads one SDF record, validates it, and prints the structured MolADT
+report.
 
-The SDF parser accepts:
+Supported SDF input is intentionally practical:
 
-- V2000 records
-- the core V3000 CTAB subset with atom coordinates, bond tables, and atom-local formal charges
+- V2000 atom and bond blocks
+- core V3000 CTAB atom and bond blocks
+- atom coordinates
+- atom-local formal charges
 
-The reader is deliberately narrow. It is meant to get ordinary structure files into MolADT, not to cover the entire MDL query feature surface.
+This is a parser for ordinary structure exports, not a full MDL query toolkit.
 
-If the SDF payload contains several molecules, use `readSDFRecords "bundle.sdf"` from `Chem.IO.SDF`, or `parseSDFRecords multiRecordText` if the records are already in memory.
-
-## If You Want MolADT JSON
-
-Use `to-json`.
-
-```bash
-stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
-```
-
-This reads the SDF file, validates the resulting `Molecule`, and writes the shared MolADT JSON boundary format used by both repos.
-
-If you want the same step in Haskell code:
+Programmatic version:
 
 ```haskell
-import Chem.IO.MoleculeJSON (moleculeToJSON)
 import Chem.IO.SDF (readSDF)
-import qualified Data.ByteString.Lazy as BL
+import Chem.Validate (validateMolecule)
 import Text.Megaparsec (errorBundlePretty)
 
 main :: IO ()
@@ -50,92 +34,67 @@ main = do
   parsed <- readSDF "molecules/benzene.sdf"
   case parsed of
     Left err -> putStrLn (errorBundlePretty err)
-    Right molecule -> BL.writeFile "benzene.moladt.json" (moleculeToJSON molecule)
+    Right molecule ->
+      case validateMolecule molecule of
+        Left validationErr -> putStrLn validationErr
+        Right validMolecule -> print validMolecule
 ```
 
-## If You Want MolADT JSON Back Into Haskell
-
-Use `from-json`.
+## MolADT JSON
 
 ```bash
+stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
 stack run moladtbayes -- from-json benzene.moladt.json
 ```
 
-This reads the shared MolADT JSON payload, rebuilds the typed `Molecule`, validates it, and pretty-prints the result.
+JSON is the shared boundary with the Python repo. Use it when Haskell and Python
+need to exchange the same typed molecule shape.
 
-If you want the same step in Haskell code:
+Programmatic round trip:
 
 ```haskell
-import Chem.IO.MoleculeJSON (moleculeFromJSON)
-import qualified Data.ByteString.Lazy as BL
+import Chem.IO.MoleculeJSON (moleculeFromJSON, moleculeToJSON)
+import Chem.IO.SDF (readSDF)
+import Chem.Molecule (atoms)
+import Text.Megaparsec (errorBundlePretty)
 
 main :: IO ()
 main = do
-  payload <- BL.readFile "benzene.moladt.json"
-  print (moleculeFromJSON payload)
+  parsed <- readSDF "molecules/benzene.sdf"
+  case parsed of
+    Left err -> putStrLn (errorBundlePretty err)
+    Right molecule ->
+      case moleculeFromJSON (moleculeToJSON molecule) of
+        Left jsonErr -> putStrLn jsonErr
+        Right roundTripped -> print (length (atoms roundTripped))
 ```
 
-## If You Have a SMILES String
-
-Use `parse-smiles`.
-
-```bash
-make haskell-parse-smiles
-```
-
-Equivalent raw command:
+## SMILES To MolADT
 
 ```bash
 stack run moladtbayes -- parse-smiles "c1ccccc1"
 ```
 
-This parses the conservative SMILES subset, validates it, and pretty-prints the MolADT structure.
+The parser supports a conservative chemistry subset and lifts it into MolADT.
+Aromatic six-membered rings can become explicit `pi_ring` Dietz systems.
 
-Inside that boundary, `parse-smiles` now does three lifts after reading the SMILES:
-
-- it infers terminal hydrogens for supported bare atoms such as `C`, `N`, `O`, and aromatic lowercase atoms
-- it promotes recoverable six-membered delocalized cycles into explicit Dietz `pi_ring` systems when the SMILES uses aromatic lowercase syntax, including ring-closure edges
-- it preserves atom-centered `@`/`@@` and bond-directed `/` `\` annotations in `smilesStereochemistry`
-
-The local parser is now tuned for this path: it advances through the remaining input instead of rescanning from the front, and it accumulates stereochemistry and bond-system annotations without repeated end-appends.
-
-## If You Want the SDF Timing Baseline
-
-Use `parse-sdf-timing`.
-
-```bash
-make haskell-parse-sdf-timing
-```
-
-Equivalent raw command:
-
-```bash
-stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/processed/zinc_timing/zinc15_250K_2D/full/sdf_library
-```
-
-This reads the sibling Python cached ZINC timing corpus, materializes raw single-record SDF payloads, then times the local `SDF -> MolADT` parser separately. By default it points at the sibling Python `full` cached corpus; pass an explicit integer limit if you want a smaller subset. The `make haskell-parse-sdf-timing` wrapper can offer to generate the matching cached corpus if it is missing.
-
-## If You Want SMILES Back Out
-
-Use `to-smiles`.
-
-```bash
-make haskell-to-smiles
-```
-
-Equivalent raw command:
+## MolADT To SMILES
 
 ```bash
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
-This loads an SDF file, validates it, and prints the SMILES rendering when the renderer supports that structure. The parser keeps SMILES stereochemistry flags on the MolADT object, but the current renderer does not yet synthesize those flags back out.
+Rendering is deliberately narrower than parsing. It is for validated classical
+structures inside the supported subset.
 
-## SDF vs SMILES in One Sentence
+## Timing
 
-- `parse` starts from a structure-backed molecule.
-- `parse-smiles` starts from a compact text notation and lifts it into MolADT.
+```bash
+make haskell-parse-sdf-timing
+```
 
-## Technical Reference
+This compares raw SDF file reads with local `SDF -> MolADT` parsing on the
+cached sibling Python ZINC timing corpus.
 
-For the full command list and the demo path, see [CLI and demo](cli-and-demo.md).
+Next: [SMILES scope and validation](smiles-scope-and-validation.md),
+[CLI and demo](cli-and-demo.md).
