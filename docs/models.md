@@ -24,7 +24,6 @@ The Haskell side does not own the full benchmark pipeline.
 It owns the aligned benchmark model and inference path:
 
 - a finite exact RBF Gaussian process for `freesolv_moladt_featurized`
-- a linear Student-`t` regression baseline for `qm9_moladt_featurized`
 - `lwis` inference
 - `mh` inference
 
@@ -54,7 +53,7 @@ stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized mh:0.2
 
 The Haskell baseline reads standardized `X/y` matrices exported by the Python repo.
 
-For a dataset prefix such as `freesolv_moladt_featurized` or `qm9_moladt_featurized`, the Haskell side expects:
+For the supported dataset prefix `freesolv_moladt_featurized`, the Haskell side expects:
 
 - `*_X_train.csv`, `*_X_valid.csv`, `*_X_test.csv`
 - `*_y_train.csv`, `*_y_valid.csv`, `*_y_test.csv`
@@ -76,14 +75,13 @@ The main comparison is then MolADT versus MoleculeNet, not MolADT versus a secon
 
 ## Example Code
 
-This is the core model-selection branch in the Haskell benchmark consumer:
+This is the supported model-selection branch for the Haskell benchmark surface:
 
 ```haskell
 modelFamilyFor :: BenchmarkDataset -> BenchmarkModelFamily
 modelFamilyFor dataset
   | "freesolv_" `isPrefixOf` datasetPrefix dataset
     && representationName dataset == "moladt_featurized" = UseGaussianProcessRbf
-  | otherwise = UseLinearStudentT
 ```
 
 And this is the start of the actual GP model used for FreeSolv:
@@ -104,7 +102,7 @@ gaussianProcessBenchmarkModel support = do
           }
 ```
 
-The full implementation lives in [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs) and [`src/GaussianProcess.hs`](../src/GaussianProcess.hs). QM9 falls back to the local linear Student-`t` path, while FreeSolv uses this exact GP branch.
+The full implementation lives in [`src/BenchmarkModel.hs`](../src/BenchmarkModel.hs) and [`src/GaussianProcess.hs`](../src/GaussianProcess.hs). The supported Haskell benchmark path is the FreeSolv exact GP branch.
 
 ## Why This Matters For The Haskell Repo
 

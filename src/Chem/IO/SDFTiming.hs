@@ -6,11 +6,13 @@ module Chem.IO.SDFTiming
 
 import           Control.DeepSeq (force)
 import           Control.Exception (evaluate)
-import           Data.Char (isSpace)
+import           Data.Char (isSpace, toLower)
 import           Data.List (sort)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           Numeric (showFFloat)
+import           System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
+import           System.FilePath ((</>), takeExtension)
 
 import           Chem.IO.SDF (parseSDF)
 
@@ -29,9 +31,22 @@ data TimingStageResult = TimingStageResult
 
 measureSdfTiming :: FilePath -> Maybe Int -> IO (Either String [TimingStageResult])
 measureSdfTiming path mLimit = do
-  (blocks, rawStage) <- measureRawSdfStage path mLimit
-  parseStage <- measureSdfParseStage path blocks
-  pure (Right [rawStage, parseStage])
+  fileExists <- doesFileExist path
+  directoryExists <- doesDirectoryExist path
+  if fileExists
+    then do
+      (blocks, rawStage) <- measureRawSdfFileStage path mLimit
+      parseStage <- measureSdfParseStage path blocks
+      pure (Right [rawStage, parseStage])
+    else if directoryExists
+      then do
+        rawResult <- measureRawSdfDirectoryStage path mLimit
+        case rawResult of
+          Left err -> pure (Left err)
+          Right (blocks, rawStage) -> do
+            parseStage <- measureSdfParseStage path blocks
+            pure (Right [rawStage, parseStage])
+      else pure (Left ("SDF timing source does not exist: " ++ path))
 
 renderTimingReport :: [TimingStageResult] -> String
 renderTimingReport stages =
@@ -54,8 +69,8 @@ renderTimingReport stages =
       , ""
       ]
 
-measureRawSdfStage :: FilePath -> Maybe Int -> IO ([String], TimingStageResult)
-measureRawSdfStage path mLimit = do
+measureRawSdfFileStage :: FilePath -> Maybe Int -> IO ([String], TimingStageResult)
+measureRawSdfFileStage path mLimit = do
   startTotal <- getMonotonicTimeNSec
   contents <- readFile path
   forcedBlocks <- evaluate (force (applyLimit mLimit (splitSdfBlocks contents)))
@@ -90,6 +105,56 @@ measureRawSdfStage path mLimit = do
       if all isSpace forcedBlock
         then go rest successCount (latencyUs : latenciesRev)
         else go rest (successCount + 1) (latencyUs : latenciesRev)
+
+measureRawSdfDirectoryStage :: FilePath -> Maybe Int -> IO (Either String ([String], TimingStageResult))
+measureRawSdfDirectoryStage path mLimit = do
+  entries <- listDirectory path
+  let sdfPaths =
+        applyLimit mLimit $
+          sort
+            [ path </> entry
+            | entry <- entries
+            , map toLower (takeExtension entry) == ".sdf"
+            ]
+  if null sdfPaths
+    then pure (Left ("No .sdf files found under SDF timing directory: " ++ path))
+    else do
+      startTotal <- getMonotonicTimeNSec
+      (blocksRev, successCount, latenciesRev) <- go sdfPaths [] 0 []
+      endTotal <- getMonotonicTimeNSec
+      let blocks = reverse blocksRev
+          latencies = reverse latenciesRev
+          elapsed = secondsBetween startTotal endTotal
+          moleculeCount = length blocks
+      pure
+        (Right
+          ( blocks
+          , TimingStageResult
+              { timingStage = "raw_file_read"
+              , timingDescription = "Read raw single-record SDF files from the source directory without chemistry parsing."
+              , timingSourcePath = path
+              , timingMoleculeCount = moleculeCount
+              , timingSuccessCount = successCount
+              , timingFailureCount = 0
+              , timingTotalRuntimeSeconds = elapsed
+              , timingMoleculesPerSecond = moleculesPerSecond moleculeCount elapsed
+              , timingMedianLatencyUs = medianUs latencies
+              , timingP95LatencyUs = percentileUs 95 latencies
+              }
+          )
+        )
+  where
+    go [] blocksRev successCount latenciesRev =
+      pure (blocksRev, successCount, latenciesRev)
+    go (sdfPath:rest) blocksRev successCount latenciesRev = do
+      startItem <- getMonotonicTimeNSec
+      contents <- readFile sdfPath
+      forcedBlock <- evaluate (force contents)
+      endItem <- getMonotonicTimeNSec
+      let latencyUs = microsBetween startItem endItem
+      if all isSpace forcedBlock
+        then go rest (forcedBlock : blocksRev) successCount (latencyUs : latenciesRev)
+        else go rest (forcedBlock : blocksRev) (successCount + 1) (latencyUs : latenciesRev)
 
 measureSdfParseStage :: FilePath -> [String] -> IO TimingStageResult
 measureSdfParseStage path blocks = do

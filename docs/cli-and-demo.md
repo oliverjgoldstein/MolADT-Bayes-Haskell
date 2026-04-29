@@ -85,13 +85,13 @@ Use `from-json` when the JSON file is already your boundary format and you want 
 ## `parse-sdf-timing`
 
 ```bash
-stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.sdf 128
+stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/processed/zinc_timing/zinc15_250K_2D/full/sdf_library
 make haskell-parse-sdf-timing
 ```
 
 What it does now:
 
-- reads raw single-record SDF blocks from the normalized benchmark SDF
+- reads raw single-record SDF files from the cached sibling timing corpus
 - times the raw SDF block read as `raw_file_read`
 - times the local `SDF -> MolADT` parser as `sdf_record_parse`
 - prints a small stdout report with counts, throughput, median latency, and p95 latency
@@ -128,9 +128,7 @@ make haskell-demo
 - parsing and validating `molecules/benzene.sdf`
 - parsing and validating `molecules/water.sdf`
 - rendering SMILES where supported
-- running aligned benchmark smoke passes for:
-  - FreeSolv / MolADT featurized with the local exact GP using MH
-  - QM9 / MolADT featurized with MH
+- running an aligned FreeSolv / MolADT featurized smoke pass with the local exact GP using MH
 
 The `make haskell-demo` helper only wraps the same `demo` subcommand while setting `MOLADT_PROCESSED_DATA_DIR` from the `Makefile`.
 
@@ -138,7 +136,6 @@ The `make haskell-demo` helper only wraps the same `demo` subcommand while setti
 
 ```bash
 stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized mh:0.2
-stack run moladtbayes -- infer-benchmark qm9_moladt_featurized mh:0.9 256
 ```
 
 This command loads one Python-exported dataset prefix and runs the aligned Haskell benchmark model over it.
@@ -146,9 +143,10 @@ This command loads one Python-exported dataset prefix and runs the aligned Haske
 In the current docs story, that means:
 
 - `freesolv_moladt_featurized` for the FreeSolv MolADT featurized export and the local exact GP
-- `qm9_moladt_featurized` for the QM9 MolADT featurized export
 
 On the FreeSolv path, the Haskell model is a finite exact RBF Gaussian process over the screened MolADT feature matrix. It screens the train split down to the strongest feature channels, then runs local LazyPPL inference over the GP hyperparameters.
+
+The Haskell benchmark surface is intentionally scoped to FreeSolv. Other dataset prefixes are rejected by the CLI.
 
 ## How `parse` and `parse-smiles` Differ
 
@@ -156,7 +154,7 @@ On the FreeSolv path, the Haskell model is a finite exact RBF Gaussian process o
 - `to-json` starts from an SDF file and emits the shared MolADT JSON boundary payload.
 - `from-json` starts from a MolADT JSON file and pretty-prints the validated typed structure.
 - `parse-smiles` starts from a SMILES string in the conservative subset and only pretty-prints the validated MolADT structure.
-- `parse-sdf-timing` starts from a benchmark SDF and compares raw block reads against the local SDF-to-MolADT parser.
+- `parse-sdf-timing` starts from a benchmark SDF file or a directory of cached single-record SDF files and compares raw reads against the local SDF-to-MolADT parser.
 - `pretty-example` starts from a built-in Dietz object rather than a file or boundary string.
 
 ## Environment Variable

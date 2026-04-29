@@ -23,7 +23,7 @@ For a quick self-contained CLI sanity check:
 ```bash
 stack run moladtbayes -- parse molecules/benzene.sdf
 stack run moladtbayes -- parse-smiles "c1ccccc1"
-stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.sdf 128
+stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/processed/zinc_timing/zinc15_250K_2D/full/sdf_library
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
@@ -31,7 +31,7 @@ stack run moladtbayes -- to-smiles molecules/benzene.sdf
 
 ### [`test/benchmark-alignment`](../test/benchmark-alignment/)
 
-Checks that the Haskell side can load the Python-exported `freesolv_moladt_featurized` and `qm9_moladt_featurized` matrices and sees the expected target/representation structure.
+Checks that the Haskell side can load the Python-exported `freesolv_moladt_featurized` matrix and sees the expected representation structure.
 
 ### [`test/edge-properties`](../test/edge-properties/)
 
@@ -57,7 +57,7 @@ QuickCheck properties for validator invariants, including benzene relabeling and
 - Missing Stack or GHC:
   `make haskell-build` can offer to install `stack` through Homebrew or `apt-get` when one of those package managers is available.
 - Missing processed data for interop:
-  `make haskell-demo` and `make haskell-infer-benchmark` can offer to generate the needed exports from the sibling Python repo when `../MolADT-Bayes-Python/data/processed` is missing and `MOLADT_PROCESSED_DATA_DIR` is not set. In that delegated Python path, only downloads and extractions above GitHub's 100 MB file limit show the live meter, including byte counts, extraction entry counts, throughput, and elapsed time.
+  `make haskell-demo` and `make haskell-infer-benchmark` can offer to generate the needed FreeSolv export from the sibling Python repo when `../MolADT-Bayes-Python/data/processed` is missing and `MOLADT_PROCESSED_DATA_DIR` is not set. In that delegated Python path, only downloads and extractions above GitHub's 100 MB file limit show the live meter, including byte counts, extraction entry counts, throughput, and elapsed time.
 - Unsupported SMILES outside the conservative subset:
   the CLI will reject molecules outside the supported classical boundary. See [SMILES scope and validation](smiles-scope-and-validation.md).
 - Confusion about which repo owns which benchmark stage:

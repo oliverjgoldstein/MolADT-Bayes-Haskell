@@ -13,9 +13,9 @@ The central idea remains the same: MolADT is a replacement molecular representat
 ### Added
 
 - Added a practical top-level CLI in [`app/Main.hs`](app/Main.hs) with stable entrypoints for `demo`, `parse`, `parse-smiles`, `to-smiles`, and `infer-benchmark`.
-- Added a default demo path that parses and validates the checked-in benzene and water SDF files before running aligned FreeSolv and QM9 smoke inference.
+- Added a default demo path that parses and validates the checked-in benzene and water SDF files before running aligned FreeSolv smoke inference.
 - Added a benchmark-facing environment-variable contract through `MOLADT_PROCESSED_DATA_DIR`, so the Haskell baseline can be pointed at exported data without recompilation.
-- Added direct CLI support for aligned benchmark inference over Python-exported MolADT datasets such as `freesolv_moladt` and `qm9_moladt`.
+- Added direct CLI support for aligned benchmark inference over the Python-exported FreeSolv MolADT dataset.
 - Added CLI-level inference syntax for `lwis`, `lwis:<particles>`, `mh`, and `mh:<jitter>`.
 - Added a benchmark loader that reads `*_X_train.csv`, `*_X_valid.csv`, `*_X_test.csv`, `*_y_train.csv`, `*_y_valid.csv`, and `*_y_test.csv` from the processed-data directory.
 - Added explicit recognition of representation suffixes such as `_smiles` and `_sdf` when reporting benchmark datasets.
@@ -30,7 +30,7 @@ The central idea remains the same: MolADT is a replacement molecular representat
 - Added Makefile wrappers for the common Haskell workflows: `haskell-build`, `haskell-test`, `haskell-demo`, `haskell-infer-benchmark`, `haskell-parse`, `haskell-parse-smiles`, and `haskell-to-smiles`.
 - Added interactive Makefile repair prompts for missing prerequisites so users can type `y` to install `stack` when Homebrew or `apt-get` is available.
 - Added interactive Makefile repair prompts for missing processed benchmark exports so the Haskell repo can offer to generate them from the sibling Python repo.
-- Added benchmark-alignment tests that verify the Haskell side can read the Python-exported `freesolv_moladt` and `qm9_moladt` datasets.
+- Added benchmark-alignment tests that verify the Haskell side can read the Python-exported `freesolv_moladt` dataset.
 - Added parser-roundtrip tests that cover SDF round-trips, aromatic benzene reconstruction, bracketed water and methane rendering, and deterministic benzene SMILES output.
 - Added validation QuickCheck properties that assert invariants over the molecular validator.
 - Added edge-property QuickCheck coverage for canonical edge behavior and sigma insertion.

@@ -110,10 +110,10 @@ make haskell-parse-sdf-timing
 Equivalent raw command:
 
 ```bash
-stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.sdf 128
+stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/processed/zinc_timing/zinc15_250K_2D/full/sdf_library
 ```
 
-This reads the ZINC timing SDF, materializes raw single-record SDF blocks, then times the local `SDF -> MolADT` parser separately.
+This reads the sibling Python cached ZINC timing corpus, materializes raw single-record SDF payloads, then times the local `SDF -> MolADT` parser separately. By default it points at the sibling Python `full` cached corpus; pass an explicit integer limit if you want a smaller subset. The `make haskell-parse-sdf-timing` wrapper can offer to generate the matching cached corpus if it is missing.
 
 ## If You Want SMILES Back Out
 

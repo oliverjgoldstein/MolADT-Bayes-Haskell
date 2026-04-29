@@ -65,6 +65,7 @@ library:
     - ExampleMolecules.Morphine
     - PrettyBenzene
     - BenchmarkModel
+    - FreeSolvInverseDesign
   other-modules:
     - ExtraF
     - Chem.Molecule.Coordinate

@@ -126,6 +126,19 @@ The current Python benchmark contract is:
 
 The Haskell benchmark surface is intentionally narrower than the Python repo. On the Haskell side, `infer-benchmark` is now scoped to the FreeSolv export only.
 
+## FreeSolv Inverse Design
+
+The Haskell repo also includes a compact typed mirror of the FreeSolv inverse-design experiment. It starts from a built-in MolADT seed molecule, applies conservative local edits to atoms, sigma edges, terminal hydrogens, and optional Dietz pi-ring systems, validates every accepted molecule, and scores candidates against the fixed FreeSolv Bayesian GP artifact from the sibling Python repo.
+
+```bash
+make haskell-inverse-design TARGET=-5.0 SEED_MOLECULE=water
+stack run moladtbayes -- inverse-design --target -5.0 --seed-molecule water
+```
+
+`--target` is the desired hydration free energy in kcal/mol. `--seed-molecule` can be `water` or `methane`; the Makefile defaults to water for reproducibility. The command loads the Python-exported `freesolv_moladt_featurized` metadata, standardized training matrix, coefficient summary, and Laplace posterior draws, then keeps the most target-compatible low-uncertainty candidates. It prints the top molecules as readable MolADT/Dietz structures and writes `results/inverse_design/reference/top_XX_molecule.hs`.
+
+This is a small proof-of-concept for property-conditioned MolADT growth, not a synthesizability claim or a state-of-the-art generator. The Python repo remains the authoritative benchmark and paper-artifact runner; the Haskell version demonstrates the same representation and validation logic in the typed implementation.
+
 The comparison figure still comes from the Python repo:
 
 - `results/freesolv/run_.../freesolv_rmse_vs_moleculenet.svg`

@@ -15,7 +15,8 @@ import Chem.Validate (validateMolecule)
 import ExampleMolecules.Morphine (morphinePretty, morphineRingClosureSmiles)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
-import System.Directory (getTemporaryDirectory, removeFile)
+import System.Directory (createDirectory, getTemporaryDirectory, removeDirectoryRecursive, removeFile)
+import System.FilePath ((</>))
 import System.IO (hClose, hPutStr, openTempFile)
 import Text.Megaparsec (errorBundlePretty)
 import SampleMolecules (methane, water)
@@ -280,6 +281,24 @@ spec = do
       hClose handle
       result <- measureSdfTiming path (Just 2)
       removeFile path
+      case result of
+        Left err -> expectationFailure err
+        Right stages -> do
+          map timingStage stages `shouldBe` ["raw_file_read", "sdf_record_parse"]
+          map timingSuccessCount stages `shouldBe` [2, 2]
+          map timingFailureCount stages `shouldBe` [0, 0]
+
+    it "times a directory of cached single-record SDF files" $ do
+      tempDir <- getTemporaryDirectory
+      (path, handle) <- openTempFile tempDir "moladt-sdf-timing-dir"
+      hClose handle
+      removeFile path
+      let dirPath = path
+      createDirectory dirPath
+      writeFile (dirPath </> "water.sdf") v3000Water
+      writeFile (dirPath </> "ammonium.sdf") v3000Ammonium
+      result <- measureSdfTiming dirPath (Just 2)
+      removeDirectoryRecursive dirPath
       case result of
         Left err -> expectationFailure err
         Right stages -> do

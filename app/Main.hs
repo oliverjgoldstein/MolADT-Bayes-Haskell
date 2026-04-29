@@ -5,7 +5,6 @@ import           BenchmarkModel
   , defaultProcessedDataDir
   , defaultSamplingConfig
   , parseInferenceMethod
-  , posteriorSamples
   , runBenchmarkRegressionWith
   )
 import qualified Data.ByteString.Lazy as BL
@@ -19,7 +18,15 @@ import           Chem.Validate (validateMolecule)
 import           ExampleMolecules.Diborane (diboranePretty)
 import           ExampleMolecules.Ferrocene (ferrocenePretty)
 import           ExampleMolecules.Morphine (morphinePretty)
+import           FreeSolvInverseDesign
+  ( InverseDesignConfig(..)
+  , defaultInverseDesignConfig
+  , parseSeedMoleculeName
+  , printSearchResult
+  , runFreeSolvInverseDesign
+  )
 import qualified Data.Char as Char
+import           Data.List (isPrefixOf)
 import           System.Environment (getArgs, lookupEnv)
 import           Text.Megaparsec (errorBundlePretty)
 import           Text.Read (readMaybe)
@@ -43,6 +50,8 @@ main = do
       runInferBenchmark processedDataDir datasetPrefix methodName Nothing
     ["infer-benchmark", datasetPrefix, methodName, limitText] ->
       runInferBenchmark processedDataDir datasetPrefix methodName (readMaybe limitText)
+    "inverse-design" : inverseArgs ->
+      runInverseDesignCli processedDataDir inverseArgs
     _ -> putStrLn usage
 
 usage :: String
@@ -51,14 +60,14 @@ usage = unlines
   , "  stack run moladtbayes -- demo"
   , "  stack run moladtbayes -- parse molecules/benzene.sdf"
   , "  stack run moladtbayes -- parse-smiles \"c1ccccc1\""
-  , "  stack run moladtbayes -- parse-sdf-timing path/to/file.sdf"
-  , "  stack run moladtbayes -- parse-sdf-timing path/to/file.sdf 1000"
+  , "  stack run moladtbayes -- parse-sdf-timing path/to/file.sdf_or_sdf_directory"
+  , "  stack run moladtbayes -- parse-sdf-timing path/to/file.sdf_or_sdf_directory 1000"
   , "  stack run moladtbayes -- pretty-example morphine"
   , "  stack run moladtbayes -- to-smiles molecules/benzene.sdf"
   , "  stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json"
   , "  stack run moladtbayes -- from-json benzene.moladt.json"
   , "  stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized mh:0.2"
-  , "  stack run moladtbayes -- infer-benchmark qm9_moladt_featurized mh:0.9 256"
+  , "  stack run moladtbayes -- inverse-design --target -5.0 --seed-molecule water"
   , ""
   , "Optional environment variable:"
   , "  MOLADT_PROCESSED_DATA_DIR=/path/to/data/processed"
@@ -96,12 +105,9 @@ runDemo processedDataDir = do
                   printSmiles "Water SMILES" water
                   let samplingConfig = defaultSamplingConfig
                       gpMethod = UseMH 0.2
-                      mhMethod = UseMH 0.9
                   putStrLn $ "Processed data directory: " ++ processedDataDir
                   putStrLn "Running aligned FreeSolv / MolADT featurized GP smoke benchmark (MH):"
                   runBenchmarkRegressionWith samplingConfig gpMethod processedDataDir "freesolv_moladt_featurized" (Just 128)
-                  putStrLn "Running aligned QM9 / MolADT smoke benchmark (MH):"
-                  runBenchmarkRegressionWith samplingConfig mhMethod processedDataDir "qm9_moladt_featurized" (Just 256)
 
 runParse :: FilePath -> IO ()
 runParse path = do
@@ -177,13 +183,52 @@ renderValidated molecule =
 
 runInferBenchmark :: FilePath -> String -> String -> Maybe Int -> IO ()
 runInferBenchmark processedDataDir datasetPrefix methodName mLimit =
-  case parseInferenceMethod defaultSamplingConfig methodName of
-    Nothing ->
+  if not ("freesolv_" `isPrefixOf` datasetPrefix)
+    then
       putStrLn $
-        "Unknown inference method `" ++ methodName
-        ++ "`. Use `lwis`, `lwis:<particles>`, `mh`, or `mh:<jitter>`."
-    Just method ->
-      runBenchmarkRegressionWith defaultSamplingConfig method processedDataDir datasetPrefix mLimit
+        "Unsupported benchmark dataset `"
+        ++ datasetPrefix
+        ++ "`. The Haskell benchmark consumer is now scoped to FreeSolv only; "
+        ++ "use `freesolv_moladt_featurized`."
+    else
+      case parseInferenceMethod defaultSamplingConfig methodName of
+        Nothing ->
+          putStrLn $
+            "Unknown inference method `" ++ methodName
+            ++ "`. Use `lwis`, `lwis:<particles>`, `mh`, or `mh:<jitter>`."
+        Just method ->
+          runBenchmarkRegressionWith defaultSamplingConfig method processedDataDir datasetPrefix mLimit
+
+runInverseDesignCli :: FilePath -> [String] -> IO ()
+runInverseDesignCli processedDataDir rawArgs =
+  case parseInverseDesignArgs rawArgs of
+    Left err -> putStrLn err
+    Right config -> do
+      result <- runFreeSolvInverseDesign processedDataDir config
+      printSearchResult result
+
+parseInverseDesignArgs :: [String] -> Either String InverseDesignConfig
+parseInverseDesignArgs rawArgs = go rawArgs defaultInverseDesignConfig
+  where
+    go [] config = Right config
+    go ["--help"] _ = Left usage
+    go ("--target" : value : rest) config =
+      case readMaybe value of
+        Nothing ->
+          Left "Invalid --target value. Example: --target -5.0"
+        Just targetValue ->
+          go rest config { configTarget = Just targetValue }
+    go ("--seed-molecule" : value : rest) config =
+      case parseSeedMoleculeName value of
+        Nothing ->
+          Left "Invalid --seed-molecule value. Use water or methane."
+        Just seedName ->
+          go rest config { configSeedMolecule = seedName }
+    go (flag : _) _ =
+      Left $
+        "Unknown inverse-design option `"
+        ++ flag
+        ++ "`. Use only --target and --seed-molecule."
 
 printSmiles :: String -> Molecule -> IO ()
 printSmiles label molecule =

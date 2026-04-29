@@ -1,7 +1,11 @@
 DATASET_PREFIX ?= freesolv_moladt_featurized
 METHOD ?= mh:0.2
-ROW_LIMIT ?= 128
-SDF_PATH ?= ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.sdf
+ROW_LIMIT ?=
+ROW_LIMIT_SCOPE := $(if $(strip $(ROW_LIMIT)),limit_$(ROW_LIMIT),full)
+ROW_LIMIT_DISPLAY := $(if $(strip $(ROW_LIMIT)),$(ROW_LIMIT),full)
+TARGET ?= -5.0
+SEED_MOLECULE ?= water
+SDF_PATH ?= ../MolADT-Bayes-Python/data/processed/zinc_timing/zinc15_250K_2D/$(ROW_LIMIT_SCOPE)/sdf_library
 PROCESSED_DATA_DIR ?= ../MolADT-Bayes-Python/data/processed
 PYTHON_REPO_DIR ?= ../MolADT-Bayes-Python
 STACK_CMD ?= $(strip $(shell command -v stack 2>/dev/null || command -v stack.exe 2>/dev/null || printf "%s" stack))
@@ -13,7 +17,7 @@ AUTO_APPROVE_FIXES ?= 0
 TESTED_GHC := 9.6.5
 TESTED_STACK_RESOLVER := lts-22.25
 
-.PHONY: help haskell-check-stack haskell-check-dataset-data haskell-build haskell-test haskell-demo haskell-infer-benchmark haskell-parse haskell-parse-smiles haskell-parse-sdf-timing haskell-to-smiles
+.PHONY: help haskell-check-stack haskell-check-dataset-data haskell-check-sdf-timing-data haskell-build haskell-test haskell-demo haskell-infer-benchmark haskell-inverse-design haskell-parse haskell-parse-smiles haskell-parse-sdf-timing haskell-to-smiles
 
 help:
 	@printf "%s\n" \
@@ -22,9 +26,10 @@ help:
 	"  make haskell-test           Run the Haskell test suites" \
 	"  make haskell-demo           Run the demo executable" \
 	"  make haskell-infer-benchmark Run the aligned benchmark consumer" \
+	"  make haskell-inverse-design Run FreeSolv inverse design from a typed seed molecule" \
 	"  make haskell-parse          Parse molecules/benzene.sdf" \
 	"  make haskell-parse-smiles   Parse c1ccccc1" \
-	"  make haskell-parse-sdf-timing Benchmark raw SDF block read vs Haskell MolADT SDF parse timing" \
+		"  make haskell-parse-sdf-timing Benchmark cached ZINC SDF reads vs Haskell MolADT SDF parse timing" \
 	"  make haskell-to-smiles      Render molecules/benzene.sdf to SMILES" \
 	"" \
 	"Current aligned benchmark configuration:" \
@@ -33,7 +38,9 @@ help:
 	"  large (>100 MB) Python-side downloads and extractions show counts, speed, and elapsed time" \
 	"  dataset_prefix=$(DATASET_PREFIX)" \
 	"  method=$(METHOD)" \
-	"  row_limit=$(ROW_LIMIT)" \
+	"  inverse_design_target=$(TARGET)" \
+	"  inverse_design_seed=$(SEED_MOLECULE)" \
+	"  row_limit=$(ROW_LIMIT_DISPLAY)" \
 	"  sdf_path=$(SDF_PATH)" \
 	"" \
 	"Tested toolchain versions:" \
@@ -148,7 +155,13 @@ haskell-check-dataset-data:
 	python_target=""; \
 	case "$$dataset_prefix" in \
 		freesolv_*) python_target="freesolv" ;; \
-		qm9_*) python_target="python-benchmark-qm9" ;; \
+		*) \
+			printf "%s\n" \
+				"" \
+				"Unsupported benchmark dataset prefix: $$dataset_prefix" \
+				"The Haskell benchmark consumer is now scoped to FreeSolv only." \
+				"Use dataset_prefix=freesolv_moladt_featurized, then rerun this target."; \
+			exit 1 ;; \
 	esac; \
 	if [ -n "$$python_target" ] && [ -f "$$python_repo_dir/Makefile" ] && confirm_fix "Processed benchmark exports for $$dataset_prefix are missing. Generate them now via the Python repo? [y/N] "; then \
 		printf "%s\n" \
@@ -166,6 +179,56 @@ haskell-check-dataset-data:
 		"  $$required_file" \
 		"" \
 		"Generate them from the Python repo first, then rerun this target."; \
+	exit 1
+
+haskell-check-sdf-timing-data:
+	@set -e; \
+	sdf_path="$(SDF_PATH)"; \
+	python_repo_dir="$(PYTHON_REPO_DIR)"; \
+	row_limit="$(ROW_LIMIT)"; \
+	row_limit_display="$(ROW_LIMIT_DISPLAY)"; \
+	prompt_fixes="$(AUTO_FIX_PROMPT)"; \
+	auto_approve_fixes="$(AUTO_APPROVE_FIXES)"; \
+	confirm_fix() { \
+		prompt_text="$$1"; \
+		if [ "$$auto_approve_fixes" = "1" ]; then \
+			printf "%s\n" "$$prompt_text" "Auto-approving this repair."; \
+			return 0; \
+		fi; \
+		if [ "$$prompt_fixes" = "0" ]; then \
+			return 1; \
+		fi; \
+		printf "%s" "$$prompt_text"; \
+		IFS= read -r response || response=""; \
+		printf "%s\n" ""; \
+		case "$$response" in \
+			[Yy]|[Yy][Ee][Ss]) return 0 ;; \
+			*) return 1 ;; \
+		esac; \
+	}; \
+	if [ -e "$$sdf_path" ]; then \
+		exit 0; \
+	fi; \
+	if [ -f "$$python_repo_dir/Makefile" ] && confirm_fix "Cached ZINC SDF timing corpus is missing at $$sdf_path. Generate it now via the Python repo? [y/N] "; then \
+		printf "%s\n" \
+			"Delegating timing-corpus generation to $$python_repo_dir/Makefile target python-benchmark-zinc." \
+			"This will prepare the sibling cached SDF timing library for row_limit=$$row_limit_display."; \
+		$(MAKE) -C "$$python_repo_dir" python-benchmark-zinc ZINC_LIMIT="$$row_limit"; \
+	fi; \
+	if [ -e "$$sdf_path" ]; then \
+		exit 0; \
+	fi; \
+	printf "%s\n" \
+		"" \
+		"Missing cached ZINC SDF timing corpus." \
+		"Expected:" \
+		"  $$sdf_path" \
+		"" \
+		"Generate it from the sibling Python repo first, for example:" \
+		"  make -C $$python_repo_dir python-benchmark-zinc" \
+		"Use ZINC_LIMIT=<n> if you want a subset instead of the full configured pass." \
+		"" \
+		"Then rerun this target."; \
 	exit 1
 
 haskell-build: haskell-check-stack
@@ -192,10 +255,9 @@ haskell-demo: haskell-check-stack
 	"  repo: MolADT-Bayes-Haskell" \
 	"  processed_data_dir: $(PROCESSED_DATA_DIR)" \
 	"  delegated Python repo for missing exports: $(PYTHON_REPO_DIR)" \
-	"  required benchmark exports: freesolv_moladt_featurized and qm9_moladt_featurized" \
+	"  required benchmark exports: freesolv_moladt_featurized" \
 	"  stack_cmd: $(STACK_CMD)"
 	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="freesolv_moladt_featurized" haskell-check-dataset-data
-	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="qm9_moladt_featurized" haskell-check-dataset-data
 	MOLADT_PROCESSED_DATA_DIR="$(PROCESSED_DATA_DIR)" $(STACK_CMD) run moladtbayes -- demo
 
 haskell-infer-benchmark: haskell-check-stack
@@ -204,12 +266,24 @@ haskell-infer-benchmark: haskell-check-stack
 	"  repo: MolADT-Bayes-Haskell" \
 	"  dataset_prefix: $(DATASET_PREFIX)" \
 	"  method: $(METHOD)" \
-	"  row_limit: $(ROW_LIMIT)" \
+	"  row_limit: $(ROW_LIMIT_DISPLAY)" \
 	"  processed_data_dir: $(PROCESSED_DATA_DIR)" \
 	"  delegated Python repo for missing exports: $(PYTHON_REPO_DIR)" \
 	"  stack_cmd: $(STACK_CMD)"
 	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="$(DATASET_PREFIX)" haskell-check-dataset-data
 	MOLADT_PROCESSED_DATA_DIR="$(PROCESSED_DATA_DIR)" $(STACK_CMD) run moladtbayes -- infer-benchmark $(DATASET_PREFIX) $(METHOD) $(ROW_LIMIT)
+
+haskell-inverse-design: haskell-check-stack
+	@printf "%s\n" \
+	"Running Haskell FreeSolv inverse design." \
+	"  repo: MolADT-Bayes-Haskell" \
+	"  target: $(TARGET)" \
+	"  seed_molecule: $(SEED_MOLECULE)" \
+	"  processed_data_dir: $(PROCESSED_DATA_DIR)" \
+	"  FreeSolv model artifact: $(PYTHON_REPO_DIR)/results/freesolv/run_20260417_162536" \
+	"  stack_cmd: $(STACK_CMD)"
+	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="freesolv_moladt_featurized" haskell-check-dataset-data
+	MOLADT_PROCESSED_DATA_DIR="$(PROCESSED_DATA_DIR)" $(STACK_CMD) run moladtbayes -- inverse-design --target $(TARGET) --seed-molecule $(SEED_MOLECULE)
 
 haskell-parse: haskell-check-stack
 	$(STACK_CMD) run moladtbayes -- parse molecules/benzene.sdf
@@ -217,7 +291,7 @@ haskell-parse: haskell-check-stack
 haskell-parse-smiles: haskell-check-stack
 	$(STACK_CMD) run moladtbayes -- parse-smiles "c1ccccc1"
 
-haskell-parse-sdf-timing: haskell-check-stack
+haskell-parse-sdf-timing: haskell-check-stack haskell-check-sdf-timing-data
 	$(STACK_CMD) run moladtbayes -- parse-sdf-timing $(SDF_PATH) $(ROW_LIMIT)
 
 haskell-to-smiles: haskell-check-stack

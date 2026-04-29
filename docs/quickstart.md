@@ -19,11 +19,11 @@ stack run moladtbayes -- parse molecules/benzene.sdf
 stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
 stack run moladtbayes -- from-json benzene.moladt.json
 stack run moladtbayes -- parse-smiles "c1ccccc1"
-stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/raw/zinc/zinc15_250K_2D.sdf 128
+stack run moladtbayes -- parse-sdf-timing ../MolADT-Bayes-Python/data/processed/zinc_timing/zinc15_250K_2D/full/sdf_library
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 ```
 
-If those commands work, the local Haskell CLI is installed correctly, the shared MolADT JSON path works end to end, and the parser timing entry point can read the sibling Python SDF timing source.
+If those commands work, the local Haskell CLI is installed correctly, the shared MolADT JSON path works end to end, and the parser timing entry point can read the sibling Python cached SDF timing corpus. `make haskell-parse-sdf-timing` can offer to generate that corpus through the Python repo if it is missing.
 
 ## 3. First Test Run
 
@@ -68,9 +68,9 @@ This uses Python-exported matrices. By default it runs:
 
 - dataset prefix `freesolv_moladt_featurized`
 - method `mh:0.2`
-- row limit `128`
+- row limit `full`
 
-That default path uses the local exact GP on the FreeSolv MolADT featurized export. The QM9 path keeps the local linear Student-`t` benchmark model.
+That default path uses the local exact GP on the FreeSolv MolADT featurized export. The Haskell benchmark consumer is scoped to this FreeSolv path only.
 
 If the required exports are missing, the Makefile can offer to build them through the Python repo first. In that delegated path, Python-side downloads and large archive extractions above GitHub's 100 MB limit show byte counts, entry counts, throughput, and elapsed time.
 
