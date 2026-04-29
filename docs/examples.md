@@ -12,6 +12,9 @@ The examples show why MolADT is useful as typed data.
 | Diborane | `stack run moladtbayes -- pretty-example diborane` | two explicit `3c-2e` bridge systems |
 | Ferrocene | `stack run moladtbayes -- pretty-example ferrocene` | Cp pi systems and Fe-centred bonding pool |
 
+Add `--viewer-output <path>` to any built-in example when you want an HTML
+viewer for the same typed molecule.
+
 ## Files
 
 - Benzene: [`molecules/benzene.sdf`](../molecules/benzene.sdf),
@@ -37,12 +40,19 @@ For example, diborane is represented with named bridge systems:
 
 ```haskell
 systems =
-  [ (SystemId 1, mkBondingSystem (NonNegative 2) bridgeOneEdges (Just "3c-2e_bridge"))
-  , (SystemId 2, mkBondingSystem (NonNegative 2) bridgeTwoEdges (Just "3c-2e_bridge"))
+  [ (SystemId 1, mkBondingSystem (NonNegative 2) bridgeH3Edges (Just "bridge_h3_3c2e"))
+  , (SystemId 2, mkBondingSystem (NonNegative 2) bridgeH4Edges (Just "bridge_h4_3c2e"))
   ]
 ```
 
 That is the kind of structure a Bayesian proposal kernel can edit directly.
+
+Viewer version:
+
+```bash
+stack run moladtbayes -- pretty-example diborane --viewer-output results/viewer/diborane.viewer.html
+stack run moladtbayes -- pretty-example ferrocene --viewer-output results/viewer/ferrocene.viewer.html
+```
 
 ## Standalone Example
 

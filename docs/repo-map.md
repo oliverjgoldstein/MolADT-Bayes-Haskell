@@ -19,6 +19,7 @@ Use this page when you need to find the right file quickly.
 - [`src/Chem/IO/SDF.hs`](../src/Chem/IO/SDF.hs): SDF parser.
 - [`src/Chem/IO/SMILES.hs`](../src/Chem/IO/SMILES.hs): conservative SMILES parser and renderer.
 - [`src/Chem/IO/MoleculeJSON.hs`](../src/Chem/IO/MoleculeJSON.hs): shared MolADT JSON.
+- [`src/Chem/IO/MoleculeViewer.hs`](../src/Chem/IO/MoleculeViewer.hs): standalone HTML viewer export.
 - [`src/Chem/IO/SDFTiming.hs`](../src/Chem/IO/SDFTiming.hs): parser timing.
 
 ## Examples

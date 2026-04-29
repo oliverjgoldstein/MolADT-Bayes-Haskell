@@ -9,11 +9,12 @@ import           BenchmarkModel
   )
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BL8
+import           Chem.IO.MoleculeViewer (openMoleculeViewer, writeMoleculeViewerHTML)
 import           Chem.IO.SDF (readSDF)
 import           Chem.IO.MoleculeJSON (moleculeFromJSON, moleculeToJSON)
 import           Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
 import           Chem.IO.SDFTiming (measureSdfTiming, renderTimingReport)
-import           Chem.Molecule (Molecule, atoms, prettyPrintMolecule)
+import           Chem.Molecule (Molecule, atoms, localBonds, prettyPrintMolecule, systems)
 import           Chem.Validate (validateMolecule)
 import           ExampleMolecules.Diborane (diboranePretty)
 import           ExampleMolecules.Ferrocene (ferrocenePretty)
@@ -26,8 +27,10 @@ import           FreeSolvInverseDesign
   , runFreeSolvInverseDesign
   )
 import qualified Data.Char as Char
-import           Data.List (isPrefixOf)
+import           Data.List (isPrefixOf, isSuffixOf)
+import           Data.Maybe (isJust)
 import           System.Environment (getArgs, lookupEnv)
+import           System.FilePath (takeBaseName, (</>))
 import           Text.Megaparsec (errorBundlePretty)
 import           Text.Read (readMaybe)
 
@@ -42,7 +45,10 @@ main = do
     ["parse-smiles", smilesText] -> runParseSMILES smilesText
     ["parse-sdf-timing", path] -> runParseSdfTiming path Nothing
     ["parse-sdf-timing", path, limitText] -> runParseSdfTiming path (readMaybe limitText)
-    ["pretty-example", name] -> runPrettyExample name
+    ["pretty-example", "--help"] -> putStrLn usage
+    "pretty-example" : name : prettyArgs -> runPrettyExample name prettyArgs
+    ["view-html", "--help"] -> putStrLn usage
+    "view-html" : viewArgs -> runViewHtmlCli viewArgs
     ["to-smiles", path] -> runToSMILES path
     ["to-json", path] -> runToJSON path
     ["from-json", path] -> runFromJSON path
@@ -63,6 +69,9 @@ usage = unlines
   , "  stack run moladtbayes -- parse-sdf-timing path/to/file.sdf_or_sdf_directory"
   , "  stack run moladtbayes -- parse-sdf-timing path/to/file.sdf_or_sdf_directory 1000"
   , "  stack run moladtbayes -- pretty-example morphine"
+  , "  stack run moladtbayes -- pretty-example ferrocene --viewer-output results/viewer/ferrocene.viewer.html"
+  , "  stack run moladtbayes -- view-html molecules/benzene.sdf --output results/viewer/benzene.viewer.html"
+  , "  stack run moladtbayes -- view-html benzene.moladt.json --format json --output results/viewer/benzene.viewer.html"
   , "  stack run moladtbayes -- to-smiles molecules/benzene.sdf"
   , "  stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json"
   , "  stack run moladtbayes -- from-json benzene.moladt.json"
@@ -131,19 +140,52 @@ runParseSdfTiming path mLimit = do
     Left err -> putStrLn err
     Right stages -> putStrLn (renderTimingReport stages)
 
-runPrettyExample :: String -> IO ()
-runPrettyExample rawName =
-  case lookupPrettyExample rawName of
-    Nothing ->
-      putStrLn $
-        "Unknown built-in example `"
-        ++ rawName
-        ++ "`. Choose one of: diborane, ferrocene, morphine."
-    Just (title, note, molecule) -> do
-      putStrLn title
-      putStrLn note
-      putStrLn ""
-      renderValidated molecule
+runPrettyExample :: String -> [String] -> IO ()
+runPrettyExample rawName rawArgs =
+  case parsePrettyExampleArgs rawArgs of
+    Left err -> putStrLn err
+    Right options ->
+      case lookupPrettyExample rawName of
+        Nothing ->
+          putStrLn $
+            "Unknown built-in example `"
+            ++ rawName
+            ++ "`. Choose one of: diborane, ferrocene, morphine."
+        Just (title, note, molecule) -> do
+          putStrLn title
+          putStrLn note
+          putStrLn ""
+          renderValidated molecule
+          let shouldWriteViewer =
+                prettyOpenViewer options || isJust (prettyViewerOutput options)
+          if shouldWriteViewer
+            then writeViewerAndMaybeOpen
+                   (maybe (defaultExampleViewerOutput rawName) id (prettyViewerOutput options))
+                   title
+                   molecule
+                   (prettyOpenViewer options)
+            else pure ()
+
+runViewHtmlCli :: [String] -> IO ()
+runViewHtmlCli rawArgs =
+  case rawArgs of
+    [] -> putStrLn usage
+    path : optionArgs ->
+      case parseViewHtmlArgs path optionArgs of
+        Left err -> putStrLn err
+        Right options -> do
+          loaded <- loadViewerMolecule (viewInputFormat options) path
+          case loaded of
+            Left err -> putStrLn err
+            Right molecule ->
+              case validateMolecule molecule of
+                Left err -> putStrLn err
+                Right validMolecule ->
+                  writeViewerAndMaybeOpen
+                    (viewOutputPath options)
+                    (viewTitle options)
+                    validMolecule
+                    (viewOpenViewer options)
 
 runToSMILES :: FilePath -> IO ()
 runToSMILES path = do
@@ -174,6 +216,26 @@ runFromJSON path = do
   case moleculeFromJSON payload of
     Left err -> putStrLn err
     Right molecule -> renderValidated molecule
+
+writeViewerAndMaybeOpen :: FilePath -> String -> Molecule -> Bool -> IO ()
+writeViewerAndMaybeOpen outputPath title molecule shouldOpen = do
+  written <- writeMoleculeViewerHTML outputPath title molecule
+  putStrLn $
+    "Viewer molecule: "
+      ++ show (length (atoms molecule))
+      ++ " atoms, "
+      ++ show (length (localBonds molecule))
+      ++ " sigma bonds, "
+      ++ show (length (systems molecule))
+      ++ " bonding systems."
+  putStrLn ("Viewer HTML: " ++ written)
+  if shouldOpen
+    then do
+      opened <- openMoleculeViewer written
+      if opened
+        then putStrLn "Viewer opened."
+        else putStrLn "Viewer open request failed; open the HTML file in a browser."
+    else pure ()
 
 renderValidated :: Molecule -> IO ()
 renderValidated molecule =
@@ -229,6 +291,121 @@ parseInverseDesignArgs rawArgs = go rawArgs defaultInverseDesignConfig
         "Unknown inverse-design option `"
         ++ flag
         ++ "`. Use only --target and --seed-molecule."
+
+data PrettyExampleOptions = PrettyExampleOptions
+  { prettyViewerOutput :: Maybe FilePath
+  , prettyOpenViewer :: Bool
+  }
+
+defaultPrettyExampleOptions :: PrettyExampleOptions
+defaultPrettyExampleOptions =
+  PrettyExampleOptions
+    { prettyViewerOutput = Nothing
+    , prettyOpenViewer = False
+    }
+
+parsePrettyExampleArgs :: [String] -> Either String PrettyExampleOptions
+parsePrettyExampleArgs rawArgs = go rawArgs defaultPrettyExampleOptions
+  where
+    go [] options = Right options
+    go ["--help"] _ = Left usage
+    go ("--viewer-output" : outputPath : rest) options =
+      go rest options { prettyViewerOutput = Just outputPath }
+    go ("--open-viewer" : rest) options =
+      go rest options { prettyOpenViewer = True }
+    go (flag : _) _ =
+      Left $
+        "Unknown pretty-example option `"
+        ++ flag
+        ++ "`. Use --viewer-output and/or --open-viewer."
+
+data ViewInputFormat = ViewInputSDF | ViewInputJSON
+
+data ViewHtmlOptions = ViewHtmlOptions
+  { viewOutputPath :: FilePath
+  , viewTitle :: String
+  , viewInputFormat :: ViewInputFormat
+  , viewOpenViewer :: Bool
+  }
+
+parseViewHtmlArgs :: FilePath -> [String] -> Either String ViewHtmlOptions
+parseViewHtmlArgs path rawArgs = go rawArgs defaultOptions
+  where
+    defaultOptions =
+      ViewHtmlOptions
+        { viewOutputPath = defaultViewerOutput path
+        , viewTitle = defaultViewerTitle path
+        , viewInputFormat = inferViewInputFormat path
+        , viewOpenViewer = False
+        }
+
+    go [] options = Right options
+    go ["--help"] _ = Left usage
+    go ("--output" : outputPath : rest) options =
+      go rest options { viewOutputPath = outputPath }
+    go ("--title" : titleText : rest) options =
+      go rest options { viewTitle = titleText }
+    go ("--format" : formatText : rest) options =
+      case parseViewInputFormat formatText of
+        Nothing ->
+          Left "Invalid --format value. Use sdf or json."
+        Just inputFormat ->
+          go rest options { viewInputFormat = inputFormat }
+    go ("--open-viewer" : rest) options =
+      go rest options { viewOpenViewer = True }
+    go (flag : _) _ =
+      Left $
+        "Unknown view-html option `"
+        ++ flag
+        ++ "`. Use --output, --title, --format, and/or --open-viewer."
+
+parseViewInputFormat :: String -> Maybe ViewInputFormat
+parseViewInputFormat rawValue =
+  case map Char.toLower rawValue of
+    "sdf" -> Just ViewInputSDF
+    "json" -> Just ViewInputJSON
+    _ -> Nothing
+
+inferViewInputFormat :: FilePath -> ViewInputFormat
+inferViewInputFormat path =
+  if ".json" `isSuffixOf` map Char.toLower path
+    then ViewInputJSON
+    else ViewInputSDF
+
+loadViewerMolecule :: ViewInputFormat -> FilePath -> IO (Either String Molecule)
+loadViewerMolecule inputFormat path =
+  case inputFormat of
+    ViewInputSDF -> do
+      parsed <- readSDF path
+      pure $
+        case parsed of
+          Left err -> Left (errorBundlePretty err)
+          Right molecule -> Right molecule
+    ViewInputJSON -> do
+      payload <- BL.readFile path
+      pure (moleculeFromJSON payload)
+
+defaultViewerOutput :: FilePath -> FilePath
+defaultViewerOutput path =
+  "results" </> "viewer" </> takeBaseName path ++ ".viewer.html"
+
+defaultExampleViewerOutput :: String -> FilePath
+defaultExampleViewerOutput rawName =
+  "results" </> "viewer" </> exampleSlug rawName ++ ".viewer.html"
+
+defaultViewerTitle :: FilePath -> String
+defaultViewerTitle path =
+  case takeBaseName path of
+    "" -> "MolADT viewer"
+    baseName -> baseName ++ " MolADT viewer"
+
+exampleSlug :: String -> String
+exampleSlug =
+  map slugChar
+  where
+    slugChar char
+      | Char.isAlphaNum char = Char.toLower char
+      | otherwise = '-'
 
 printSmiles :: String -> Molecule -> IO ()
 printSmiles label molecule =

@@ -5,6 +5,7 @@
 module Main (main) where
 
 import Test.Hspec
+import Chem.IO.MoleculeViewer (moleculeViewerHTML, writeMoleculeViewerHTML)
 import Chem.IO.SDF (readSDF, parseSDF, parseSDFRecords)
 import Chem.IO.MoleculeJSON (moleculeFromJSON, moleculeToJSON)
 import Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
@@ -12,10 +13,11 @@ import Chem.IO.SDFTiming (measureSdfTiming, timingFailureCount, timingStage, tim
 import Chem.Molecule
 import Chem.Dietz
 import Chem.Validate (validateMolecule)
+import ExampleMolecules.Diborane (diboranePretty)
 import ExampleMolecules.Morphine (morphinePretty, morphineRingClosureSmiles)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
-import System.Directory (createDirectory, getTemporaryDirectory, removeDirectoryRecursive, removeFile)
+import System.Directory (createDirectory, doesFileExist, getTemporaryDirectory, removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
 import System.IO (hClose, hPutStr, openTempFile)
 import Text.Megaparsec (errorBundlePretty)
@@ -305,6 +307,31 @@ spec = do
           map timingStage stages `shouldBe` ["raw_file_read", "sdf_record_parse"]
           map timingSuccessCount stages `shouldBe` [2, 2]
           map timingFailureCount stages `shouldBe` [0, 0]
+
+  describe "Molecule viewer" $ do
+    it "renders a standalone HTML viewer with system overlay support" $ do
+      let html = moleculeViewerHTML "Diborane viewer" diboranePretty
+      html `shouldContain` "data-moladt-viewer"
+      html `shouldContain` "<canvas id=\"molecule-canvas\""
+      html `shouldContain` "function systemEdgeLaneMap"
+      html `shouldContain` "offset: laneOffset"
+      html `shouldContain` "alpha: active ? 1 : 0.18"
+      html `shouldContain` "window.loadMolADT"
+      html `shouldContain` "Drop MolADT JSON"
+      html `shouldContain` "bridge_h3_3c2e"
+      html `shouldContain` "bridge_h4_3c2e"
+      html `shouldNotContain` "Molecule Report"
+
+    it "writes viewer HTML into nested output directories" $ do
+      tempDir <- getTemporaryDirectory
+      (path, handle) <- openTempFile tempDir "moladt-viewer"
+      hClose handle
+      removeFile path
+      let outputPath = path </> "diborane.viewer.html"
+      written <- writeMoleculeViewerHTML outputPath "Diborane viewer" diboranePretty
+      exists <- doesFileExist written
+      removeDirectoryRecursive path
+      exists `shouldBe` True
 
   describe "Built-in Dietz examples" $ do
     it "validates the explicit morphine example and preserves both systems" $ do

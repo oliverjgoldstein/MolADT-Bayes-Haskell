@@ -37,6 +37,7 @@ dependencies:
   - massiv
   - time
   - math-functions
+  - process
 
 library:
   source-dirs: src
@@ -55,6 +56,7 @@ library:
     - Chem.IO.MoleculeJSON
     - Chem.IO.SMILES
     - Chem.IO.SDFTiming
+    - Chem.IO.MoleculeViewer
     - Reaction
     - Serialisable
     - SampleMolecules

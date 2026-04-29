@@ -13,7 +13,8 @@ Molecule = atoms + sigma edges + bonding systems + stereochemistry
 
 [Quickstart](docs/quickstart.md) | [ADT](docs/data-model.md) |
 [Representation](docs/representation.md) | [Examples](docs/examples.md) |
-[CLI](docs/cli-and-demo.md) | [Inference](docs/inference.md)
+[CLI](docs/cli-and-demo.md) | [Viewer](docs/parsing.md#viewer) |
+[Inference](docs/inference.md)
 
 ## Why MolADT
 
@@ -63,6 +64,8 @@ typed structure where the chemistry is available as data.
   Python-exported MolADT feature matrices rather than raw notation.
 - **Editable structure**: inverse-design experiments can operate on atoms,
   bonds, hydrogens, and bonding systems as separate concepts.
+- **Inspectable outputs**: the standalone viewer shows atoms, sigma edges, and
+  explicit bonding systems from the same typed payload.
 
 See [Example Molecules](docs/examples.md), [Parsing and Rendering](docs/parsing.md),
 and [Python Interop](docs/python-interop.md).
@@ -89,6 +92,7 @@ make haskell-build
 stack run moladtbayes -- parse molecules/benzene.sdf
 stack run moladtbayes -- parse-smiles "c1ccccc1"
 stack run moladtbayes -- pretty-example ferrocene
+make haskell-viewer
 ```
 
 For the full first-run path, use [Quickstart](docs/quickstart.md).
@@ -101,6 +105,7 @@ For the full first-run path, use [Quickstart](docs/quickstart.md).
 | See why MolADT is not just a graph | [Representation](docs/representation.md) |
 | Inspect benzene, morphine, diborane, or ferrocene | [Examples](docs/examples.md) |
 | Parse SDF, SMILES, or MolADT JSON | [CLI and Demo](docs/cli-and-demo.md) |
+| Export a standalone HTML viewer | [Parsing and Rendering](docs/parsing.md#viewer) |
 | Check parser scope and validation rules | [SMILES Scope and Validation](docs/smiles-scope-and-validation.md) |
 | Run the Haskell benchmark consumer | [Inference](docs/inference.md) |
 | Understand exported feature matrices | [Models and Exported Features](docs/models.md) |
@@ -114,8 +119,11 @@ For the full first-run path, use [Quickstart](docs/quickstart.md).
 stack run moladtbayes -- --help
 stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
 stack run moladtbayes -- from-json benzene.moladt.json
+stack run moladtbayes -- view-html molecules/benzene.sdf --output results/viewer/benzene.viewer.html
+stack run moladtbayes -- pretty-example diborane --viewer-output results/viewer/diborane.viewer.html
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
 make haskell-test
+make haskell-viewer
 make haskell-demo
 make haskell-infer-benchmark
 ```

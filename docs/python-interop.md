@@ -55,4 +55,10 @@ stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
 stack run moladtbayes -- from-json benzene.moladt.json
 ```
 
+The Haskell viewer also accepts that shared JSON boundary:
+
+```bash
+stack run moladtbayes -- view-html benzene.moladt.json --format json --output results/viewer/benzene.viewer.html
+```
+
 Next: [Models and exported features](models.md), [Inference](inference.md).

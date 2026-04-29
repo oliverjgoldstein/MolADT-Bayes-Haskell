@@ -69,6 +69,41 @@ main = do
         Right roundTripped -> print (length (atoms roundTripped))
 ```
 
+## Viewer
+
+The Haskell CLI can write the same standalone MolADT viewer shape as the Python
+repo. The output is one HTML file, so it can be attached to a result, opened in a
+browser, or shared without a server.
+
+```bash
+stack run moladtbayes -- view-html molecules/benzene.sdf --output results/viewer/benzene.viewer.html
+stack run moladtbayes -- view-html benzene.moladt.json --format json --output results/viewer/benzene.viewer.html
+stack run moladtbayes -- pretty-example ferrocene --viewer-output results/viewer/ferrocene.viewer.html
+```
+
+Programmatic version:
+
+```haskell
+import Chem.IO.MoleculeViewer (writeMoleculeViewerHTML)
+import Chem.IO.SDF (readSDF)
+import Text.Megaparsec (errorBundlePretty)
+
+main :: IO ()
+main = do
+  parsed <- readSDF "molecules/benzene.sdf"
+  case parsed of
+    Left err -> putStrLn (errorBundlePretty err)
+    Right molecule -> do
+      _ <- writeMoleculeViewerHTML
+        "results/viewer/benzene.viewer.html"
+        "Benzene MolADT viewer"
+        molecule
+      pure ()
+```
+
+The viewer panel lists explicit bonding systems, so molecules like diborane and
+ferrocene are inspectable as ADTs rather than flattened bond tables.
+
 ## SMILES To MolADT
 
 ```bash

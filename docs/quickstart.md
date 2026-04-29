@@ -19,10 +19,12 @@ stack run moladtbayes -- parse molecules/benzene.sdf
 stack run moladtbayes -- parse-smiles "c1ccccc1"
 stack run moladtbayes -- pretty-example ferrocene
 stack run moladtbayes -- to-smiles molecules/benzene.sdf
+make haskell-viewer
 ```
 
 Those commands prove that SDF parsing, SMILES parsing, built-in examples, and
-SMILES rendering are wired up.
+SMILES rendering are wired up. The viewer command writes
+`results/viewer/benzene.viewer.html`.
 
 ## Test
 

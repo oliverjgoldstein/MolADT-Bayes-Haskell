@@ -18,7 +18,7 @@ stack test
 | --- | --- |
 | `benchmark-alignment` | Python export loading and inverse-design smoke search |
 | `edge-properties` | edge invariants |
-| `parser-roundtrip` | SDF, SMILES, JSON, pretty rendering, timing helpers |
+| `parser-roundtrip` | SDF, SMILES, JSON, viewer HTML, pretty rendering, timing helpers |
 | `validation-properties` | molecule validation invariants |
 
 ## Useful Smoke Checks
@@ -28,6 +28,7 @@ make haskell-build
 make haskell-parse
 make haskell-parse-smiles
 make haskell-to-smiles
+make haskell-viewer
 make haskell-demo
 ```
 
