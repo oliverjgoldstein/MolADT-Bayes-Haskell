@@ -13,6 +13,8 @@ Use this page when you need to find the right file quickly.
 - [`src/Chem/Dietz.hs`](../src/Chem/Dietz.hs): atoms, edges, bonding systems.
 - [`src/Chem/Validate.hs`](../src/Chem/Validate.hs): validation.
 - [`src/Chem/Molecule/Coordinate.hs`](../src/Chem/Molecule/Coordinate.hs): coordinates.
+- [`src/Group.hs`](../src/Group.hs): type-class sketch for group structure and molecular symmetry actions.
+- [`src/Orbital.hs`](../src/Orbital.hs): shell, subshell, and orbital ADTs.
 
 ## IO
 

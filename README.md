@@ -29,6 +29,7 @@ MolADT keeps the important structure explicit:
 - Dietz bonding systems for delocalized and multicentre chemistry
 - SMILES stereochemistry annotations as their own typed layer
 - shared JSON serialization for Haskell and the sibling Python repo
+- Haskell type classes for attaching laws and algebraic structure
 
 That gives inference and inverse-design code a molecule it can inspect directly,
 instead of a string it has to reinterpret at every step.
@@ -52,6 +53,11 @@ data Molecule = Molecule
 The point is not to replace SMILES or SDF. The point is to parse them into a
 typed structure where the chemistry is available as data.
 
+Because this is Haskell, the representation is not just a convention. `AtomId`,
+`SystemId`, `NonNegative`, and `Angstrom` are separate types; shells and
+orbitals are algebraic data types; and type classes can state behavior and laws
+around the molecule without hiding the molecule fields.
+
 ## What It Unlocks
 
 - **Clearer chemistry**: diborane bridges, ferrocene Cp/metal systems, and
@@ -66,9 +72,12 @@ typed structure where the chemistry is available as data.
   bonds, hydrogens, and bonding systems as separate concepts.
 - **Inspectable outputs**: the standalone viewer shows atoms, sigma edges, and
   explicit bonding systems from the same typed payload.
+- **Algebraic contracts**: rotations, atom relabelings, or other transforms can
+  be expressed with type classes as groups acting on molecules, giving
+  geometric models a clear place to state invariance and equivariance.
 
 See [Example Molecules](docs/examples.md), [Parsing and Rendering](docs/parsing.md),
-and [Python Interop](docs/python-interop.md).
+and [Type Classes And Group Actions](docs/representation.md#type-classes-and-group-actions).
 
 ## Why It Helps Bayesian Work
 

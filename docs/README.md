@@ -8,7 +8,7 @@ Use these pages as small entry points, not a second README.
 
 - [Quickstart](quickstart.md): build, run, test.
 - [ADT representation](data-model.md): the core molecule shape.
-- [Representation](representation.md): why MolADT is more than a string or graph.
+- [Representation](representation.md): why MolADT is more than a string or graph, including type-class group actions.
 - [CLI and demo](cli-and-demo.md): command reference.
 - [Examples](examples.md): benzene, water, morphine, diborane, ferrocene.
 
@@ -23,5 +23,6 @@ Use these pages as small entry points, not a second README.
 - [Parsing and rendering](parsing.md)
 - [SMILES scope and validation](smiles-scope-and-validation.md)
 - [Orbitals](orbitals.md)
+- [Type classes and group actions](representation.md#type-classes-and-group-actions)
 - [Repo map](repo-map.md)
 - [Testing](testing.md)

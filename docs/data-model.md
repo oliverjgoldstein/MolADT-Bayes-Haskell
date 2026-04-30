@@ -1,12 +1,9 @@
-# MolADT ADT Representation
+# MolADT Data Model
 
-MolADT is a molecule as typed Haskell data.
+MolADT represents a molecule as ordinary Haskell data.
 
-```text
-Molecule = atoms + sigma edges + bonding systems + stereochemistry
-```
-
-## Core Shape
+The core value is not a string, a dictionary, or a loose graph. It is a record
+with typed fields:
 
 ```haskell
 data Molecule = Molecule
@@ -17,36 +14,66 @@ data Molecule = Molecule
   }
 ```
 
-That gives one explicit object with four layers:
+```text
+Molecule = atoms + sigma edges + bonding systems + stereochemistry
+```
+
+That gives one inspectable object with four layers:
 
 - `atoms`: atom table
-- `localBonds`: localized sigma network
+- `localBonds`: localized sigma network as undirected edges
 - `systems`: Dietz bonding systems for delocalized or multicentre chemistry
 - `smilesStereochemistry`: stereo annotations from boundary notation
 
-## Minimal Example
+## Haskell Shape
 
-This is the shape of water as a typed molecule:
+The representation uses Haskell's type system directly:
+
+- `data` types for molecule structure
+- `newtype` wrappers for stable identifiers and units
+- records for named fields
+- smart constructors where a value has an invariant
+- derived instances for equality, printing, binary encoding, and evaluation
+
+The small wrappers matter. `AtomId`, `SystemId`, `NonNegative`, and `Angstrom`
+are not interchangeable numbers.
 
 ```haskell
-water :: Molecule
-water = Molecule
-  { atoms = M.fromList
-      [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
-      , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.96) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.32)) (mkAngstrom 0.9) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-      ]
-  , localBonds = S.fromList
-      [ Edge (AtomId 1) (AtomId 2)
-      , Edge (AtomId 1) (AtomId 3)
-      ]
-  , systems = []
-  , smilesStereochemistry = emptySmilesStereochemistry
+newtype AtomId      = AtomId Integer
+newtype SystemId    = SystemId Int
+newtype NonNegative = NonNegative { getNN :: Int }
+newtype Angstrom    = Angstrom Double
+
+data Coordinate = Coordinate
+  { x :: Angstrom
+  , y :: Angstrom
+  , z :: Angstrom
   }
 ```
 
-The important part is not the specific molecule. It is the separation between
-atoms, local bonds, bonding systems, and stereo.
+## Atoms
+
+```haskell
+data AtomicSymbol = H | C | N | O | S | P | Si | F | Cl | Br | I | Fe | B | Na
+
+data ElementAttributes = ElementAttributes
+  { symbol       :: AtomicSymbol
+  , atomicNumber :: Int
+  , atomicWeight :: Double
+  }
+
+data Atom = Atom
+  { atomID       :: AtomId
+  , attributes   :: ElementAttributes
+  , coordinate   :: Coordinate
+  , shells       :: Shells
+  , formalCharge :: Int
+  }
+```
+
+An atom carries identity, element data, 3D coordinates, shell/orbital data, and
+formal charge. That is why downstream code can ask about the molecule directly
+instead of reparsing a notation string.
 
 ## Bonding Systems
 
@@ -88,23 +115,123 @@ piRing =
     (Just "pi_ring")
 ```
 
-Checked molecules use this direct canonical form: literal atoms, normalized
-`Edge` constructors, and sorted bonding systems.
+`mkBondingSystem` derives `memberAtoms` from the edge set, so the atom scope and
+edge scope cannot drift apart.
 
-## Atoms
+## Orbitals
 
 ```haskell
-data Atom = Atom
-  { atomID       :: AtomId
-  , attributes   :: ElementAttributes
-  , coordinate   :: Coordinate
-  , shells       :: Shells
-  , formalCharge :: Int
+data So = So
+data P = Px | Py | Pz
+data D = Dxy | Dyz | Dxz | Dx2y2 | Dz2
+data F = Fxxx | Fxxy | Fxxz | Fxyy | Fxyz | Fxzz | Fzzz
+
+data PureOrbital
+  = PureSo So
+  | PureP  P
+  | PureD  D
+  | PureF  F
+
+data Orbital subshellType = Orbital
+  { orbitalType      :: subshellType
+  , electronCount    :: Int
+  , orientation      :: Maybe Coordinate
+  , hybridComponents :: Maybe [(Double, PureOrbital)]
+  }
+
+newtype SubShell subshellType = SubShell
+  { orbitals :: [Orbital subshellType] }
+
+data Shell = Shell
+  { principalQuantumNumber :: Int
+  , sSubShell              :: Maybe (SubShell So)
+  , pSubShell              :: Maybe (SubShell P)
+  , dSubShell              :: Maybe (SubShell D)
+  , fSubShell              :: Maybe (SubShell F)
+  }
+
+type Shells = [Shell]
+```
+
+This is Haskell-specific: the subshell type parameter prevents an `Orbital P`
+from being silently mixed into a `SubShell D`.
+
+For example, iodine's final valence shell is written as explicit `5s2 5p5`
+data:
+
+```haskell
+Shell
+  { principalQuantumNumber = 5
+  , sSubShell = Just (SubShell
+      [ Orbital
+          { orbitalType      = So
+          , electronCount    = 2
+          , orientation      = Nothing
+          , hybridComponents = Nothing
+          }
+      ])
+  , pSubShell = Just (SubShell
+      [ Orbital
+          { orbitalType      = Px
+          , electronCount    = 2
+          , orientation      = Just (angCoord 1 0 0)
+          , hybridComponents = Nothing
+          }
+      , Orbital
+          { orbitalType      = Py
+          , electronCount    = 1
+          , orientation      = Just (angCoord 0 1 0)
+          , hybridComponents = Nothing
+          }
+      , Orbital
+          { orbitalType      = Pz
+          , electronCount    = 0
+          , orientation      = Nothing
+          , hybridComponents = Nothing
+          }
+      ])
+  , dSubShell = Nothing
+  , fSubShell = Nothing
   }
 ```
 
-Each atom carries identity, element data, coordinates, shell structure, and
-formal charge.
+The full shell definitions live in
+[`src/Orbital.hs`](../src/Orbital.hs).
+
+## Minimal Molecule
+
+This is the shape of water as a typed molecule:
+
+```haskell
+water :: Molecule
+water = Molecule
+  { atoms = M.fromList
+      [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
+      , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.96) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+      , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.32)) (mkAngstrom 0.9) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+      ]
+  , localBonds = S.fromList
+      [ Edge (AtomId 1) (AtomId 2)
+      , Edge (AtomId 1) (AtomId 3)
+      ]
+  , systems = []
+  , smilesStereochemistry = emptySmilesStereochemistry
+  }
+```
+
+The important part is the separation between atoms, local bonds, bonding
+systems, and stereo.
+
+## Canonical Normal Form
+
+Checked molecules use a direct canonical form:
+
+- atoms keyed by `AtomId`
+- edges written as normalized `Edge` values
+- bonding systems sorted by `SystemId`
+- coordinates stored in Angstroms
+- examples expanded as literal atoms, edges, and bonding systems
+- no hidden chemistry inside ranges, zips, or generated tables
 
 ## Stereo
 
@@ -114,10 +241,25 @@ edge or atom string.
 This keeps the core molecule inspectable while still preserving boundary
 stereo information.
 
-## Python Match
+## Type Classes
 
-The Python repo mirrors the same shape with frozen dataclasses. That is why the
-shared JSON boundary can move molecules between Haskell and Python without
-changing the chemistry object.
+Haskell keeps behavior separate from the data shape through type classes.
+Equality, serialization, pretty printing, validation helpers, and algebraic
+structure can be attached without turning `Molecule` into a dynamic object.
+
+That matters for geometric and Bayesian modelling. A rotation, atom relabeling,
+or rigid transform can be expressed as a type with a `Group` instance, and
+`Molecule` can be made an instance of the corresponding action. The laws then
+become explicit contracts: compose, invert, apply identity, and preserve the
+quantities that should be invariant.
+
+See [Representation](representation.md#type-classes-and-group-actions) and
+[`src/Group.hs`](../src/Group.hs).
+
+## Interop Boundary
+
+The sibling Python repo mirrors the same JSON contract, but this repo's
+representation is the Haskell ADT. JSON is the boundary between languages; the
+Haskell source remains records, constructors, maps, sets, and type classes.
 
 Next: [Representation](representation.md), [Python interop](python-interop.md).
