@@ -3,7 +3,10 @@
 module Chem.IO.MoleculeViewer
   ( moleculeViewerPayload
   , moleculeViewerHTML
+  , moleculeViewerCollectionPayload
+  , moleculeViewerCollectionHTML
   , writeMoleculeViewerHTML
+  , writeMoleculeViewerCollectionHTML
   , openMoleculeViewer
   ) where
 
@@ -21,6 +24,7 @@ import           System.Process (callProcess)
 
 import           Chem.Dietz
 import           Chem.Molecule
+import qualified Orbital as Orb
 
 moleculeViewerPayload :: String -> Molecule -> A.Value
 moleculeViewerPayload title molecule =
@@ -29,7 +33,8 @@ moleculeViewerPayload title molecule =
     , "title" .= T.pack title
     , "atoms" .= map atomPayload (M.toAscList (atoms molecule))
     , "bonds" .= map bondPayload (S.toAscList allEdges)
-    , "systems" .= zipWith systemPayload [0 :: Int ..] (systems molecule)
+    , "systems" .= map systemPayload (systems molecule)
+    , "angles" .= anglePayloads molecule
     ]
   where
     allEdges =
@@ -45,6 +50,7 @@ moleculeViewerPayload title molecule =
         , "y" .= unAngstrom y
         , "z" .= unAngstrom z
         , "charge" .= formalCharge atom
+        , "shells" .= shellsPayload (shells atom)
         , "color" .= T.pack fill
         , "edge" .= T.pack stroke
         , "radius" .= radius
@@ -61,6 +67,7 @@ moleculeViewerPayload title molecule =
         , "b" .= atomB
         , "order" .= effectiveOrder molecule edge
         , "kind" .= edgeKind
+        , "length" .= edgeLength molecule edge
         ]
       where
         edgeKind :: T.Text
@@ -69,14 +76,14 @@ moleculeViewerPayload title molecule =
             then "sigma"
             else "system"
 
-    systemPayload :: Int -> (SystemId, BondingSystem) -> A.Value
-    systemPayload index (SystemId rawId, bondingSystem) =
+    systemPayload :: (SystemId, BondingSystem) -> A.Value
+    systemPayload (SystemId rawId, bondingSystem) =
       A.object
         [ "id" .= rawId
-        , "label" .= T.pack labelText
+        , "label" .= T.pack ("#" ++ show rawId ++ " " ++ labelText)
         , "tag" .= fmap T.pack (tag bondingSystem)
         , "sharedElectrons" .= getNN (sharedElectrons bondingSystem)
-        , "color" .= T.pack (systemColor index)
+        , "color" .= T.pack (systemColor (fromIntegral rawId - 1))
         , "atoms" .= map atomIdValue (S.toAscList (memberAtoms bondingSystem))
         , "edges" .= map systemEdgePayload (S.toAscList (memberEdges bondingSystem))
         ]
@@ -87,11 +94,146 @@ moleculeViewerPayload title molecule =
     atomIdValue (AtomId rawId) = rawId
 
     systemEdgePayload :: Edge -> A.Value
-    systemEdgePayload (Edge (AtomId atomA) (AtomId atomB)) =
-      A.object ["a" .= atomA, "b" .= atomB]
+    systemEdgePayload edge@(Edge (AtomId atomA) (AtomId atomB)) =
+      A.object ["a" .= atomA, "b" .= atomB, "length" .= edgeLength molecule edge]
+
+edgeLength :: Molecule -> Edge -> Double
+edgeLength molecule (Edge left right) =
+  case (M.lookup left (atoms molecule), M.lookup right (atoms molecule)) of
+    (Just atomA, Just atomB) -> roundTo 6 (unAngstrom (distanceAngstrom atomA atomB))
+    _ -> 0.0
+
+anglePayloads :: Molecule -> [A.Value]
+anglePayloads molecule =
+  [ A.object
+      [ "a" .= atomIdValue left
+      , "center" .= atomIdValue center
+      , "b" .= atomIdValue right
+      , "angle" .= roundTo 6 angleValue
+      ]
+  | (center, neighborIds) <- M.toAscList adjacency
+  , (left, right) <- neighborPairs neighborIds
+  , Just angleValue <- [atomAngle molecule left center right]
+  ]
+  where
+    geometryEdges =
+      S.unions (localBonds molecule : [memberEdges system | (_, system) <- systems molecule])
+    adjacency =
+      M.map S.toAscList $
+        S.foldl'
+          (\acc (Edge left right) ->
+             if M.member left (atoms molecule) && M.member right (atoms molecule)
+               then M.insertWith S.union left (S.singleton right) $
+                      M.insertWith S.union right (S.singleton left) acc
+               else acc
+          )
+          (M.fromList [(atomId, S.empty) | atomId <- M.keys (atoms molecule)])
+          geometryEdges
+    atomIdValue (AtomId rawId) = rawId
+
+atomAngle :: Molecule -> AtomId -> AtomId -> AtomId -> Maybe Double
+atomAngle molecule left center right = do
+  atomLeft <- M.lookup left (atoms molecule)
+  atomCenter <- M.lookup center (atoms molecule)
+  atomRight <- M.lookup right (atoms molecule)
+  let leftVector = vectorFromTo atomCenter atomLeft
+      rightVector = vectorFromTo atomCenter atomRight
+      leftNorm = vectorNorm leftVector
+      rightNorm = vectorNorm rightVector
+  if leftNorm <= 1e-12 || rightNorm <= 1e-12
+    then Nothing
+    else
+      let cosineValue = clamp (-1.0) 1.0 (dot3 leftVector rightVector / (leftNorm * rightNorm))
+      in Just (acos cosineValue * 180.0 / pi)
+
+shellsPayload :: Shells -> [A.Value]
+shellsPayload = map shellPayload
+
+shellPayload :: Orb.Shell -> A.Value
+shellPayload shell =
+  A.object
+    [ "n" .= Orb.principalQuantumNumber shell
+    , "orbitals" .= concat
+        [ maybe [] (map (orbitalPayload "s") . Orb.orbitals) (Orb.sSubShell shell)
+        , maybe [] (map (orbitalPayload "p") . Orb.orbitals) (Orb.pSubShell shell)
+        , maybe [] (map (orbitalPayload "d") . Orb.orbitals) (Orb.dSubShell shell)
+        , maybe [] (map (orbitalPayload "f") . Orb.orbitals) (Orb.fSubShell shell)
+        ]
+    ]
+
+orbitalPayload :: Show subshell => String -> Orb.Orbital subshell -> A.Value
+orbitalPayload kind orbital =
+  A.object
+    [ "kind" .= T.pack kind
+    , "orbital" .= T.pack (show (Orb.orbitalType orbital))
+    , "electrons" .= Orb.electronCount orbital
+    , "orientation" .= fmap coordinatePayload (Orb.orientation orbital)
+    , "hybridComponents" .= fmap hybridPayload (Orb.hybridComponents orbital)
+    ]
+
+hybridPayload :: [(Double, Orb.PureOrbital)] -> [A.Value]
+hybridPayload =
+  map
+    (\(weight, pureOrbital) ->
+       A.object
+         [ "weight" .= weight
+         , "orbital" .= T.pack (show pureOrbital)
+         ]
+    )
+
+coordinatePayload :: Coordinate -> A.Value
+coordinatePayload (Coordinate x y z) =
+  A.object
+    [ "x" .= unAngstrom x
+    , "y" .= unAngstrom y
+    , "z" .= unAngstrom z
+    ]
+
+vectorFromTo :: Atom -> Atom -> (Double, Double, Double)
+vectorFromTo fromAtom toAtom =
+  let Coordinate fx fy fz = coordinate fromAtom
+      Coordinate tx ty tz = coordinate toAtom
+  in (unAngstrom tx - unAngstrom fx, unAngstrom ty - unAngstrom fy, unAngstrom tz - unAngstrom fz)
+
+vectorNorm :: (Double, Double, Double) -> Double
+vectorNorm (x, y, z) = sqrt (x * x + y * y + z * z)
+
+dot3 :: (Double, Double, Double) -> (Double, Double, Double) -> Double
+dot3 (x1, y1, z1) (x2, y2, z2) = x1 * x2 + y1 * y2 + z1 * z2
+
+neighborPairs :: [a] -> [(a, a)]
+neighborPairs values =
+  [ (left, right)
+  | (index, left) <- zip [0 :: Int ..] values
+  , right <- drop (index + 1) values
+  ]
+
+clamp :: Double -> Double -> Double -> Double
+clamp lower upper value = max lower (min upper value)
+
+roundTo :: Int -> Double -> Double
+roundTo decimals value =
+  let factor = 10 ^^ decimals
+  in fromIntegral (round (value * factor) :: Integer) / factor
+
+moleculeViewerCollectionPayload :: String -> [(String, Molecule)] -> A.Value
+moleculeViewerCollectionPayload title molecules =
+  A.object
+    [ "format" .= ("moladt-viewer-collection-v1" :: T.Text)
+    , "title" .= T.pack title
+    , "molecules" .= [moleculeViewerPayload moleculeTitle molecule | (moleculeTitle, molecule) <- molecules]
+    ]
 
 moleculeViewerHTML :: String -> Molecule -> String
 moleculeViewerHTML title molecule =
+  viewerHTML title (moleculeViewerPayload title molecule)
+
+moleculeViewerCollectionHTML :: String -> [(String, Molecule)] -> String
+moleculeViewerCollectionHTML title molecules =
+  viewerHTML title (moleculeViewerCollectionPayload title molecules)
+
+viewerHTML :: String -> A.Value -> String
+viewerHTML title payloadValue =
   unlines $
     [ "<!doctype html>"
     , "<html lang=\"en\">"
@@ -157,6 +299,19 @@ moleculeViewerHTML title molecule =
     , "  background: rgba(255, 255, 255, 0.58);"
     , "}"
     , ".dropzone.active { border-color: var(--accent); color: var(--accent); background: rgba(15, 118, 110, 0.08); }"
+    , ".molecule-list { padding: 12px 20px 0; display: grid; gap: 8px; }"
+    , ".molecule-button {"
+    , "  appearance: none;"
+    , "  border: 1px solid var(--line);"
+    , "  background: rgba(255, 255, 255, 0.72);"
+    , "  border-radius: 8px;"
+    , "  padding: 9px 10px;"
+    , "  text-align: left;"
+    , "  color: #1f2937;"
+    , "  font-size: 13px;"
+    , "  cursor: pointer;"
+    , "}"
+    , ".molecule-button[aria-pressed='true'] { border-color: rgba(15, 118, 110, 0.42); background: rgba(15, 118, 110, 0.07); font-weight: 650; }"
     , ".system-list { padding: 16px 20px 20px; display: grid; gap: 10px; overflow: auto; }"
     , ".system-button {"
     , "  appearance: none;"
@@ -177,6 +332,8 @@ moleculeViewerHTML title molecule =
     , ".swatch { width: 12px; height: 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }"
     , ".system-name { overflow-wrap: anywhere; font-size: 13px; font-weight: 650; }"
     , ".system-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }"
+    , ".geometry-list { padding: 0 20px 20px; display: grid; gap: 6px; color: var(--muted); font-size: 12px; line-height: 1.35; }"
+    , ".geometry-title { color: #344054; font-weight: 700; margin-top: 4px; }"
     , ".stage {"
     , "  position: relative;"
     , "  border-radius: 8px;"
@@ -215,10 +372,13 @@ moleculeViewerHTML title molecule =
     , "    <div class=\"controls\">"
     , "      <label class=\"control-row\"><span>Labels</span><input id=\"labels-toggle\" type=\"checkbox\" checked></label>"
     , "      <label class=\"control-row\"><span>Bonding systems</span><input id=\"systems-toggle\" type=\"checkbox\" checked></label>"
+    , "      <label class=\"control-row\"><span>Axes</span><input id=\"axes-toggle\" type=\"checkbox\" checked></label>"
     , "      <label class=\"control-row\"><span>Zoom</span><input id=\"zoom-range\" type=\"range\" min=\"70\" max=\"190\" value=\"110\"></label>"
     , "    </div>"
     , "    <div id=\"dropzone\" class=\"dropzone\">Drop MolADT JSON</div>"
+    , "    <div id=\"molecule-list\" class=\"molecule-list\"></div>"
     , "    <div id=\"system-list\" class=\"system-list\"></div>"
+    , "    <div id=\"geometry-list\" class=\"geometry-list\"></div>"
     , "  </aside>"
     , "  <section class=\"stage\">"
     , "    <canvas id=\"molecule-canvas\" aria-label=\"MolADT molecule viewer\"></canvas>"
@@ -232,24 +392,31 @@ moleculeViewerHTML title molecule =
     , "  const ctx = canvas.getContext('2d');"
     , "  const titleNode = document.getElementById('viewer-title');"
     , "  const countsNode = document.getElementById('counts');"
+    , "  const moleculeList = document.getElementById('molecule-list');"
     , "  const systemList = document.getElementById('system-list');"
+    , "  const geometryList = document.getElementById('geometry-list');"
     , "  const labelsToggle = document.getElementById('labels-toggle');"
     , "  const systemsToggle = document.getElementById('systems-toggle');"
+    , "  const axesToggle = document.getElementById('axes-toggle');"
     , "  const zoomRange = document.getElementById('zoom-range');"
     , "  const dropZone = document.getElementById('dropzone');"
     , "  const state = {"
     , "    payload: null,"
+    , "    collection: [],"
+    , "    activeIndex: 0,"
     , "    rotationX: -0.58,"
     , "    rotationY: 0.72,"
     , "    zoom: 1.1,"
     , "    labels: true,"
     , "    systems: true,"
+    , "    axes: true,"
     , "    selectedSystem: null,"
+    , "    selectedAtom: null,"
     , "    dragging: false,"
     , "    lastX: 0,"
     , "    lastY: 0"
     , "  };"
-    , "  const systemColors = ['#0f766e', '#b45309', '#2563eb', '#be185d', '#7c3aed', '#15803d', '#c2410c', '#475569'];"
+    , "  const systemColors = ['#f05a3f', '#008f87', '#7b5cff', '#d89b00', '#2f73d9', '#c43b78', '#258a45', '#94552b'];"
     , "  function edgeKey(a, b) { return Number(a) <= Number(b) ? `${a}-${b}` : `${b}-${a}`; }"
     , "  function idValue(value) {"
     , "    if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')) return Number(value.value);"
@@ -258,6 +425,46 @@ moleculeViewerHTML title molecule =
     , "  function coordValue(value) {"
     , "    if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')) return Number(value.value);"
     , "    return Number(value || 0);"
+    , "  }"
+    , "  function atomDistance(atomA, atomB) {"
+    , "    if (!atomA || !atomB) return 0;"
+    , "    const dx = atomA.x - atomB.x;"
+    , "    const dy = atomA.y - atomB.y;"
+    , "    const dz = atomA.z - atomB.z;"
+    , "    return Math.sqrt(dx * dx + dy * dy + dz * dz);"
+    , "  }"
+    , "  function angleBetween(atomA, center, atomB) {"
+    , "    if (!atomA || !center || !atomB) return null;"
+    , "    const va = { x: atomA.x - center.x, y: atomA.y - center.y, z: atomA.z - center.z };"
+    , "    const vb = { x: atomB.x - center.x, y: atomB.y - center.y, z: atomB.z - center.z };"
+    , "    const la = Math.sqrt(va.x * va.x + va.y * va.y + va.z * va.z);"
+    , "    const lb = Math.sqrt(vb.x * vb.x + vb.y * vb.y + vb.z * vb.z);"
+    , "    if (la <= 1e-12 || lb <= 1e-12) return null;"
+    , "    const cosine = Math.max(-1, Math.min(1, (va.x * vb.x + va.y * vb.y + va.z * vb.z) / (la * lb)));"
+    , "    return Math.acos(cosine) * 180 / Math.PI;"
+    , "  }"
+    , "  function buildAnglePayloads(atomMap, bonds, systems) {"
+    , "    const neighbors = new Map();"
+    , "    atomMap.forEach(function (_, atomId) { neighbors.set(atomId, new Set()); });"
+    , "    const addEdge = function (edge) {"
+    , "      if (neighbors.has(edge.a) && neighbors.has(edge.b)) {"
+    , "        neighbors.get(edge.a).add(edge.b);"
+    , "        neighbors.get(edge.b).add(edge.a);"
+    , "      }"
+    , "    };"
+    , "    bonds.forEach(addEdge);"
+    , "    systems.forEach(function (system) { system.edges.forEach(addEdge); });"
+    , "    const angles = [];"
+    , "    neighbors.forEach(function (values, centerId) {"
+    , "      const adjacent = Array.from(values).sort((a, b) => a - b);"
+    , "      for (let i = 0; i < adjacent.length; i += 1) {"
+    , "        for (let j = i + 1; j < adjacent.length; j += 1) {"
+    , "          const angle = angleBetween(atomMap.get(adjacent[i]), atomMap.get(centerId), atomMap.get(adjacent[j]));"
+    , "          if (angle != null) angles.push({ a: adjacent[i], center: centerId, b: adjacent[j], angle });"
+    , "        }"
+    , "      }"
+    , "    });"
+    , "    return angles;"
     , "  }"
     , "  function styleFor(symbol) {"
     , "    const table = {"
@@ -285,16 +492,18 @@ moleculeViewerHTML title molecule =
     , "        y: coordValue(coord.y),"
     , "        z: coordValue(coord.z),"
     , "        charge: Number(atom.formal_charge || atom.charge || 0),"
+    , "        shells: atom.shells || [],"
     , "        color: style[0],"
     , "        edge: style[1],"
     , "        radius: style[2]"
     , "      };"
     , "    });"
+    , "    const atomMap = new Map(atoms.map((atom) => [atom.id, atom]));"
     , "    const bondsByKey = new Map();"
     , "    (raw.local_bonds || raw.bonds || []).forEach(function (edge) {"
     , "      const a = idValue(edge.a);"
     , "      const b = idValue(edge.b);"
-    , "      bondsByKey.set(edgeKey(a, b), { a: a, b: b, order: Number(edge.order || 1), kind: edge.kind || 'sigma' });"
+    , "      bondsByKey.set(edgeKey(a, b), { a: a, b: b, order: Number(edge.order || 1), kind: edge.kind || 'sigma', length: Number(edge.length || atomDistance(atomMap.get(a), atomMap.get(b))) });"
     , "    });"
     , "    const systems = (raw.systems || []).map(function (entry, index) {"
     , "      const system = entry.bonding_system || entry;"
@@ -302,8 +511,9 @@ moleculeViewerHTML title molecule =
     , "      const edges = (system.member_edges || system.edges || []).map(function (edge) {"
     , "        const a = idValue(edge.a);"
     , "        const b = idValue(edge.b);"
-    , "        if (!bondsByKey.has(edgeKey(a, b))) bondsByKey.set(edgeKey(a, b), { a: a, b: b, order: 0, kind: 'system' });"
-    , "        return { a: a, b: b };"
+    , "        const length = Number(edge.length || atomDistance(atomMap.get(a), atomMap.get(b)));"
+    , "        if (!bondsByKey.has(edgeKey(a, b))) bondsByKey.set(edgeKey(a, b), { a: a, b: b, order: 0, kind: 'system', length: length });"
+    , "        return { a: a, b: b, length: length };"
     , "      });"
     , "      const tag = system.tag || null;"
     , "      const shared = system.shared_electrons || system.sharedElectrons || { value: 0 };"
@@ -312,22 +522,30 @@ moleculeViewerHTML title molecule =
     , "        label: tag || `system ${id}` ,"
     , "        tag: tag,"
     , "        sharedElectrons: idValue(shared),"
-    , "        color: system.color || systemColors[index % systemColors.length],"
+    , "        color: system.color || systemColors[(id - 1 + systemColors.length) % systemColors.length],"
     , "        atoms: (system.member_atoms || system.atoms || []).map(idValue),"
     , "        edges: edges"
     , "      };"
     , "    });"
+    , "    const bonds = Array.from(bondsByKey.values());"
     , "    return {"
     , "      format: 'moladt-viewer-v1',"
     , "      title: raw.title || 'MolADT viewer',"
     , "      atoms: atoms,"
-    , "      bonds: Array.from(bondsByKey.values()),"
-    , "      systems: systems"
+    , "      bonds: bonds,"
+    , "      systems: systems,"
+    , "      angles: raw.angles || buildAnglePayloads(atomMap, bonds, systems)"
     , "    };"
     , "  }"
     , "  function normalisePayload(raw) {"
     , "    if (raw && raw.format === 'moladt-viewer-v1') return raw;"
     , "    return normaliseRawMolADT(raw || {});"
+    , "  }"
+    , "  function normaliseCollection(raw) {"
+    , "    if (raw && raw.format === 'moladt-viewer-collection-v1') {"
+    , "      return { title: raw.title || 'MolADT viewer', molecules: (raw.molecules || []).map(normalisePayload) };"
+    , "    }"
+    , "    return { title: (raw && raw.title) || 'MolADT viewer', molecules: [normalisePayload(raw || {})] };"
     , "  }"
     , "  function systemEdgeLaneMap(systems) {"
     , "    const lanes = new Map();"
@@ -354,10 +572,10 @@ moleculeViewerHTML title molecule =
     , "      span: Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1)"
     , "    };"
     , "  }"
-    , "  function project(atom, modelBounds, size) {"
-    , "    const x = atom.x - modelBounds.center.x;"
-    , "    const y = atom.y - modelBounds.center.y;"
-    , "    const z = atom.z - modelBounds.center.z;"
+    , "  function projectPoint(point, modelBounds, size) {"
+    , "    const x = point.x - modelBounds.center.x;"
+    , "    const y = point.y - modelBounds.center.y;"
+    , "    const z = point.z - modelBounds.center.z;"
     , "    const cy = Math.cos(state.rotationY);"
     , "    const sy = Math.sin(state.rotationY);"
     , "    const cx = Math.cos(state.rotationX);"
@@ -371,9 +589,41 @@ moleculeViewerHTML title molecule =
     , "    return {"
     , "      x: size.w / 2 + x1 * scale * state.zoom * perspective,"
     , "      y: size.h / 2 + y2 * scale * state.zoom * perspective,"
-    , "      z: z2,"
-    , "      radius: Math.max(6, Math.min(28, atom.radius * scale * 0.22 * state.zoom))"
+    , "      z: z2"
     , "    };"
+    , "  }"
+    , "  function project(atom, modelBounds, size) {"
+    , "    const point = projectPoint(atom, modelBounds, size);"
+    , "    const scale = Math.min(size.w, size.h) / (modelBounds.span * 2.25);"
+    , "    point.radius = Math.max(6, Math.min(28, atom.radius * scale * 0.22 * state.zoom));"
+    , "    return point;"
+    , "  }"
+    , "  function drawAxes(modelBounds, size) {"
+    , "    if (!state.axes) return;"
+    , "    const span = modelBounds.span * 0.62;"
+    , "    const center = modelBounds.center;"
+    , "    const axes = ["
+    , "      ['x', '#f05a3f', { x: center.x - span, y: center.y, z: center.z }, { x: center.x + span, y: center.y, z: center.z }],"
+    , "      ['y', '#008f87', { x: center.x, y: center.y - span, z: center.z }, { x: center.x, y: center.y + span, z: center.z }],"
+    , "      ['z', '#2f73d9', { x: center.x, y: center.y, z: center.z - span }, { x: center.x, y: center.y, z: center.z + span }]"
+    , "    ];"
+    , "    axes.forEach(function (axis) {"
+    , "      const start = projectPoint(axis[2], modelBounds, size);"
+    , "      const end = projectPoint(axis[3], modelBounds, size);"
+    , "      ctx.save();"
+    , "      ctx.strokeStyle = axis[1];"
+    , "      ctx.globalAlpha = 0.45;"
+    , "      ctx.lineWidth = 2;"
+    , "      ctx.beginPath();"
+    , "      ctx.moveTo(start.x, start.y);"
+    , "      ctx.lineTo(end.x, end.y);"
+    , "      ctx.stroke();"
+    , "      ctx.fillStyle = axis[1];"
+    , "      ctx.globalAlpha = 0.9;"
+    , "      ctx.font = '12px ui-sans-serif, system-ui, sans-serif';"
+    , "      ctx.fillText(axis[0], end.x + 8, end.y - 8);"
+    , "      ctx.restore();"
+    , "    });"
     , "  }"
     , "  function drawEdge(a, b, color, options) {"
     , "    if (!a || !b) return;"
@@ -403,6 +653,7 @@ moleculeViewerHTML title molecule =
     , "    const modelBounds = bounds(payload.atoms);"
     , "    const projected = new Map();"
     , "    payload.atoms.forEach(function (atom) { projected.set(atom.id, project(atom, modelBounds, size)); });"
+    , "    drawAxes(modelBounds, size);"
     , "    payload.bonds.forEach(function (bond) {"
     , "      const a = projected.get(bond.a);"
     , "      const b = projected.get(bond.b);"
@@ -432,7 +683,7 @@ moleculeViewerHTML title molecule =
     , "      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);"
     , "      ctx.fillStyle = atom.color;"
     , "      ctx.strokeStyle = atom.edge;"
-    , "      ctx.lineWidth = 1.5;"
+    , "      ctx.lineWidth = state.selectedAtom === atom.id ? 3 : 1.5;"
     , "      ctx.shadowColor = 'rgba(15, 23, 42, 0.18)';"
     , "      ctx.shadowBlur = 14;"
     , "      ctx.shadowOffsetY = 5;"
@@ -450,9 +701,63 @@ moleculeViewerHTML title molecule =
     , "      ctx.restore();"
     , "    });"
     , "  }"
+    , "  function renderMoleculeList() {"
+    , "    moleculeList.innerHTML = '';"
+    , "    if (!state.collection || state.collection.length <= 1) return;"
+    , "    state.collection.forEach(function (molecule, index) {"
+    , "      const button = document.createElement('button');"
+    , "      button.type = 'button';"
+    , "      button.className = 'molecule-button';"
+    , "      button.setAttribute('aria-pressed', String(index === state.activeIndex));"
+    , "      button.textContent = `${index + 1}. ${molecule.title || 'Molecule'}`;"
+    , "      button.addEventListener('click', function () {"
+    , "        state.activeIndex = index;"
+    , "        state.payload = state.collection[index];"
+    , "        state.selectedSystem = null;"
+    , "        state.selectedAtom = null;"
+    , "        renderPanel();"
+    , "        resizeCanvas();"
+    , "      });"
+    , "      moleculeList.appendChild(button);"
+    , "    });"
+    , "  }"
+    , "  function renderGeometry(payload) {"
+    , "    geometryList.innerHTML = '';"
+    , "    const selectedAtom = payload.atoms.find((atom) => atom.id === state.selectedAtom) || null;"
+    , "    const title = document.createElement('div');"
+    , "    title.className = 'geometry-title';"
+    , "    title.textContent = selectedAtom ? `Atom ${selectedAtom.label || selectedAtom.id}` : 'Coordinates and geometry';"
+    , "    geometryList.appendChild(title);"
+    , "    const lines = [];"
+    , "    if (selectedAtom) {"
+    , "      lines.push(`coord (${selectedAtom.x.toFixed(3)}, ${selectedAtom.y.toFixed(3)}, ${selectedAtom.z.toFixed(3)}) A`);"
+    , "      lines.push(`shells ${(selectedAtom.shells || []).length}`);"
+    , "      payload.bonds.filter((bond) => bond.a === selectedAtom.id || bond.b === selectedAtom.id).slice(0, 8).forEach(function (bond) {"
+    , "        const other = bond.a === selectedAtom.id ? bond.b : bond.a;"
+    , "        lines.push(`edge to ${other}: ${Number(bond.length || 0).toFixed(3)} A`);"
+    , "      });"
+    , "      (payload.angles || []).filter((angle) => angle.center === selectedAtom.id).slice(0, 8).forEach(function (angle) {"
+    , "        lines.push(`angle ${angle.a}-${angle.center}-${angle.b}: ${Number(angle.angle || 0).toFixed(1)} deg`);"
+    , "      });"
+    , "    } else {"
+    , "      payload.atoms.slice(0, 6).forEach(function (atom) {"
+    , "        lines.push(`${atom.label || atom.id}: (${atom.x.toFixed(2)}, ${atom.y.toFixed(2)}, ${atom.z.toFixed(2)}) A`);"
+    , "      });"
+    , "      payload.bonds.slice(0, 6).forEach(function (bond) {"
+    , "        lines.push(`${bond.a}-${bond.b}: ${Number(bond.length || 0).toFixed(3)} A`);"
+    , "      });"
+    , "      if ((payload.angles || []).length) lines.push(`${payload.angles.length} stored bond angles from 3D coordinates`);"
+    , "    }"
+    , "    lines.forEach(function (line) {"
+    , "      const row = document.createElement('div');"
+    , "      row.textContent = line;"
+    , "      geometryList.appendChild(row);"
+    , "    });"
+    , "  }"
     , "  function renderPanel() {"
     , "    const payload = state.payload;"
     , "    if (!payload) return;"
+    , "    renderMoleculeList();"
     , "    titleNode.textContent = payload.title || 'MolADT viewer';"
     , "    countsNode.textContent = `${payload.atoms.length} atoms, ${payload.bonds.length} edges, ${payload.systems.length} bonding systems`;"
     , "    systemList.innerHTML = '';"
@@ -461,9 +766,8 @@ moleculeViewerHTML title molecule =
     , "      empty.className = 'counts';"
     , "      empty.textContent = 'No explicit bonding systems';"
     , "      systemList.appendChild(empty);"
-    , "      return;"
-    , "    }"
-    , "    payload.systems.forEach(function (system) {"
+    , "    } else {"
+    , "      payload.systems.forEach(function (system) {"
     , "      const button = document.createElement('button');"
     , "      button.type = 'button';"
     , "      button.className = 'system-button';"
@@ -486,7 +790,31 @@ moleculeViewerHTML title molecule =
     , "        render();"
     , "      });"
     , "      systemList.appendChild(button);"
+    , "      });"
+    , "    }"
+    , "    renderGeometry(payload);"
+    , "  }"
+    , "  function atomAtCanvasPoint(clientX, clientY) {"
+    , "    const payload = state.payload;"
+    , "    if (!payload) return null;"
+    , "    const rect = canvas.getBoundingClientRect();"
+    , "    const x = clientX - rect.left;"
+    , "    const y = clientY - rect.top;"
+    , "    const size = { w: canvas.clientWidth || 900, h: canvas.clientHeight || 640 };"
+    , "    const modelBounds = bounds(payload.atoms);"
+    , "    let best = null;"
+    , "    let bestDistance = Infinity;"
+    , "    payload.atoms.forEach(function (atom) {"
+    , "      const point = project(atom, modelBounds, size);"
+    , "      const dx = point.x - x;"
+    , "      const dy = point.y - y;"
+    , "      const distance = Math.sqrt(dx * dx + dy * dy);"
+    , "      if (distance <= point.radius + 8 && distance < bestDistance) {"
+    , "        best = atom;"
+    , "        bestDistance = distance;"
+    , "      }"
     , "    });"
+    , "    return best;"
     , "  }"
     , "  function resizeCanvas() {"
     , "    const rect = canvas.getBoundingClientRect();"
@@ -497,8 +825,12 @@ moleculeViewerHTML title molecule =
     , "    render();"
     , "  }"
     , "  window.loadMolADT = function (rawPayload) {"
-    , "    state.payload = normalisePayload(rawPayload);"
+    , "    const collection = normaliseCollection(rawPayload);"
+    , "    state.collection = collection.molecules.length ? collection.molecules : [normalisePayload({ title: collection.title, atoms: [], bonds: [], systems: [] })];"
+    , "    state.activeIndex = 0;"
+    , "    state.payload = state.collection[0];"
     , "    state.selectedSystem = null;"
+    , "    state.selectedAtom = null;"
     , "    renderPanel();"
     , "    resizeCanvas();"
     , "  };"
@@ -528,8 +860,15 @@ moleculeViewerHTML title molecule =
     , "    state.dragging = false;"
     , "    canvas.classList.remove('dragging');"
     , "  });"
+    , "  canvas.addEventListener('click', function (event) {"
+    , "    const atom = atomAtCanvasPoint(event.clientX, event.clientY);"
+    , "    state.selectedAtom = atom ? atom.id : null;"
+    , "    renderPanel();"
+    , "    render();"
+    , "  });"
     , "  labelsToggle.addEventListener('change', function () { state.labels = labelsToggle.checked; render(); });"
     , "  systemsToggle.addEventListener('change', function () { state.systems = systemsToggle.checked; render(); });"
+    , "  axesToggle.addEventListener('change', function () { state.axes = axesToggle.checked; render(); });"
     , "  zoomRange.addEventListener('input', function () { state.zoom = Number(zoomRange.value) / 100; render(); });"
     , "  ['dragenter', 'dragover'].forEach(function (name) {"
     , "    dropZone.addEventListener(name, function (event) { event.preventDefault(); dropZone.classList.add('active'); });"
@@ -554,12 +893,18 @@ moleculeViewerHTML title molecule =
     ]
   where
     safeTitle = escapeHTML title
-    payloadJson = escapeJsonForScript (BL8.unpack (A.encode (moleculeViewerPayload title molecule)))
+    payloadJson = escapeJsonForScript (BL8.unpack (A.encode payloadValue))
 
 writeMoleculeViewerHTML :: FilePath -> String -> Molecule -> IO FilePath
 writeMoleculeViewerHTML path title molecule = do
   createDirectoryIfMissing True (takeDirectory path)
   writeFile path (moleculeViewerHTML title molecule)
+  pure path
+
+writeMoleculeViewerCollectionHTML :: FilePath -> String -> [(String, Molecule)] -> IO FilePath
+writeMoleculeViewerCollectionHTML path title molecules = do
+  createDirectoryIfMissing True (takeDirectory path)
+  writeFile path (moleculeViewerCollectionHTML title molecules)
   pure path
 
 openMoleculeViewer :: FilePath -> IO Bool
@@ -596,14 +941,14 @@ systemColor index =
   colors !! (index `mod` length colors)
   where
     colors =
-      [ "#0f766e"
-      , "#b45309"
-      , "#2563eb"
-      , "#be185d"
-      , "#7c3aed"
-      , "#15803d"
-      , "#c2410c"
-      , "#475569"
+      [ "#f05a3f"
+      , "#008f87"
+      , "#7b5cff"
+      , "#d89b00"
+      , "#2f73d9"
+      , "#c43b78"
+      , "#258a45"
+      , "#94552b"
       ]
 
 escapeHTML :: String -> String

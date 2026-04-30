@@ -5,11 +5,10 @@
 module Main (main) where
 
 import Test.Hspec
-import Chem.IO.MoleculeViewer (moleculeViewerHTML, writeMoleculeViewerHTML)
+import Chem.IO.MoleculeViewer (moleculeViewerCollectionHTML, moleculeViewerHTML, writeMoleculeViewerHTML)
 import Chem.IO.SDF (readSDF, parseSDF, parseSDFRecords)
 import Chem.IO.MoleculeJSON (moleculeFromJSON, moleculeToJSON)
 import Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
-import Chem.IO.SDFTiming (measureSdfTiming, timingFailureCount, timingStage, timingSuccessCount)
 import Chem.Molecule
 import Chem.Dietz
 import Chem.Validate (validateMolecule)
@@ -17,9 +16,9 @@ import ExampleMolecules.Diborane (diboranePretty)
 import ExampleMolecules.Morphine (morphinePretty, morphineRingClosureSmiles)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
-import System.Directory (createDirectory, doesFileExist, getTemporaryDirectory, removeDirectoryRecursive, removeFile)
+import System.Directory (doesFileExist, getTemporaryDirectory, removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
-import System.IO (hClose, hPutStr, openTempFile)
+import System.IO (hClose, openTempFile)
 import Text.Megaparsec (errorBundlePretty)
 import SampleMolecules (methane, water)
 
@@ -276,38 +275,6 @@ spec = do
         Right mol -> do
           countSymbol C mol `shouldSatisfy` (> 0)
 
-    it "times raw SDF block reads separately from MolADT parsing" $ do
-      tempDir <- getTemporaryDirectory
-      (path, handle) <- openTempFile tempDir "moladt-sdf-timing.sdf"
-      hPutStr handle (v3000Water ++ v3000Ammonium)
-      hClose handle
-      result <- measureSdfTiming path (Just 2)
-      removeFile path
-      case result of
-        Left err -> expectationFailure err
-        Right stages -> do
-          map timingStage stages `shouldBe` ["raw_file_read", "sdf_record_parse"]
-          map timingSuccessCount stages `shouldBe` [2, 2]
-          map timingFailureCount stages `shouldBe` [0, 0]
-
-    it "times a directory of cached single-record SDF files" $ do
-      tempDir <- getTemporaryDirectory
-      (path, handle) <- openTempFile tempDir "moladt-sdf-timing-dir"
-      hClose handle
-      removeFile path
-      let dirPath = path
-      createDirectory dirPath
-      writeFile (dirPath </> "water.sdf") v3000Water
-      writeFile (dirPath </> "ammonium.sdf") v3000Ammonium
-      result <- measureSdfTiming dirPath (Just 2)
-      removeDirectoryRecursive dirPath
-      case result of
-        Left err -> expectationFailure err
-        Right stages -> do
-          map timingStage stages `shouldBe` ["raw_file_read", "sdf_record_parse"]
-          map timingSuccessCount stages `shouldBe` [2, 2]
-          map timingFailureCount stages `shouldBe` [0, 0]
-
   describe "Molecule viewer" $ do
     it "renders a standalone HTML viewer with system overlay support" $ do
       let html = moleculeViewerHTML "Diborane viewer" diboranePretty
@@ -318,9 +285,20 @@ spec = do
       html `shouldContain` "alpha: active ? 1 : 0.18"
       html `shouldContain` "window.loadMolADT"
       html `shouldContain` "Drop MolADT JSON"
+      html `shouldContain` "axes-toggle"
+      html `shouldContain` "geometry-list"
+      html `shouldContain` "\"angles\""
+      html `shouldContain` "\"length\""
       html `shouldContain` "bridge_h3_3c2e"
       html `shouldContain` "bridge_h4_3c2e"
       html `shouldNotContain` "Molecule Report"
+
+    it "renders a collection viewer for multiple built-in molecules" $ do
+      let html = moleculeViewerCollectionHTML "Example viewer" [("Diborane", diboranePretty), ("Morphine", morphinePretty)]
+      html `shouldContain` "moladt-viewer-collection-v1"
+      html `shouldContain` "molecule-list"
+      html `shouldContain` "Diborane"
+      html `shouldContain` "Morphine"
 
     it "writes viewer HTML into nested output directories" $ do
       tempDir <- getTemporaryDirectory

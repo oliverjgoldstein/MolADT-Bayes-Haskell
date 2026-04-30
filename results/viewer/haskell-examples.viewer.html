@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MolADT Haskell examples</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #111827;
+  --muted: #667085;
+  --line: #d7dce3;
+  --panel: rgba(255, 255, 255, 0.86);
+  --surface: #f7f8fb;
+  --accent: #0f766e;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background: linear-gradient(180deg, #fbfcfd 0%, #eef2f6 100%);
+}
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px;
+}
+.side, .stage {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 22px 70px rgba(15, 23, 42, 0.10);
+}
+.side {
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 36px);
+  overflow: hidden;
+}
+.titlebar { padding: 20px 20px 14px; border-bottom: 1px solid var(--line); }
+h1 { margin: 0; font-size: 24px; line-height: 1.08; letter-spacing: 0; }
+.counts { margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+.controls { padding: 16px 20px; display: grid; gap: 14px; border-bottom: 1px solid var(--line); }
+.control-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: #344054; }
+.control-row input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--accent); }
+.control-row input[type='range'] { width: 140px; accent-color: var(--accent); }
+.dropzone {
+  margin: 16px 20px 0;
+  min-height: 52px;
+  border: 1px dashed #b7c0cb;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.58);
+}
+.dropzone.active { border-color: var(--accent); color: var(--accent); background: rgba(15, 118, 110, 0.08); }
+.molecule-list { padding: 12px 20px 0; display: grid; gap: 8px; }
+.molecule-button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 8px;
+  padding: 9px 10px;
+  text-align: left;
+  color: #1f2937;
+  font-size: 13px;
+  cursor: pointer;
+}
+.molecule-button[aria-pressed='true'] { border-color: rgba(15, 118, 110, 0.42); background: rgba(15, 118, 110, 0.07); font-weight: 650; }
+.system-list { padding: 16px 20px 20px; display: grid; gap: 10px; overflow: auto; }
+.system-button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  color: #1f2937;
+  border-radius: 8px;
+  min-height: 52px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+.system-button[aria-pressed='true'] { border-color: rgba(15, 118, 110, 0.42); background: rgba(15, 118, 110, 0.07); }
+.swatch { width: 12px; height: 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.system-name { overflow-wrap: anywhere; font-size: 13px; font-weight: 650; }
+.system-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.geometry-list { padding: 0 20px 20px; display: grid; gap: 6px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.geometry-title { color: #344054; font-weight: 700; margin-top: 4px; }
+.stage {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: calc(100vh - 36px);
+  background: radial-gradient(circle at 50% 44%, #ffffff 0%, var(--surface) 54%, #e7edf3 100%);
+}
+#molecule-canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#molecule-canvas.dragging { cursor: grabbing; }
+.badge {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 10px;
+}
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; padding: 12px; }
+  .side { min-height: auto; }
+  .stage { min-height: 68vh; }
+  .system-list { max-height: 220px; }
+}
+</style>
+</head>
+<body data-moladt-viewer>
+<main class="shell">
+  <aside class="side">
+    <div class="titlebar">
+      <h1 id="viewer-title">MolADT Haskell examples</h1>
+      <div id="counts" class="counts"></div>
+    </div>
+    <div class="controls">
+      <label class="control-row"><span>Labels</span><input id="labels-toggle" type="checkbox" checked></label>
+      <label class="control-row"><span>Bonding systems</span><input id="systems-toggle" type="checkbox" checked></label>
+      <label class="control-row"><span>Axes</span><input id="axes-toggle" type="checkbox" checked></label>
+      <label class="control-row"><span>Zoom</span><input id="zoom-range" type="range" min="70" max="190" value="110"></label>
+    </div>
+    <div id="dropzone" class="dropzone">Drop MolADT JSON</div>
+    <div id="molecule-list" class="molecule-list"></div>
+    <div id="system-list" class="system-list"></div>
+    <div id="geometry-list" class="geometry-list"></div>
+  </aside>
+  <section class="stage">
+    <canvas id="molecule-canvas" aria-label="MolADT molecule viewer"></canvas>
+    <div class="badge">MolADT viewer</div>
+  </section>
+</main>
+<script id="moladt-payload" type="application/json">{"format":"moladt-viewer-collection-v1","molecules":[{"angles":[{"a":2,"angle":60.003216,"b":6,"center":1},{"a":2,"angle":119.995232,"b":7,"center":1},{"a":6,"angle":179.998448,"b":7,"center":1},{"a":1,"angle":29.999431,"b":3,"center":2},{"a":1,"angle":120.002326,"b":8,"center":2},{"a":3,"angle":150.001756,"b":8,"center":2},{"a":2,"angle":30.001485,"b":4,"center":3},{"a":2,"angle":149.996369,"b":9,"center":3},{"a":4,"angle":179.997854,"b":9,"center":3},{"a":3,"angle":30.000592,"b":5,"center":4},{"a":3,"angle":179.99691,"b":10,"center":4},{"a":5,"angle":150.002498,"b":10,"center":4},{"a":4,"angle":29.998569,"b":6,"center":5},{"a":4,"angle":149.998193,"b":11,"center":5},{"a":6,"angle":119.999624,"b":11,"center":5},{"a":1,"angle":60.003186,"b":5,"center":6},{"a":1,"angle":179.996964,"b":12,"center":6},{"a":5,"angle":119.99985,"b":12,"center":6}],"atoms":[{"charge":0,"color":"#303640","edge":"#12151a","id":1,"label":"C1","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":-1.2131,"y":-0.6884,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":2,"label":"C2","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":-1.2028,"y":0.7064,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":3,"label":"C3","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":-1.03e-2,"y":-1.3948,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":4,"label":"C4","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":1.04e-2,"y":1.3948,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":5,"label":"C5","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":1.2028,"y":-0.7063,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":6,"label":"C6","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":1.2131,"y":0.6884,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":7,"label":"H7","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-2.1577,"y":-1.2244,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":8,"label":"H8","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-2.1393,"y":1.2564,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":9,"label":"H9","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-1.84e-2,"y":-2.4809,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":10,"label":"H10","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":1.84e-2,"y":2.4808,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":11,"label":"H11","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":2.1394,"y":-1.2563,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":12,"label":"H12","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":2.1577,"y":1.2245,"z":0}],"bonds":[{"a":1,"b":2,"kind":"sigma","length":1.394838,"order":1.5},{"a":1,"b":6,"kind":"sigma","length":2.789628,"order":1.5},{"a":1,"b":7,"kind":"sigma","length":1.086078,"order":1},{"a":2,"b":3,"kind":"sigma","length":2.416009,"order":1.5},{"a":2,"b":8,"kind":"sigma","length":1.086063,"order":1},{"a":3,"b":4,"kind":"sigma","length":2.789677,"order":1.5},{"a":3,"b":9,"kind":"sigma","length":1.08613,"order":1},{"a":4,"b":5,"kind":"sigma","length":2.415872,"order":1.5},{"a":4,"b":10,"kind":"sigma","length":1.086029,"order":1},{"a":5,"b":6,"kind":"sigma","length":1.394738,"order":1.5},{"a":5,"b":11,"kind":"sigma","length":1.086149,"order":1},{"a":6,"b":12,"kind":"sigma","length":1.086127,"order":1}],"format":"moladt-viewer-v1","systems":[{"atoms":[1,2,3,4,5,6],"color":"#f05a3f","edges":[{"a":1,"b":2,"length":1.394838},{"a":1,"b":6,"length":2.789628},{"a":2,"b":3,"length":2.416009},{"a":3,"b":4,"length":2.789677},{"a":4,"b":5,"length":2.415872},{"a":5,"b":6,"length":1.394738}],"id":1,"label":"#1 pi_ring","sharedElectrons":6,"tag":"pi_ring"}],"title":"Benzene"},{"angles":[{"a":2,"angle":48.285607,"b":3,"center":1},{"a":2,"angle":48.285607,"b":4,"center":1},{"a":2,"angle":90,"b":5,"center":1},{"a":2,"angle":90,"b":6,"center":1},{"a":3,"angle":96.571214,"b":4,"center":1},{"a":3,"angle":90,"b":5,"center":1},{"a":3,"angle":90,"b":6,"center":1},{"a":4,"angle":90,"b":5,"center":1},{"a":4,"angle":90,"b":6,"center":1},{"a":5,"angle":180,"b":6,"center":1},{"a":1,"angle":48.285607,"b":3,"center":2},{"a":1,"angle":48.285607,"b":4,"center":2},{"a":1,"angle":90,"b":7,"center":2},{"a":1,"angle":90,"b":8,"center":2},{"a":3,"angle":96.571214,"b":4,"center":2},{"a":3,"angle":90,"b":7,"center":2},{"a":3,"angle":90,"b":8,"center":2},{"a":4,"angle":90,"b":7,"center":2},{"a":4,"angle":90,"b":8,"center":2},{"a":7,"angle":180,"b":8,"center":2},{"a":1,"angle":83.428786,"b":2,"center":3},{"a":1,"angle":83.428786,"b":2,"center":4}],"atoms":[{"charge":0,"color":"#f0a46d","edge":"#b76b35","id":1,"label":"B1","radius":0.84,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}}]}],"symbol":"B","x":-0.885,"y":0,"z":0},{"charge":0,"color":"#f0a46d","edge":"#b76b35","id":2,"label":"B2","radius":0.84,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}}]}],"symbol":"B","x":0.885,"y":0,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":3,"label":"H3","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":0,"y":0,"z":0.9928},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":4,"label":"H4","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":0,"y":0,"z":-0.9928},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":5,"label":"H5","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-0.885,"y":1.19,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":6,"label":"H6","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-0.885,"y":-1.19,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":7,"label":"H7","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":0.885,"y":1.19,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":8,"label":"H8","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":0.885,"y":-1.19,"z":0}],"bonds":[{"a":1,"b":2,"kind":"sigma","length":1.77,"order":1},{"a":1,"b":3,"kind":"system","length":1.329991,"order":0.5},{"a":1,"b":4,"kind":"system","length":1.329991,"order":0.5},{"a":1,"b":5,"kind":"sigma","length":1.19,"order":1},{"a":1,"b":6,"kind":"sigma","length":1.19,"order":1},{"a":2,"b":3,"kind":"system","length":1.329991,"order":0.5},{"a":2,"b":4,"kind":"system","length":1.329991,"order":0.5},{"a":2,"b":7,"kind":"sigma","length":1.19,"order":1},{"a":2,"b":8,"kind":"sigma","length":1.19,"order":1}],"format":"moladt-viewer-v1","systems":[{"atoms":[1,2,3],"color":"#f05a3f","edges":[{"a":1,"b":3,"length":1.329991},{"a":2,"b":3,"length":1.329991}],"id":1,"label":"#1 bridge_h3_3c2e","sharedElectrons":2,"tag":"bridge_h3_3c2e"},{"atoms":[1,2,4],"color":"#008f87","edges":[{"a":1,"b":4,"length":1.329991},{"a":2,"b":4,"length":1.329991}],"id":2,"label":"#2 bridge_h4_3c2e","sharedElectrons":2,"tag":"bridge_h4_3c2e"}],"title":"Diborane"},{"angles":[{"a":2,"angle":39.815064,"b":3,"center":1},{"a":2,"angle":66.875359,"b":4,"center":1},{"a":2,"angle":66.875359,"b":5,"center":1},{"a":2,"angle":39.815064,"b":6,"center":1},{"a":2,"angle":113.124641,"b":7,"center":1},{"a":2,"angle":140.184936,"b":8,"center":1},{"a":2,"angle":180,"b":9,"center":1},{"a":2,"angle":140.184936,"b":10,"center":1},{"a":2,"angle":113.124641,"b":11,"center":1},{"a":3,"angle":39.824036,"b":4,"center":1},{"a":3,"angle":66.869951,"b":5,"center":1},{"a":3,"angle":66.862331,"b":6,"center":1},{"a":3,"angle":113.130049,"b":7,"center":1},{"a":3,"angle":113.137669,"b":8,"center":1},{"a":3,"angle":140.184936,"b":9,"center":1},{"a":3,"angle":180,"b":10,"center":1},{"a":3,"angle":140.175964,"b":11,"center":1},{"a":4,"angle":39.815661,"b":5,"center":1},{"a":4,"angle":66.869951,"b":6,"center":1},{"a":4,"angle":140.184339,"b":7,"center":1},{"a":4,"angle":113.130049,"b":8,"center":1},{"a":4,"angle":113.124641,"b":9,"center":1},{"a":4,"angle":140.175964,"b":10,"center":1},{"a":4,"angle":180,"b":11,"center":1},{"a":5,"angle":39.824036,"b":6,"center":1},{"a":5,"angle":180,"b":7,"center":1},{"a":5,"angle":140.175964,"b":8,"center":1},{"a":5,"angle":113.124641,"b":9,"center":1},{"a":5,"angle":113.130049,"b":10,"center":1},{"a":5,"angle":140.184339,"b":11,"center":1},{"a":6,"angle":140.175964,"b":7,"center":1},{"a":6,"angle":180,"b":8,"center":1},{"a":6,"angle":140.184936,"b":9,"center":1},{"a":6,"angle":113.137669,"b":10,"center":1},{"a":6,"angle":113.130049,"b":11,"center":1},{"a":7,"angle":39.824036,"b":8,"center":1},{"a":7,"angle":66.875359,"b":9,"center":1},{"a":7,"angle":66.869951,"b":10,"center":1},{"a":7,"angle":39.815661,"b":11,"center":1},{"a":8,"angle":39.815064,"b":9,"center":1},{"a":8,"angle":66.862331,"b":10,"center":1},{"a":8,"angle":66.869951,"b":11,"center":1},{"a":9,"angle":39.815064,"b":10,"center":1},{"a":9,"angle":66.875359,"b":11,"center":1},{"a":10,"angle":39.824036,"b":11,"center":1},{"a":1,"angle":70.087605,"b":3,"center":2},{"a":1,"angle":70.087605,"b":6,"center":2},{"a":1,"angle":125.406866,"b":12,"center":2},{"a":3,"angle":107.992027,"b":6,"center":2},{"a":3,"angle":126.003987,"b":12,"center":2},{"a":6,"angle":126.003987,"b":12,"center":2},{"a":1,"angle":70.09733,"b":2,"center":3},{"a":1,"angle":70.092789,"b":4,"center":3},{"a":1,"angle":125.401911,"b":13,"center":3},{"a":2,"angle":108.011805,"b":4,"center":3},{"a":2,"angle":125.9851,"b":13,"center":3},{"a":4,"angle":126.003094,"b":13,"center":3},{"a":1,"angle":70.083174,"b":3,"center":4},{"a":1,"angle":70.09217,"b":5,"center":4},{"a":1,"angle":125.40681,"b":14,"center":4},{"a":3,"angle":107.992181,"b":5,"center":4},{"a":3,"angle":126.020263,"b":14,"center":4},{"a":5,"angle":125.987555,"b":14,"center":4},{"a":1,"angle":70.09217,"b":4,"center":5},{"a":1,"angle":70.083174,"b":6,"center":5},{"a":1,"angle":125.40681,"b":15,"center":5},{"a":4,"angle":107.992181,"b":6,"center":5},{"a":4,"angle":125.987555,"b":15,"center":5},{"a":6,"angle":126.020263,"b":15,"center":5},{"a":1,"angle":70.09733,"b":2,"center":6},{"a":1,"angle":70.092789,"b":5,"center":6},{"a":1,"angle":125.401911,"b":16,"center":6},{"a":2,"angle":108.011805,"b":5,"center":6},{"a":2,"angle":125.9851,"b":16,"center":6},{"a":5,"angle":126.003094,"b":16,"center":6},{"a":1,"angle":70.083174,"b":8,"center":7},{"a":1,"angle":70.09217,"b":11,"center":7},{"a":1,"angle":125.40681,"b":17,"center":7},{"a":8,"angle":107.992181,"b":11,"center":7},{"a":8,"angle":126.020263,"b":17,"center":7},{"a":11,"angle":125.987555,"b":17,"center":7},{"a":1,"angle":70.092789,"b":7,"center":8},{"a":1,"angle":70.09733,"b":9,"center":8},{"a":1,"angle":125.401911,"b":18,"center":8},{"a":7,"angle":108.011805,"b":9,"center":8},{"a":7,"angle":126.003094,"b":18,"center":8},{"a":9,"angle":125.9851,"b":18,"center":8},{"a":1,"angle":70.087605,"b":8,"center":9},{"a":1,"angle":70.087605,"b":10,"center":9},{"a":1,"angle":125.406866,"b":19,"center":9},{"a":8,"angle":107.992027,"b":10,"center":9},{"a":8,"angle":126.003987,"b":19,"center":9},{"a":10,"angle":126.003987,"b":19,"center":9},{"a":1,"angle":70.09733,"b":9,"center":10},{"a":1,"angle":70.092789,"b":11,"center":10},{"a":1,"angle":125.401911,"b":20,"center":10},{"a":9,"angle":108.011805,"b":11,"center":10},{"a":9,"angle":125.9851,"b":20,"center":10},{"a":11,"angle":126.003094,"b":20,"center":10},{"a":1,"angle":70.09217,"b":7,"center":11},{"a":1,"angle":70.083174,"b":10,"center":11},{"a":1,"angle":125.40681,"b":21,"center":11},{"a":7,"angle":107.992181,"b":10,"center":11},{"a":7,"angle":125.987555,"b":21,"center":11},{"a":10,"angle":126.020263,"b":21,"center":11}],"atoms":[{"charge":0,"color":"#d27845","edge":"#944521","id":1,"label":"Fe1","radius":1.32,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Pz","orientation":{"x":0,"y":0,"z":1}}]},{"n":3,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Pz","orientation":{"x":0,"y":0,"z":1}},{"electrons":1,"hybridComponents":null,"kind":"d","orbital":"Dxy","orientation":{"x":0.7071067811865475,"y":0.7071067811865475,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"d","orbital":"Dyz","orientation":{"x":0,"y":0.7071067811865475,"z":0.7071067811865475}},{"electrons":1,"hybridComponents":null,"kind":"d","orbital":"Dxz","orientation":{"x":0.7071067811865475,"y":0,"z":0.7071067811865475}},{"electrons":1,"hybridComponents":null,"kind":"d","orbital":"Dx2y2","orientation":{"x":0.7071067811865475,"y":-0.7071067811865475,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"d","orbital":"Dz2","orientation":{"x":0,"y":0,"z":1}}]},{"n":4,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"Fe","x":0,"y":0,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":2,"label":"C2","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":1.18,"y":0,"z":1.66},{"charge":0,"color":"#303640","edge":"#12151a","id":3,"label":"C3","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":0.3647,"y":1.122,"z":1.66},{"charge":0,"color":"#303640","edge":"#12151a","id":4,"label":"C4","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":-0.9547,"y":0.6935,"z":1.66},{"charge":0,"color":"#303640","edge":"#12151a","id":5,"label":"C5","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":-0.9547,"y":-0.6935,"z":1.66},{"charge":0,"color":"#303640","edge":"#12151a","id":6,"label":"C6","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":0.3647,"y":-1.122,"z":1.66},{"charge":0,"color":"#303640","edge":"#12151a","id":7,"label":"C7","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":0.9547,"y":0.6935,"z":-1.66},{"charge":0,"color":"#303640","edge":"#12151a","id":8,"label":"C8","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":-0.3647,"y":1.122,"z":-1.66},{"charge":0,"color":"#303640","edge":"#12151a","id":9,"label":"C9","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":-1.18,"y":0,"z":-1.66},{"charge":0,"color":"#303640","edge":"#12151a","id":10,"label":"C10","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":-0.3647,"y":-1.122,"z":-1.66},{"charge":0,"color":"#303640","edge":"#12151a","id":11,"label":"C11","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":0.9547,"y":-0.6935,"z":-1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":12,"label":"H12","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":2.27,"y":0,"z":1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":13,"label":"H13","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":0.7016,"y":2.1582,"z":1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":14,"label":"H14","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-1.8364,"y":1.3338,"z":1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":15,"label":"H15","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-1.8364,"y":-1.3338,"z":1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":16,"label":"H16","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":0.7016,"y":-2.1582,"z":1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":17,"label":"H17","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":1.8364,"y":1.3338,"z":-1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":18,"label":"H18","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-0.7016,"y":2.1582,"z":-1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":19,"label":"H19","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-2.27,"y":0,"z":-1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":20,"label":"H20","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-0.7016,"y":-2.1582,"z":-1.66},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":21,"label":"H21","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":1.8364,"y":-1.3338,"z":-1.66}],"bonds":[{"a":1,"b":2,"kind":"system","length":2.036664,"order":0.6},{"a":1,"b":3,"kind":"system","length":2.036539,"order":0.6},{"a":1,"b":4,"kind":"system","length":2.036663,"order":0.6},{"a":1,"b":5,"kind":"system","length":2.036663,"order":0.6},{"a":1,"b":6,"kind":"system","length":2.036539,"order":0.6},{"a":1,"b":7,"kind":"system","length":2.036663,"order":0.6},{"a":1,"b":8,"kind":"system","length":2.036539,"order":0.6},{"a":1,"b":9,"kind":"system","length":2.036664,"order":0.6},{"a":1,"b":10,"kind":"system","length":2.036539,"order":0.6},{"a":1,"b":11,"kind":"system","length":2.036663,"order":0.6},{"a":2,"b":3,"kind":"sigma","length":1.386938,"order":1.3},{"a":2,"b":6,"kind":"sigma","length":1.386938,"order":1.3},{"a":2,"b":12,"kind":"sigma","length":1.09,"order":1},{"a":3,"b":4,"kind":"sigma","length":1.387238,"order":1.3},{"a":3,"b":13,"kind":"sigma","length":1.089593,"order":1},{"a":4,"b":5,"kind":"sigma","length":1.387,"order":1.3},{"a":4,"b":14,"kind":"sigma","length":1.089669,"order":1},{"a":5,"b":6,"kind":"sigma","length":1.387238,"order":1.3},{"a":5,"b":15,"kind":"sigma","length":1.089669,"order":1},{"a":6,"b":16,"kind":"sigma","length":1.089593,"order":1},{"a":7,"b":8,"kind":"sigma","length":1.387238,"order":1.3},{"a":7,"b":11,"kind":"sigma","length":1.387,"order":1.3},{"a":7,"b":17,"kind":"sigma","length":1.089669,"order":1},{"a":8,"b":9,"kind":"sigma","length":1.386938,"order":1.3},{"a":8,"b":18,"kind":"sigma","length":1.089593,"order":1},{"a":9,"b":10,"kind":"sigma","length":1.386938,"order":1.3},{"a":9,"b":19,"kind":"sigma","length":1.09,"order":1},{"a":10,"b":11,"kind":"sigma","length":1.387238,"order":1.3},{"a":10,"b":20,"kind":"sigma","length":1.089593,"order":1},{"a":11,"b":21,"kind":"sigma","length":1.089669,"order":1}],"format":"moladt-viewer-v1","systems":[{"atoms":[1,2,3,4,5,6],"color":"#f05a3f","edges":[{"a":1,"b":2,"length":2.036664},{"a":1,"b":3,"length":2.036539},{"a":1,"b":4,"length":2.036663},{"a":1,"b":5,"length":2.036663},{"a":1,"b":6,"length":2.036539},{"a":2,"b":3,"length":1.386938},{"a":2,"b":6,"length":1.386938},{"a":3,"b":4,"length":1.387238},{"a":4,"b":5,"length":1.387},{"a":5,"b":6,"length":1.387238}],"id":1,"label":"#1 cp1_pi","sharedElectrons":6,"tag":"cp1_pi"},{"atoms":[1,7,8,9,10,11],"color":"#008f87","edges":[{"a":1,"b":7,"length":2.036663},{"a":1,"b":8,"length":2.036539},{"a":1,"b":9,"length":2.036664},{"a":1,"b":10,"length":2.036539},{"a":1,"b":11,"length":2.036663},{"a":7,"b":8,"length":1.387238},{"a":7,"b":11,"length":1.387},{"a":8,"b":9,"length":1.386938},{"a":9,"b":10,"length":1.386938},{"a":10,"b":11,"length":1.387238}],"id":2,"label":"#2 cp2_pi","sharedElectrons":6,"tag":"cp2_pi"},{"atoms":[1,2,3,4,5,6,7,8,9,10,11],"color":"#7b5cff","edges":[{"a":1,"b":2,"length":2.036664},{"a":1,"b":3,"length":2.036539},{"a":1,"b":4,"length":2.036663},{"a":1,"b":5,"length":2.036663},{"a":1,"b":6,"length":2.036539},{"a":1,"b":7,"length":2.036663},{"a":1,"b":8,"length":2.036539},{"a":1,"b":9,"length":2.036664},{"a":1,"b":10,"length":2.036539},{"a":1,"b":11,"length":2.036663}],"id":3,"label":"#3 fe_backdonation","sharedElectrons":6,"tag":"fe_backdonation"}],"title":"Ferrocene"},{"angles":[{"a":2,"angle":29.538782,"b":11,"center":1},{"a":1,"angle":141.340192,"b":3,"center":2},{"a":1,"angle":162.349876,"b":8,"center":2},{"a":3,"angle":56.309932,"b":8,"center":2},{"a":2,"angle":90,"b":4,"center":3},{"a":2,"angle":180,"b":5,"center":3},{"a":4,"angle":90,"b":5,"center":3},{"a":3,"angle":180,"b":6,"center":5},{"a":5,"angle":180,"b":7,"center":6},{"a":6,"angle":20.556045,"b":8,"center":7},{"a":6,"angle":140.194429,"b":18,"center":7},{"a":8,"angle":119.638384,"b":18,"center":7},{"a":2,"angle":103.134022,"b":7,"center":8},{"a":2,"angle":162.349876,"b":9,"center":8},{"a":2,"angle":123.690068,"b":10,"center":8},{"a":7,"angle":59.215853,"b":9,"center":8},{"a":7,"angle":20.556045,"b":10,"center":8},{"a":9,"angle":38.659808,"b":10,"center":8},{"a":8,"angle":141.340192,"b":21,"center":9},{"a":8,"angle":0,"b":11,"center":10},{"a":8,"angle":116.565051,"b":16,"center":10},{"a":11,"angle":116.565051,"b":16,"center":10},{"a":1,"angle":111.801409,"b":10,"center":11},{"a":1,"angle":176.633539,"b":12,"center":11},{"a":10,"angle":71.565051,"b":12,"center":11},{"a":11,"angle":116.565051,"b":13,"center":12},{"a":11,"angle":135,"b":14,"center":12},{"a":13,"angle":108.434949,"b":14,"center":12},{"a":12,"angle":153.434949,"b":15,"center":14},{"a":14,"angle":120.963757,"b":16,"center":15},{"a":10,"angle":122.471192,"b":15,"center":16},{"a":10,"angle":116.565051,"b":17,"center":16},{"a":15,"angle":120.963757,"b":17,"center":16},{"a":16,"angle":128.659808,"b":18,"center":17},{"a":7,"angle":91.145763,"b":17,"center":18},{"a":7,"angle":140.194429,"b":19,"center":18},{"a":17,"angle":128.659808,"b":19,"center":18},{"a":18,"angle":149.036243,"b":20,"center":19},{"a":18,"angle":39.805571,"b":21,"center":19},{"a":20,"angle":109.230672,"b":21,"center":19},{"a":9,"angle":140.194429,"b":19,"center":21}],"atoms":[{"charge":0,"color":"#d94a42","edge":"#9e2722","id":1,"label":"O1","radius":0.66,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Pz","orientation":{"x":0,"y":0,"z":1}}]}],"symbol":"O","x":0,"y":0,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":2,"label":"C2","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":1,"y":0.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":3,"label":"C3","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":2,"y":0.8,"z":0},{"charge":0,"color":"#d94a42","edge":"#9e2722","id":4,"label":"O4","radius":0.66,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Pz","orientation":{"x":0,"y":0,"z":1}}]}],"symbol":"O","x":2,"y":-0.4,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":5,"label":"C5","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":3,"y":0.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":6,"label":"C6","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":4,"y":0.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":7,"label":"C7","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":5,"y":0.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":8,"label":"C8","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":1.8,"y":2,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":9,"label":"C9","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":2.8,"y":2.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":10,"label":"C10","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":3.8,"y":2,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":11,"label":"C11","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":0.8,"y":2,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":12,"label":"C12","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":1.2,"y":3.2,"z":0},{"charge":0,"color":"#d94a42","edge":"#9e2722","id":13,"label":"O13","radius":0.66,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Pz","orientation":{"x":0,"y":0,"z":1}}]}],"symbol":"O","x":0.4,"y":4,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":14,"label":"C14","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":2.4,"y":3.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":15,"label":"C15","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":3.6,"y":3.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":16,"label":"C16","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":4.2,"y":2.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":17,"label":"C17","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":5.4,"y":2.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":18,"label":"C18","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":6.2,"y":1.8,"z":0},{"charge":0,"color":"#3d6fd8","edge":"#244998","id":19,"label":"N19","radius":0.71,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Pz","orientation":{"x":0,"y":0,"z":1}}]}],"symbol":"N","x":7.2,"y":1.8,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":20,"label":"C20","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":8.2,"y":2.4,"z":0},{"charge":0,"color":"#303640","edge":"#12151a","id":21,"label":"C21","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":6,"y":2.8,"z":0}],"bonds":[{"a":1,"b":2,"kind":"sigma","length":1.280625,"order":1},{"a":1,"b":11,"kind":"sigma","length":2.154066,"order":1},{"a":2,"b":3,"kind":"sigma","length":1,"order":1},{"a":2,"b":8,"kind":"sigma","length":1.442221,"order":1},{"a":3,"b":4,"kind":"sigma","length":1.2,"order":1},{"a":3,"b":5,"kind":"sigma","length":1,"order":1},{"a":5,"b":6,"kind":"sigma","length":1,"order":2},{"a":6,"b":7,"kind":"sigma","length":1,"order":1},{"a":7,"b":8,"kind":"sigma","length":3.417601,"order":1},{"a":7,"b":18,"kind":"sigma","length":1.56205,"order":1},{"a":8,"b":9,"kind":"sigma","length":1.280625,"order":1},{"a":8,"b":10,"kind":"sigma","length":2,"order":1},{"a":9,"b":21,"kind":"sigma","length":3.2,"order":1},{"a":10,"b":11,"kind":"sigma","length":3,"order":1.5},{"a":10,"b":16,"kind":"sigma","length":0.894427,"order":1.5},{"a":11,"b":12,"kind":"sigma","length":1.264911,"order":1.5},{"a":12,"b":13,"kind":"sigma","length":1.131371,"order":1},{"a":12,"b":14,"kind":"sigma","length":1.341641,"order":1.5},{"a":14,"b":15,"kind":"sigma","length":1.2,"order":1.5},{"a":15,"b":16,"kind":"sigma","length":1.16619,"order":1.5},{"a":16,"b":17,"kind":"sigma","length":1.2,"order":1},{"a":17,"b":18,"kind":"sigma","length":1.280625,"order":1},{"a":18,"b":19,"kind":"sigma","length":1,"order":1},{"a":19,"b":20,"kind":"sigma","length":1.16619,"order":1},{"a":19,"b":21,"kind":"sigma","length":1.56205,"order":1}],"format":"moladt-viewer-v1","systems":[{"atoms":[5,6],"color":"#f05a3f","edges":[{"a":5,"b":6,"length":1}],"id":1,"label":"#1 alkene_bridge","sharedElectrons":2,"tag":"alkene_bridge"},{"atoms":[10,11,12,14,15,16],"color":"#008f87","edges":[{"a":10,"b":11,"length":3},{"a":10,"b":16,"length":0.894427},{"a":11,"b":12,"length":1.264911},{"a":12,"b":14,"length":1.341641},{"a":14,"b":15,"length":1.2},{"a":15,"b":16,"length":1.16619}],"id":2,"label":"#2 phenyl_pi_ring","sharedElectrons":6,"tag":"phenyl_pi_ring"}],"title":"Morphine"},{"angles":[{"a":2,"angle":109.573126,"b":3,"center":1}],"atoms":[{"charge":0,"color":"#d94a42","edge":"#9e2722","id":1,"label":"O1","radius":0.66,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":2,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Pz","orientation":{"x":0,"y":0,"z":1}}]}],"symbol":"O","x":0,"y":0,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":2,"label":"H2","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":0.96,"y":0,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":3,"label":"H3","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-0.32,"y":0.9,"z":0}],"bonds":[{"a":1,"b":2,"kind":"sigma","length":0.96,"order":1},{"a":1,"b":3,"kind":"sigma","length":0.955196,"order":1}],"format":"moladt-viewer-v1","systems":[],"title":"Water"},{"angles":[{"a":2,"angle":180,"b":3,"center":1},{"a":2,"angle":90,"b":4,"center":1},{"a":2,"angle":90,"b":5,"center":1},{"a":3,"angle":90,"b":4,"center":1},{"a":3,"angle":90,"b":5,"center":1},{"a":4,"angle":180,"b":5,"center":1}],"atoms":[{"charge":0,"color":"#303640","edge":"#12151a","id":1,"label":"C1","radius":0.76,"shells":[{"n":1,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]},{"n":2,"orbitals":[{"electrons":2,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Px","orientation":{"x":1,"y":0,"z":0}},{"electrons":1,"hybridComponents":null,"kind":"p","orbital":"Py","orientation":{"x":0,"y":1,"z":0}}]}],"symbol":"C","x":0,"y":0,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":2,"label":"H2","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":1.09,"y":0,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":3,"label":"H3","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":-1.09,"y":0,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":4,"label":"H4","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":0,"y":1.09,"z":0},{"charge":0,"color":"#f8fafc","edge":"#9aa6b2","id":5,"label":"H5","radius":0.31,"shells":[{"n":1,"orbitals":[{"electrons":1,"hybridComponents":null,"kind":"s","orbital":"So","orientation":null}]}],"symbol":"H","x":0,"y":-1.09,"z":0}],"bonds":[{"a":1,"b":2,"kind":"sigma","length":1.09,"order":1},{"a":1,"b":3,"kind":"sigma","length":1.09,"order":1},{"a":1,"b":4,"kind":"sigma","length":1.09,"order":1},{"a":1,"b":5,"kind":"sigma","length":1.09,"order":1}],"format":"moladt-viewer-v1","systems":[],"title":"Methane"}],"title":"MolADT Haskell examples"}</script>
+<script>
+(function () {
+  const canvas = document.getElementById('molecule-canvas');
+  const ctx = canvas.getContext('2d');
+  const titleNode = document.getElementById('viewer-title');
+  const countsNode = document.getElementById('counts');
+  const moleculeList = document.getElementById('molecule-list');
+  const systemList = document.getElementById('system-list');
+  const geometryList = document.getElementById('geometry-list');
+  const labelsToggle = document.getElementById('labels-toggle');
+  const systemsToggle = document.getElementById('systems-toggle');
+  const axesToggle = document.getElementById('axes-toggle');
+  const zoomRange = document.getElementById('zoom-range');
+  const dropZone = document.getElementById('dropzone');
+  const state = {
+    payload: null,
+    collection: [],
+    activeIndex: 0,
+    rotationX: -0.58,
+    rotationY: 0.72,
+    zoom: 1.1,
+    labels: true,
+    systems: true,
+    axes: true,
+    selectedSystem: null,
+    selectedAtom: null,
+    dragging: false,
+    lastX: 0,
+    lastY: 0
+  };
+  const systemColors = ['#f05a3f', '#008f87', '#7b5cff', '#d89b00', '#2f73d9', '#c43b78', '#258a45', '#94552b'];
+  function edgeKey(a, b) { return Number(a) <= Number(b) ? `${a}-${b}` : `${b}-${a}`; }
+  function idValue(value) {
+    if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')) return Number(value.value);
+    return Number(value);
+  }
+  function coordValue(value) {
+    if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')) return Number(value.value);
+    return Number(value || 0);
+  }
+  function atomDistance(atomA, atomB) {
+    if (!atomA || !atomB) return 0;
+    const dx = atomA.x - atomB.x;
+    const dy = atomA.y - atomB.y;
+    const dz = atomA.z - atomB.z;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+  }
+  function angleBetween(atomA, center, atomB) {
+    if (!atomA || !center || !atomB) return null;
+    const va = { x: atomA.x - center.x, y: atomA.y - center.y, z: atomA.z - center.z };
+    const vb = { x: atomB.x - center.x, y: atomB.y - center.y, z: atomB.z - center.z };
+    const la = Math.sqrt(va.x * va.x + va.y * va.y + va.z * va.z);
+    const lb = Math.sqrt(vb.x * vb.x + vb.y * vb.y + vb.z * vb.z);
+    if (la <= 1e-12 || lb <= 1e-12) return null;
+    const cosine = Math.max(-1, Math.min(1, (va.x * vb.x + va.y * vb.y + va.z * vb.z) / (la * lb)));
+    return Math.acos(cosine) * 180 / Math.PI;
+  }
+  function buildAnglePayloads(atomMap, bonds, systems) {
+    const neighbors = new Map();
+    atomMap.forEach(function (_, atomId) { neighbors.set(atomId, new Set()); });
+    const addEdge = function (edge) {
+      if (neighbors.has(edge.a) && neighbors.has(edge.b)) {
+        neighbors.get(edge.a).add(edge.b);
+        neighbors.get(edge.b).add(edge.a);
+      }
+    };
+    bonds.forEach(addEdge);
+    systems.forEach(function (system) { system.edges.forEach(addEdge); });
+    const angles = [];
+    neighbors.forEach(function (values, centerId) {
+      const adjacent = Array.from(values).sort((a, b) => a - b);
+      for (let i = 0; i < adjacent.length; i += 1) {
+        for (let j = i + 1; j < adjacent.length; j += 1) {
+          const angle = angleBetween(atomMap.get(adjacent[i]), atomMap.get(centerId), atomMap.get(adjacent[j]));
+          if (angle != null) angles.push({ a: adjacent[i], center: centerId, b: adjacent[j], angle });
+        }
+      }
+    });
+    return angles;
+  }
+  function styleFor(symbol) {
+    const table = {
+      H: ['#f8fafc', '#9aa6b2', 0.31], C: ['#303640', '#12151a', 0.76], N: ['#3d6fd8', '#244998', 0.71],
+      O: ['#d94a42', '#9e2722', 0.66], F: ['#3aa66a', '#247143', 0.57], Cl: ['#79b84a', '#4a7d27', 1.02],
+      Br: ['#a85d35', '#73391f', 1.2], I: ['#7d4fa3', '#53306f', 1.39], B: ['#f0a46d', '#b76b35', 0.84],
+      S: ['#e1ba2f', '#9a7c18', 1.05], P: ['#d67f30', '#96541a', 1.07], Si: ['#9c7fbd', '#69528b', 1.11],
+      Fe: ['#d27845', '#944521', 1.32], Na: ['#7b8de8', '#4d5ca8', 1.66]
+    };
+    return table[symbol] || ['#7b8794', '#485260', 0.82];
+  }
+  function normaliseRawMolADT(raw) {
+    const atoms = (raw.atoms || []).map(function (entry) {
+      const atom = entry.atom || entry;
+      const id = idValue(entry.atom_id || atom.atom_id || atom.id);
+      const attrs = atom.attributes || {};
+      const symbol = attrs.symbol || atom.symbol || 'C';
+      const coord = atom.coordinate || {};
+      const style = styleFor(symbol);
+      return {
+        id: id,
+        symbol: symbol,
+        label: `${symbol}${id}`,
+        x: coordValue(coord.x),
+        y: coordValue(coord.y),
+        z: coordValue(coord.z),
+        charge: Number(atom.formal_charge || atom.charge || 0),
+        shells: atom.shells || [],
+        color: style[0],
+        edge: style[1],
+        radius: style[2]
+      };
+    });
+    const atomMap = new Map(atoms.map((atom) => [atom.id, atom]));
+    const bondsByKey = new Map();
+    (raw.local_bonds || raw.bonds || []).forEach(function (edge) {
+      const a = idValue(edge.a);
+      const b = idValue(edge.b);
+      bondsByKey.set(edgeKey(a, b), { a: a, b: b, order: Number(edge.order || 1), kind: edge.kind || 'sigma', length: Number(edge.length || atomDistance(atomMap.get(a), atomMap.get(b))) });
+    });
+    const systems = (raw.systems || []).map(function (entry, index) {
+      const system = entry.bonding_system || entry;
+      const id = idValue(entry.system_id || system.id || index + 1);
+      const edges = (system.member_edges || system.edges || []).map(function (edge) {
+        const a = idValue(edge.a);
+        const b = idValue(edge.b);
+        const length = Number(edge.length || atomDistance(atomMap.get(a), atomMap.get(b)));
+        if (!bondsByKey.has(edgeKey(a, b))) bondsByKey.set(edgeKey(a, b), { a: a, b: b, order: 0, kind: 'system', length: length });
+        return { a: a, b: b, length: length };
+      });
+      const tag = system.tag || null;
+      const shared = system.shared_electrons || system.sharedElectrons || { value: 0 };
+      return {
+        id: id,
+        label: tag || `system ${id}` ,
+        tag: tag,
+        sharedElectrons: idValue(shared),
+        color: system.color || systemColors[(id - 1 + systemColors.length) % systemColors.length],
+        atoms: (system.member_atoms || system.atoms || []).map(idValue),
+        edges: edges
+      };
+    });
+    const bonds = Array.from(bondsByKey.values());
+    return {
+      format: 'moladt-viewer-v1',
+      title: raw.title || 'MolADT viewer',
+      atoms: atoms,
+      bonds: bonds,
+      systems: systems,
+      angles: raw.angles || buildAnglePayloads(atomMap, bonds, systems)
+    };
+  }
+  function normalisePayload(raw) {
+    if (raw && raw.format === 'moladt-viewer-v1') return raw;
+    return normaliseRawMolADT(raw || {});
+  }
+  function normaliseCollection(raw) {
+    if (raw && raw.format === 'moladt-viewer-collection-v1') {
+      return { title: raw.title || 'MolADT viewer', molecules: (raw.molecules || []).map(normalisePayload) };
+    }
+    return { title: (raw && raw.title) || 'MolADT viewer', molecules: [normalisePayload(raw || {})] };
+  }
+  function systemEdgeLaneMap(systems) {
+    const lanes = new Map();
+    systems.forEach(function (system) {
+      system.edges.forEach(function (edge) {
+        const key = edgeKey(edge.a, edge.b);
+        const existing = lanes.get(key) || [];
+        existing.push(system.id);
+        lanes.set(key, existing);
+      });
+    });
+    return lanes;
+  }
+  function bounds(atoms) {
+    if (!atoms.length) return { center: { x: 0, y: 0, z: 0 }, span: 1 };
+    const xs = atoms.map((atom) => atom.x);
+    const ys = atoms.map((atom) => atom.y);
+    const zs = atoms.map((atom) => atom.z);
+    const minX = Math.min.apply(null, xs); const maxX = Math.max.apply(null, xs);
+    const minY = Math.min.apply(null, ys); const maxY = Math.max.apply(null, ys);
+    const minZ = Math.min.apply(null, zs); const maxZ = Math.max.apply(null, zs);
+    return {
+      center: { x: (minX + maxX) / 2, y: (minY + maxY) / 2, z: (minZ + maxZ) / 2 },
+      span: Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1)
+    };
+  }
+  function projectPoint(point, modelBounds, size) {
+    const x = point.x - modelBounds.center.x;
+    const y = point.y - modelBounds.center.y;
+    const z = point.z - modelBounds.center.z;
+    const cy = Math.cos(state.rotationY);
+    const sy = Math.sin(state.rotationY);
+    const cx = Math.cos(state.rotationX);
+    const sx = Math.sin(state.rotationX);
+    const x1 = x * cy - z * sy;
+    const z1 = x * sy + z * cy;
+    const y2 = y * cx - z1 * sx;
+    const z2 = y * sx + z1 * cx;
+    const scale = Math.min(size.w, size.h) / (modelBounds.span * 2.25);
+    const perspective = 800 / (800 + z2 * 80);
+    return {
+      x: size.w / 2 + x1 * scale * state.zoom * perspective,
+      y: size.h / 2 + y2 * scale * state.zoom * perspective,
+      z: z2
+    };
+  }
+  function project(atom, modelBounds, size) {
+    const point = projectPoint(atom, modelBounds, size);
+    const scale = Math.min(size.w, size.h) / (modelBounds.span * 2.25);
+    point.radius = Math.max(6, Math.min(28, atom.radius * scale * 0.22 * state.zoom));
+    return point;
+  }
+  function drawAxes(modelBounds, size) {
+    if (!state.axes) return;
+    const span = modelBounds.span * 0.62;
+    const center = modelBounds.center;
+    const axes = [
+      ['x', '#f05a3f', { x: center.x - span, y: center.y, z: center.z }, { x: center.x + span, y: center.y, z: center.z }],
+      ['y', '#008f87', { x: center.x, y: center.y - span, z: center.z }, { x: center.x, y: center.y + span, z: center.z }],
+      ['z', '#2f73d9', { x: center.x, y: center.y, z: center.z - span }, { x: center.x, y: center.y, z: center.z + span }]
+    ];
+    axes.forEach(function (axis) {
+      const start = projectPoint(axis[2], modelBounds, size);
+      const end = projectPoint(axis[3], modelBounds, size);
+      ctx.save();
+      ctx.strokeStyle = axis[1];
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+      ctx.fillStyle = axis[1];
+      ctx.globalAlpha = 0.9;
+      ctx.font = '12px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillText(axis[0], end.x + 8, end.y - 8);
+      ctx.restore();
+    });
+  }
+  function drawEdge(a, b, color, options) {
+    if (!a || !b) return;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const length = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+    const offset = options.offset || 0;
+    const ox = -dy / length * offset;
+    const oy = dx / length * offset;
+    ctx.save();
+    ctx.globalAlpha = options.alpha == null ? 1 : options.alpha;
+    ctx.lineWidth = options.width || 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = color;
+    if (options.dashed) ctx.setLineDash([7, 8]);
+    ctx.beginPath();
+    ctx.moveTo(a.x + ox, a.y + oy);
+    ctx.lineTo(b.x + ox, b.y + oy);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function render() {
+    const payload = state.payload;
+    if (!payload) return;
+    const size = { w: canvas.clientWidth || 900, h: canvas.clientHeight || 640 };
+    ctx.clearRect(0, 0, size.w, size.h);
+    const modelBounds = bounds(payload.atoms);
+    const projected = new Map();
+    payload.atoms.forEach(function (atom) { projected.set(atom.id, project(atom, modelBounds, size)); });
+    drawAxes(modelBounds, size);
+    payload.bonds.forEach(function (bond) {
+      const a = projected.get(bond.a);
+      const b = projected.get(bond.b);
+      drawEdge(a, b, bond.kind === 'system' ? '#9aa6b2' : '#8a95a3', { offset: 0, alpha: bond.kind === 'system' ? 0.24 : 0.58, width: Math.max(2, Math.min(5, 1.7 + Number(bond.order || 1))) });
+    });
+    if (state.systems) {
+      const lanes = systemEdgeLaneMap(payload.systems);
+      payload.systems.forEach(function (system) {
+        const active = state.selectedSystem == null || state.selectedSystem === system.id;
+        system.edges.forEach(function (edge) {
+          const laneIds = lanes.get(edgeKey(edge.a, edge.b)) || [system.id];
+          const lane = Math.max(0, laneIds.indexOf(system.id));
+          const laneOffset = (lane - (laneIds.length - 1) / 2) * 7;
+          drawEdge(projected.get(edge.a), projected.get(edge.b), system.color, {
+            offset: laneOffset,
+            alpha: active ? 1 : 0.18,
+            width: active ? 4 : 2
+          });
+        });
+      });
+    }
+    payload.atoms.slice().sort(function (left, right) { return projected.get(left.id).z - projected.get(right.id).z; }).forEach(function (atom) {
+      const point = projected.get(atom.id);
+      const radius = point.radius;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = atom.color;
+      ctx.strokeStyle = atom.edge;
+      ctx.lineWidth = state.selectedAtom === atom.id ? 3 : 1.5;
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.18)';
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetY = 5;
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.stroke();
+      if (state.labels) {
+        ctx.font = '12px ui-sans-serif, system-ui, sans-serif';
+        ctx.fillStyle = '#182230';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const label = atom.label || `${atom.symbol}${atom.id}`;
+        ctx.fillText(label, point.x, point.y + radius + 13);
+      }
+      ctx.restore();
+    });
+  }
+  function renderMoleculeList() {
+    moleculeList.innerHTML = '';
+    if (!state.collection || state.collection.length <= 1) return;
+    state.collection.forEach(function (molecule, index) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'molecule-button';
+      button.setAttribute('aria-pressed', String(index === state.activeIndex));
+      button.textContent = `${index + 1}. ${molecule.title || 'Molecule'}`;
+      button.addEventListener('click', function () {
+        state.activeIndex = index;
+        state.payload = state.collection[index];
+        state.selectedSystem = null;
+        state.selectedAtom = null;
+        renderPanel();
+        resizeCanvas();
+      });
+      moleculeList.appendChild(button);
+    });
+  }
+  function renderGeometry(payload) {
+    geometryList.innerHTML = '';
+    const selectedAtom = payload.atoms.find((atom) => atom.id === state.selectedAtom) || null;
+    const title = document.createElement('div');
+    title.className = 'geometry-title';
+    title.textContent = selectedAtom ? `Atom ${selectedAtom.label || selectedAtom.id}` : 'Coordinates and geometry';
+    geometryList.appendChild(title);
+    const lines = [];
+    if (selectedAtom) {
+      lines.push(`coord (${selectedAtom.x.toFixed(3)}, ${selectedAtom.y.toFixed(3)}, ${selectedAtom.z.toFixed(3)}) A`);
+      lines.push(`shells ${(selectedAtom.shells || []).length}`);
+      payload.bonds.filter((bond) => bond.a === selectedAtom.id || bond.b === selectedAtom.id).slice(0, 8).forEach(function (bond) {
+        const other = bond.a === selectedAtom.id ? bond.b : bond.a;
+        lines.push(`edge to ${other}: ${Number(bond.length || 0).toFixed(3)} A`);
+      });
+      (payload.angles || []).filter((angle) => angle.center === selectedAtom.id).slice(0, 8).forEach(function (angle) {
+        lines.push(`angle ${angle.a}-${angle.center}-${angle.b}: ${Number(angle.angle || 0).toFixed(1)} deg`);
+      });
+    } else {
+      payload.atoms.slice(0, 6).forEach(function (atom) {
+        lines.push(`${atom.label || atom.id}: (${atom.x.toFixed(2)}, ${atom.y.toFixed(2)}, ${atom.z.toFixed(2)}) A`);
+      });
+      payload.bonds.slice(0, 6).forEach(function (bond) {
+        lines.push(`${bond.a}-${bond.b}: ${Number(bond.length || 0).toFixed(3)} A`);
+      });
+      if ((payload.angles || []).length) lines.push(`${payload.angles.length} stored bond angles from 3D coordinates`);
+    }
+    lines.forEach(function (line) {
+      const row = document.createElement('div');
+      row.textContent = line;
+      geometryList.appendChild(row);
+    });
+  }
+  function renderPanel() {
+    const payload = state.payload;
+    if (!payload) return;
+    renderMoleculeList();
+    titleNode.textContent = payload.title || 'MolADT viewer';
+    countsNode.textContent = `${payload.atoms.length} atoms, ${payload.bonds.length} edges, ${payload.systems.length} bonding systems`;
+    systemList.innerHTML = '';
+    if (!payload.systems.length) {
+      const empty = document.createElement('div');
+      empty.className = 'counts';
+      empty.textContent = 'No explicit bonding systems';
+      systemList.appendChild(empty);
+    } else {
+      payload.systems.forEach(function (system) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'system-button';
+      button.setAttribute('aria-pressed', String(state.selectedSystem === system.id));
+      const swatch = document.createElement('span');
+      swatch.className = 'swatch';
+      swatch.style.background = system.color;
+      const name = document.createElement('span');
+      name.className = 'system-name';
+      name.textContent = system.label || `system ${system.id}`;
+      const meta = document.createElement('span');
+      meta.className = 'system-meta';
+      meta.textContent = `${system.sharedElectrons}e, ${system.edges.length} edges`;
+      button.appendChild(swatch);
+      button.appendChild(name);
+      button.appendChild(meta);
+      button.addEventListener('click', function () {
+        state.selectedSystem = state.selectedSystem === system.id ? null : system.id;
+        renderPanel();
+        render();
+      });
+      systemList.appendChild(button);
+      });
+    }
+    renderGeometry(payload);
+  }
+  function atomAtCanvasPoint(clientX, clientY) {
+    const payload = state.payload;
+    if (!payload) return null;
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const size = { w: canvas.clientWidth || 900, h: canvas.clientHeight || 640 };
+    const modelBounds = bounds(payload.atoms);
+    let best = null;
+    let bestDistance = Infinity;
+    payload.atoms.forEach(function (atom) {
+      const point = project(atom, modelBounds, size);
+      const dx = point.x - x;
+      const dy = point.y - y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance <= point.radius + 8 && distance < bestDistance) {
+        best = atom;
+        bestDistance = distance;
+      }
+    });
+    return best;
+  }
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    render();
+  }
+  window.loadMolADT = function (rawPayload) {
+    const collection = normaliseCollection(rawPayload);
+    state.collection = collection.molecules.length ? collection.molecules : [normalisePayload({ title: collection.title, atoms: [], bonds: [], systems: [] })];
+    state.activeIndex = 0;
+    state.payload = state.collection[0];
+    state.selectedSystem = null;
+    state.selectedAtom = null;
+    renderPanel();
+    resizeCanvas();
+  };
+  canvas.addEventListener('pointerdown', function (event) {
+    state.dragging = true;
+    state.lastX = event.clientX;
+    state.lastY = event.clientY;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(event.pointerId);
+  });
+  canvas.addEventListener('pointermove', function (event) {
+    if (!state.dragging) return;
+    const dx = event.clientX - state.lastX;
+    const dy = event.clientY - state.lastY;
+    state.rotationY += dx * 0.01;
+    state.rotationX += dy * 0.01;
+    state.lastX = event.clientX;
+    state.lastY = event.clientY;
+    render();
+  });
+  canvas.addEventListener('pointerup', function (event) {
+    state.dragging = false;
+    canvas.classList.remove('dragging');
+    canvas.releasePointerCapture(event.pointerId);
+  });
+  canvas.addEventListener('pointercancel', function () {
+    state.dragging = false;
+    canvas.classList.remove('dragging');
+  });
+  canvas.addEventListener('click', function (event) {
+    const atom = atomAtCanvasPoint(event.clientX, event.clientY);
+    state.selectedAtom = atom ? atom.id : null;
+    renderPanel();
+    render();
+  });
+  labelsToggle.addEventListener('change', function () { state.labels = labelsToggle.checked; render(); });
+  systemsToggle.addEventListener('change', function () { state.systems = systemsToggle.checked; render(); });
+  axesToggle.addEventListener('change', function () { state.axes = axesToggle.checked; render(); });
+  zoomRange.addEventListener('input', function () { state.zoom = Number(zoomRange.value) / 100; render(); });
+  ['dragenter', 'dragover'].forEach(function (name) {
+    dropZone.addEventListener(name, function (event) { event.preventDefault(); dropZone.classList.add('active'); });
+  });
+  ['dragleave', 'drop'].forEach(function (name) {
+    dropZone.addEventListener(name, function (event) { event.preventDefault(); dropZone.classList.remove('active'); });
+  });
+  dropZone.addEventListener('drop', function (event) {
+    const file = event.dataTransfer.files && event.dataTransfer.files[0];
+    if (!file) return;
+    file.text().then(function (text) { window.loadMolADT(JSON.parse(text)); }).catch(function (error) {
+      countsNode.textContent = `Could not load JSON: ${error.message}`;
+    });
+  });
+  window.addEventListener('resize', resizeCanvas);
+  const embedded = JSON.parse(document.getElementById('moladt-payload').textContent);
+  window.loadMolADT(embedded);
+}());
+</script>
+</body>
+</html>

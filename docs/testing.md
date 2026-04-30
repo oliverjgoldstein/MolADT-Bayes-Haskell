@@ -18,7 +18,7 @@ stack test
 | --- | --- |
 | `benchmark-alignment` | Python export loading and inverse-design smoke search |
 | `edge-properties` | edge invariants |
-| `parser-roundtrip` | SDF, SMILES, JSON, viewer HTML, pretty rendering, timing helpers |
+| `parser-roundtrip` | SDF, SMILES, JSON, viewer HTML, and pretty rendering |
 | `validation-properties` | molecule validation invariants |
 
 ## Useful Smoke Checks
@@ -28,6 +28,7 @@ make haskell-build
 make haskell-parse
 make haskell-parse-smiles
 make haskell-to-smiles
+make view
 make haskell-viewer
 make haskell-demo
 ```
@@ -36,6 +37,5 @@ make haskell-demo
 
 - Stack cannot write to its cache: rerun outside a restricted sandbox.
 - Processed benchmark exports are missing: generate them in the Python repo.
-- The timing corpus is missing: run the Python ZINC timing preparation first.
 
 Next: [Quickstart](quickstart.md), [Repo map](repo-map.md).

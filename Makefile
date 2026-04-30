@@ -7,11 +7,14 @@ TARGET ?= -5.0
 SEED_MOLECULE ?= water
 VIEWER_INPUT ?= molecules/benzene.sdf
 VIEWER_OUTPUT ?= results/viewer/$(basename $(notdir $(VIEWER_INPUT))).viewer.html
+VIEWER_COLLECTION_OUTPUT ?= results/viewer/haskell-examples.viewer.html
+VIEWER_EXAMPLES ?= benzene,diborane,ferrocene,morphine,water,methane
 VIEWER_FORMAT ?=
 VIEWER_TITLE ?=
 OPEN_VIEWER ?= 0
 VIEWER_FORMAT_ARG := $(if $(strip $(VIEWER_FORMAT)),--format $(VIEWER_FORMAT),)
 VIEWER_TITLE_ARG := $(if $(strip $(VIEWER_TITLE)),--title "$(VIEWER_TITLE)",)
+VIEWER_EXAMPLES_ARG := $(if $(strip $(VIEWER_EXAMPLES)),--examples "$(VIEWER_EXAMPLES)",)
 OPEN_VIEWER_ARG := $(if $(filter 1 yes true,$(OPEN_VIEWER)),--open-viewer,)
 SDF_PATH ?= ../MolADT-Bayes-Python/data/processed/zinc_timing/zinc15_250K_2D/$(ROW_LIMIT_SCOPE)/sdf_library
 PROCESSED_DATA_DIR ?= ../MolADT-Bayes-Python/data/processed
@@ -25,7 +28,7 @@ AUTO_APPROVE_FIXES ?= 0
 TESTED_GHC := 9.6.5
 TESTED_STACK_RESOLVER := lts-22.25
 
-.PHONY: help haskell-check-stack haskell-check-dataset-data haskell-check-sdf-timing-data haskell-build haskell-test haskell-demo haskell-infer-benchmark haskell-inverse-design haskell-parse haskell-parse-smiles haskell-parse-sdf-timing haskell-to-smiles haskell-viewer molecule-viewer
+.PHONY: help haskell-check-stack haskell-check-dataset-data haskell-check-sdf-timing-data haskell-build haskell-test haskell-demo haskell-infer-benchmark haskell-inverse-design haskell-parse haskell-parse-smiles haskell-parse-sdf-timing haskell-to-smiles haskell-view haskell-viewer view molecule-viewer
 
 help:
 	@printf "%s\n" \
@@ -37,8 +40,8 @@ help:
 	"  make haskell-inverse-design Run FreeSolv inverse design from a typed seed molecule" \
 	"  make haskell-parse          Parse molecules/benzene.sdf" \
 	"  make haskell-parse-smiles   Parse c1ccccc1" \
-	"  make haskell-parse-sdf-timing Benchmark cached ZINC SDF reads vs Haskell MolADT SDF parse timing" \
 	"  make haskell-to-smiles      Render molecules/benzene.sdf to SMILES" \
+	"  make view                   Open a collection viewer for the built-in examples" \
 	"  make haskell-viewer         Export a standalone HTML molecule viewer" \
 	"  make molecule-viewer        Alias for haskell-viewer" \
 	"" \
@@ -52,8 +55,9 @@ help:
 	"  inverse_design_seed=$(SEED_MOLECULE)" \
 	"  viewer_input=$(VIEWER_INPUT)" \
 	"  viewer_output=$(VIEWER_OUTPUT)" \
+	"  viewer_collection_output=$(VIEWER_COLLECTION_OUTPUT)" \
+	"  viewer_examples=$(VIEWER_EXAMPLES)" \
 	"  row_limit=$(ROW_LIMIT_DISPLAY)" \
-	"  sdf_path=$(SDF_PATH)" \
 	"" \
 	"Tested toolchain versions:" \
 	"  GHC=$(TESTED_GHC) Stack resolver=$(TESTED_STACK_RESOLVER)"
@@ -292,7 +296,7 @@ haskell-inverse-design: haskell-check-stack
 	"  target: $(TARGET)" \
 	"  seed_molecule: $(SEED_MOLECULE)" \
 	"  processed_data_dir: $(PROCESSED_DATA_DIR)" \
-	"  FreeSolv model artifact: $(PYTHON_REPO_DIR)/results/freesolv/run_20260417_162536" \
+	"  FreeSolv model artifact: latest complete run under $(PYTHON_REPO_DIR)/results/freesolv" \
 	"  stack_cmd: $(STACK_CMD)"
 	@$(MAKE) --no-print-directory REQUIRED_DATASET_PREFIX="freesolv_moladt_featurized" haskell-check-dataset-data
 	MOLADT_PROCESSED_DATA_DIR="$(PROCESSED_DATA_DIR)" $(STACK_CMD) run moladtbayes -- inverse-design --target $(TARGET) --seed-molecule $(SEED_MOLECULE)
@@ -308,6 +312,9 @@ haskell-parse-sdf-timing: haskell-check-stack haskell-check-sdf-timing-data
 
 haskell-to-smiles: haskell-check-stack
 	$(STACK_CMD) run moladtbayes -- to-smiles molecules/benzene.sdf
+
+haskell-view view: haskell-check-stack
+	$(STACK_CMD) run moladtbayes -- view-examples --output "$(VIEWER_COLLECTION_OUTPUT)" $(VIEWER_TITLE_ARG) $(VIEWER_EXAMPLES_ARG) $(OPEN_VIEWER_ARG)
 
 haskell-viewer: haskell-check-stack
 	$(STACK_CMD) run moladtbayes -- view-html "$(VIEWER_INPUT)" --output "$(VIEWER_OUTPUT)" $(VIEWER_FORMAT_ARG) $(VIEWER_TITLE_ARG) $(OPEN_VIEWER_ARG)

@@ -15,10 +15,10 @@ stack run moladtbayes -- --help
 | `to-json <sdf>` | Convert validated SDF input to shared MolADT JSON. |
 | `from-json <json>` | Decode MolADT JSON and print the typed molecule. |
 | `view-html <sdf-or-json>` | Write a standalone HTML viewer for SDF or MolADT JSON. |
+| `view-examples` | Write one viewer page containing the built-in Haskell molecules. |
 | `parse-smiles <text>` | Parse the conservative SMILES subset into MolADT. |
 | `to-smiles <sdf>` | Render validated classical MolADT structures to supported SMILES. |
 | `pretty-example <name>` | Print built-in `morphine`, `diborane`, or `ferrocene`; add `--viewer-output` to export HTML. |
-| `parse-sdf-timing <path> [limit]` | Time raw SDF reads versus `SDF -> MolADT` parsing. |
 | `infer-benchmark <prefix> <method> [limit]` | Run the Haskell FreeSolv benchmark consumer. |
 | `inverse-design --target <value> --seed-molecule <name>` | Run the small typed FreeSolv inverse-design search. |
 
@@ -30,6 +30,7 @@ stack run moladtbayes -- to-json molecules/benzene.sdf > benzene.moladt.json
 stack run moladtbayes -- from-json benzene.moladt.json
 stack run moladtbayes -- view-html molecules/benzene.sdf --output results/viewer/benzene.viewer.html
 stack run moladtbayes -- view-html benzene.moladt.json --format json --output results/viewer/benzene.viewer.html
+stack run moladtbayes -- view-examples --output results/viewer/haskell-examples.viewer.html
 stack run moladtbayes -- parse-smiles "c1ccccc1"
 stack run moladtbayes -- pretty-example diborane --viewer-output results/viewer/diborane.viewer.html
 stack run moladtbayes -- infer-benchmark freesolv_moladt_featurized mh:0.2
@@ -39,10 +40,12 @@ stack run moladtbayes -- inverse-design --target -5.0 --seed-molecule water
 ## Viewer
 
 The viewer is a single HTML file with the MolADT payload embedded. It shows
-atoms, sigma edges, and explicit bonding systems, and it can also load the
+atoms, sigma edges, explicit bonding systems, axes, 3D edge lengths, stored
+bond angles, atom coordinates, and shell/orbital counts. It can also load the
 shared MolADT JSON files by drag and drop.
 
 ```bash
+make view
 make haskell-viewer
 make haskell-viewer VIEWER_INPUT=molecules/water.sdf VIEWER_OUTPUT=results/viewer/water.viewer.html
 make molecule-viewer
@@ -58,7 +61,6 @@ The benchmark and inverse-design commands print:
 - molecule counts before the expensive work starts
 - feature counts and selected GP features
 - inference or proposal budget
-- rough runtime expectation
 - measured runtime once the search or inference completes
 
 This keeps long Bayesian tasks from looking silent.

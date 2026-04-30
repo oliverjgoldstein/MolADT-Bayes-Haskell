@@ -16,62 +16,50 @@ seedMolecule :: String
 seedMolecule = "water"
 
 predictedFreeSolv :: Double
-predictedFreeSolv = -5.302732295715778
+predictedFreeSolv = -4.605238292910419
 
 predictiveSd :: Double
-predictiveSd = 0.755170182534323
+predictiveSd = 0.6918705803457222
 
 targetError :: Double
-targetError = 0.30273229571577787
+targetError = 0.3947617070895806
 
 score :: Double
-score = -0.25480926299710543
+score = -0.24827094844757117
 
 formula :: String
-formula = "C5H11ClO2"
+formula = "C3H6F2O2"
 
 molecule :: Molecule
 molecule = either error id (validateMolecule (Molecule
   { atoms = M.fromList
-      [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
-      , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-1.35)) (mkAngstrom 1.6532731788489269e-16) (mkAngstrom 3.0e-3), shells = elementShells C, formalCharge = 0 })
-      , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes Cl, coordinate = Coordinate (mkAngstrom 0.6500000000000001) (mkAngstrom 1.12583302491977) (mkAngstrom 0.10700000000000001), shells = elementShells Cl, formalCharge = 0 })
-      , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-2.025)) (mkAngstrom 1.1691342951089927) (mkAngstrom 0.21100000000000002), shells = elementShells C, formalCharge = 0 })
-      , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom (-1.9500000000000006)) (mkAngstrom (-1.0392304845413258)) (mkAngstrom 0.113), shells = elementShells O, formalCharge = 0 })
-      , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-1.4)) (mkAngstrom 8.66025403784445e-2) (mkAngstrom 0.42200000000000004), shells = elementShells C, formalCharge = 0 })
-      , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-2.0999999999999996)) (mkAngstrom 1.2990381056766587) (mkAngstrom 0.6360000000000001), shells = elementShells C, formalCharge = 0 })
-      , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-2.0999999999999996)) (mkAngstrom 1.2990381056766587) (mkAngstrom 0.6360000000000001), shells = elementShells C, formalCharge = 0 })
-      , (AtomId 9, Atom { atomID = AtomId 9, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-2.75)) (mkAngstrom 3.3677786976552215e-16) (mkAngstrom 1.2e-2), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 10, Atom { atomID = AtomId 10, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-2.6250000000000004)) (mkAngstrom 0.12990381056766664) (mkAngstrom 0.32100000000000006), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 11, Atom { atomID = AtomId 11, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.4)) (mkAngstrom 8.66025403784445e-2) (mkAngstrom 0.42200000000000004), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 12, Atom { atomID = AtomId 12, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.6500000000000006)) (mkAngstrom (-1.0392304845413258)) (mkAngstrom 0.125), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 13, Atom { atomID = AtomId 13, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.7249999999999998)) (mkAngstrom 1.2557368354874368) (mkAngstrom 0.535), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 14, Atom { atomID = AtomId 14, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-2.7999999999999994)) (mkAngstrom 2.5114736709748726) (mkAngstrom 0.8500000000000001), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 15, Atom { atomID = AtomId 15, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-3.3)) (mkAngstrom 1.299038105676659) (mkAngstrom 0.6510000000000001), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 16, Atom { atomID = AtomId 16, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-2.725)) (mkAngstrom 0.2165063509461107) (mkAngstrom 0.7520000000000001), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 17, Atom { atomID = AtomId 17, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.4499999999999997)) (mkAngstrom 0.17320508075688856) (mkAngstrom 0.8530000000000001), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 18, Atom { atomID = AtomId 18, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.7499999999999996)) (mkAngstrom 1.2990381056766587) (mkAngstrom 0.6540000000000001), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 19, Atom { atomID = AtomId 19, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.3999999999999995)) (mkAngstrom 2.5114736709748726) (mkAngstrom 0.7550000000000001), shells = elementShells H, formalCharge = 0 })
+      [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
+      , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-1.7)) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
+      , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 1.48) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
+      , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes F, coordinate = Coordinate (mkAngstrom 0.9545941546018392) (mkAngstrom (-1.7)) (mkAngstrom 0.9545941546018392), shells = elementShells F, formalCharge = 0 })
+      , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-1.7)) (mkAngstrom (-1.43)), shells = elementShells C, formalCharge = 0 })
+      , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-1.7)) (mkAngstrom (-2.86)), shells = elementShells O, formalCharge = 0 })
+      , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes F, coordinate = Coordinate (mkAngstrom 0.779422863405995) (mkAngstrom (-2.479422863405995)) (mkAngstrom (-3.639422863405995)), shells = elementShells F, formalCharge = 0 })
+      , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.09) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+      , (AtomId 9, Atom { atomID = AtomId 9, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.09)) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+      , (AtomId 10, Atom { atomID = AtomId 10, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.6293117934166922)) (mkAngstrom (-2.329311793416692)) (mkAngstrom 0.6293117934166922), shells = elementShells H, formalCharge = 0 })
+      , (AtomId 11, Atom { atomID = AtomId 11, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 2.44) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+      , (AtomId 12, Atom { atomID = AtomId 12, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.09) (mkAngstrom (-1.7)) (mkAngstrom (-1.43)), shells = elementShells H, formalCharge = 0 })
+      , (AtomId 13, Atom { atomID = AtomId 13, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-2.79)) (mkAngstrom (-1.43)), shells = elementShells H, formalCharge = 0 })
       ]
   , localBonds = S.fromList
       [ Edge (AtomId 1) (AtomId 2)
       , Edge (AtomId 1) (AtomId 3)
+      , Edge (AtomId 1) (AtomId 8)
+      , Edge (AtomId 1) (AtomId 9)
       , Edge (AtomId 2) (AtomId 4)
       , Edge (AtomId 2) (AtomId 5)
-      , Edge (AtomId 2) (AtomId 9)
-      , Edge (AtomId 4) (AtomId 6)
-      , Edge (AtomId 4) (AtomId 10)
-      , Edge (AtomId 4) (AtomId 11)
+      , Edge (AtomId 2) (AtomId 10)
+      , Edge (AtomId 3) (AtomId 11)
+      , Edge (AtomId 5) (AtomId 6)
       , Edge (AtomId 5) (AtomId 12)
+      , Edge (AtomId 5) (AtomId 13)
       , Edge (AtomId 6) (AtomId 7)
-      , Edge (AtomId 6) (AtomId 8)
-      , Edge (AtomId 6) (AtomId 13)
-      , Edge (AtomId 7) (AtomId 14)
-      , Edge (AtomId 7) (AtomId 15)
-      , Edge (AtomId 7) (AtomId 16)
-      , Edge (AtomId 8) (AtomId 17)
-      , Edge (AtomId 8) (AtomId 18)
-      , Edge (AtomId 8) (AtomId 19)
       ]
   , systems =
       [ 

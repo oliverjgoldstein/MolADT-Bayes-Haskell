@@ -31,7 +31,7 @@ import           Control.Monad.ST (ST, runST)
 import           Data.Aeson (FromJSON(..), eitherDecode, withObject, (.:))
 import qualified Data.ByteString.Lazy as BL
 import           Data.Char (isSpace, toLower)
-import           Data.List (foldl', intercalate, sort, sortOn)
+import           Data.List (foldl', intercalate, isPrefixOf, isSuffixOf, sort, sortOn)
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromMaybe, mapMaybe)
 import           Data.Ord (Down(..))
@@ -41,8 +41,8 @@ import           Data.Time.Clock (diffUTCTime, getCurrentTime)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import qualified Data.Vector.Unboxed.Mutable as MU
-import           System.Directory (createDirectoryIfMissing, doesFileExist)
-import           System.FilePath ((</>))
+import           System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory)
+import           System.FilePath (takeFileName, (</>))
 import           System.IO (hFlush, stdout)
 import           System.Random (StdGen, mkStdGen, randomR)
 import           Text.Printf (printf)
@@ -60,8 +60,8 @@ modelName = "bayes_gp_rbf_screened"
 methodName :: String
 methodName = "laplace"
 
-modelDir :: FilePath
-modelDir = "../MolADT-Bayes-Python/results/freesolv/run_20260417_162536"
+defaultFreeSolvResultsRoot :: FilePath
+defaultFreeSolvResultsRoot = "../MolADT-Bayes-Python/results/freesolv"
 
 resultsDir :: FilePath
 resultsDir = "results/inverse_design/reference"
@@ -393,8 +393,9 @@ loadFreeSolvPredictor processedDir = do
   dataset <- loadBenchmarkDataset processedDir freeSolvDatasetPrefix Nothing
   metadata <- loadMetadata (processedDir </> (freeSolvDatasetPrefix ++ "_metadata.json"))
   validateMetadata dataset metadata
-  coefficientSource <- validateCoefficientSummary
-  allDraws <- loadPosteriorDraws drawsPath
+  (latestModelDir, latestDrawsPath) <- findLatestFreeSolvModel defaultFreeSolvResultsRoot
+  coefficientSource <- validateCoefficientSummary latestModelDir
+  allDraws <- loadPosteriorDraws latestDrawsPath
   let draws = thinDraws posteriorDrawCap allDraws
       trainRows = map predictorValues (trainObservations dataset)
       trainTargets = map observedTarget (trainObservations dataset)
@@ -430,7 +431,7 @@ loadFreeSolvPredictor processedDir = do
     , predictorMeanDraw = meanDraw
     , predictorMeanCholesky = meanCholesky
     , predictorCoefficientSource = coefficientSource
-    , predictorDrawSource = drawsPath
+    , predictorDrawSource = latestDrawsPath
     , predictorDrawsFound = length allDraws
     , predictorTrainMolecules = length (trainObservations dataset)
     , predictorValidMolecules = length (validObservations dataset)
@@ -460,9 +461,59 @@ validateMetadata dataset metadata = do
   unless (length (metadataTrainStd metadata) == expectedLength) $
     fail "FreeSolv metadata train_std length does not match feature count"
 
-validateCoefficientSummary :: IO FilePath
-validateCoefficientSummary = do
-  let path = modelDir </> "details" </> "model_coefficients.csv"
+findLatestFreeSolvModel :: FilePath -> IO (FilePath, FilePath)
+findLatestFreeSolvModel resultsRoot = do
+  rootExists <- doesDirectoryExist resultsRoot
+  unless rootExists $
+    fail ("Missing FreeSolv results root: " ++ resultsRoot)
+  entries <- listDirectory resultsRoot
+  let runDirs =
+        reverse . sort $
+          [ resultsRoot </> entry
+          | entry <- entries
+          , "run_" `isPrefixOf` entry
+          ]
+  go runDirs
+  where
+    go [] =
+      fail $
+        "No complete committed FreeSolv model runs found under "
+        ++ resultsRoot
+        ++ "; run the Python FreeSolv benchmark first."
+    go (candidateDir : rest) = do
+      modelComplete <- doesFileExist (candidateDir </> "details" </> "model_coefficients.csv")
+      drawCandidate <- findPosteriorDrawCsv candidateDir
+      case (modelComplete, drawCandidate) of
+        (True, Just drawPath) -> pure (candidateDir, drawPath)
+        _ -> go rest
+
+findPosteriorDrawCsv :: FilePath -> IO (Maybe FilePath)
+findPosteriorDrawCsv modelDirectory = do
+  let outputDir =
+        modelDirectory
+          </> "details"
+          </> "stan_output"
+          </> "freesolv"
+          </> "moladt_featurized"
+          </> modelName
+          </> methodName
+  exists <- doesDirectoryExist outputDir
+  if not exists
+    then pure Nothing
+    else do
+      entries <- listDirectory outputDir
+      let csvFiles =
+            reverse . sort $
+              [ outputDir </> entry
+              | entry <- entries
+              , ".csv" `isSuffixOf` entry
+              , not ("stdout" `isPrefixOf` takeFileName entry)
+              ]
+      pure (case csvFiles of [] -> Nothing; path : _ -> Just path)
+
+validateCoefficientSummary :: FilePath -> IO FilePath
+validateCoefficientSummary modelDirectory = do
+  let path = modelDirectory </> "details" </> "model_coefficients.csv"
   exists <- doesFileExist path
   unless exists $
     fail ("Missing committed FreeSolv model coefficient summary: " ++ path)
@@ -483,17 +534,6 @@ validateCoefficientSummary = do
       "FreeSolv coefficient summary does not contain the expected GP rows for "
       ++ "freesolv/moladt_featurized/expt/bayes_gp_rbf_screened/laplace"
   pure path
-
-drawsPath :: FilePath
-drawsPath =
-  modelDir
-    </> "details"
-    </> "stan_output"
-    </> "freesolv"
-    </> "moladt_featurized"
-    </> modelName
-    </> methodName
-    </> "bayes_gp_rbf_screened-20260417162646.csv"
 
 loadPosteriorDraws :: FilePath -> IO [GpDraw]
 loadPosteriorDraws path = do
@@ -928,10 +968,9 @@ addTerminalAtom molecule gen =
               then [H]
               else [C, C, O, N, F, Cl]
           (newSymbol, gen2) = chooseOne allowedSymbols gen1
-          parentAtom = atoms molecule M.! parentId
           moleculeWithRoom = makeRoomAt parentId molecule
           newId = freshAtomId moleculeWithRoom
-          newAtomValue = newAtom newId newSymbol parentAtom
+          newAtomValue = newAtom newId newSymbol parentId moleculeWithRoom
           proposal =
             moleculeWithRoom
               { atoms = M.insert newId newAtomValue (atoms moleculeWithRoom)
@@ -976,6 +1015,7 @@ addSigmaEdge molecule gen =
       , not (hasLocalizedSingletonSystem molecule edge)
       , let pathLength = shortestSigmaPathLength molecule left right
       , maybe False (\value -> value >= 4 && value <= 6) pathLength
+      , isGeometricallyLinkable molecule edge
       ]
     ringCandidates =
       [ pair
@@ -1043,9 +1083,13 @@ validateCandidate molecule = do
   valid <- validateMolecule molecule
   unlessEither (isConnected valid) "Molecule is disconnected"
   ensureSupportedSymbols valid
+  ensureNeutralFormalCharges valid
   ensureNoHydrogenHydrogenLocalBonds valid
   ensureConservativeGeneratorValence valid
+  ensureClosedValenceShells valid
+  ensureTerminalAtomRules valid
   ensureSoundBondingSystems valid
+  ensurePlausibleFreeSolvGeometry valid
   pure valid
 
 ensureSupportedSymbols :: Molecule -> Either String ()
@@ -1073,6 +1117,18 @@ ensureNoHydrogenHydrogenLocalBonds molecule =
       , symbolOf (atoms molecule M.! right) == H
       ]
 
+ensureNeutralFormalCharges :: Molecule -> Either String ()
+ensureNeutralFormalCharges molecule =
+  case chargedAtoms of
+    [] -> Right ()
+    (atomId, _) : _ -> Left ("Generated atom " ++ showAtomId atomId ++ " has a non-neutral formal charge")
+  where
+    chargedAtoms =
+      [ (atomId, formalCharge atom)
+      | (atomId, atom) <- M.toAscList (atoms molecule)
+      , formalCharge atom /= 0
+      ]
+
 ensureConservativeGeneratorValence :: Molecule -> Either String ()
 ensureConservativeGeneratorValence molecule =
   case badAtoms of
@@ -1084,6 +1140,49 @@ ensureConservativeGeneratorValence molecule =
       | (atomId, atom) <- M.toAscList (atoms molecule)
       , let used = usedElectronsAt molecule atomId
       , used > growthMaxValence (symbolOf atom) + 1e-9
+      ]
+
+ensureClosedValenceShells :: Molecule -> Either String ()
+ensureClosedValenceShells molecule =
+  case badAtoms of
+    [] -> Right ()
+    (atomId, used, expected) : _ ->
+      Left $
+        "Atom "
+          ++ showAtomId atomId
+          ++ " has open valence in generated neutral FreeSolv molecule: used "
+          ++ printf "%.3f" used
+          ++ ", expected "
+          ++ printf "%.3f" expected
+  where
+    badAtoms =
+      [ (atomId, used, expected)
+      | (atomId, atom) <- M.toAscList (atoms molecule)
+      , let expected = growthMaxValence (symbolOf atom)
+            used = usedElectronsAt molecule atomId
+      , abs (used - expected) > 1e-9
+      ]
+
+ensureTerminalAtomRules :: Molecule -> Either String ()
+ensureTerminalAtomRules molecule =
+  case badAtoms of
+    [] -> Right ()
+    (atomId, reason) : _ -> Left ("Terminal atom " ++ showAtomId atomId ++ " " ++ reason)
+  where
+    systemAtoms = S.unions [memberAtoms system | (_, system) <- systems molecule]
+    terminalSymbols = [H, F, Cl]
+    badAtoms =
+      [ (atomId, reason)
+      | (atomId, atom) <- M.toAscList (atoms molecule)
+      , symbolOf atom `elem` terminalSymbols
+      , reason <-
+          [ if length (neighborsSigma molecule atomId) /= 1
+              then "must have exactly one sigma bond"
+              else if atomId `S.member` systemAtoms
+                     then "must not participate in a delocalized bonding system"
+                     else ""
+          ]
+      , not (null reason)
       ]
 
 ensureSoundBondingSystems :: Molecule -> Either String ()
@@ -1102,6 +1201,113 @@ ensureSoundBondingSystems molecule =
            else if tag system == Just "pi_ring" && not (isValidPiRing molecule system)
                   then Left "pi_ring bonding system is not a simple carbon six-ring"
                   else Right (S.insert signature seen)
+
+ensurePlausibleFreeSolvGeometry :: Molecule -> Either String ()
+ensurePlausibleFreeSolvGeometry molecule =
+  ensureNoCoordinateCollisions molecule
+    >> ensureLocalBondLengths molecule
+    >> ensureNonbondedClearance molecule
+    >> ensureMinimumLocalAngles molecule
+
+ensureNoCoordinateCollisions :: Molecule -> Either String ()
+ensureNoCoordinateCollisions molecule =
+  case closePairs of
+    [] -> Right ()
+    (left, right, value) : _ ->
+      Left $
+        "Atoms "
+          ++ showAtomId left
+          ++ " and "
+          ++ showAtomId right
+          ++ " are geometrically colliding at "
+          ++ printf "%.3f" value
+          ++ " A"
+  where
+    closePairs =
+      [ (leftId, rightId, edgeDistance molecule (mkEdge leftId rightId))
+      | (leftId, rightId) <- atomIdPairs molecule
+      , edgeDistance molecule (mkEdge leftId rightId) < minAtomDistanceAngstrom
+      ]
+
+ensureLocalBondLengths :: Molecule -> Either String ()
+ensureLocalBondLengths molecule =
+  case badEdges of
+    [] -> Right ()
+    (edge@(Edge left right), actual, expected) : _ ->
+      Left $
+        "Bond "
+          ++ showAtomId left
+          ++ "-"
+          ++ showAtomId right
+          ++ " has implausible length "
+          ++ printf "%.3f" actual
+          ++ " A; expected around "
+          ++ printf "%.3f" expected
+          ++ " A"
+  where
+    badEdges =
+      [ (edge, actual, expected)
+      | edge <- S.toList (localBonds molecule)
+      , let actual = edgeDistance molecule edge
+            expected = expectedLocalBondLength molecule edge
+      , actual < minBondLengthRatio * expected || actual > maxBondLengthRatio * expected
+      ]
+
+ensureNonbondedClearance :: Molecule -> Either String ()
+ensureNonbondedClearance molecule =
+  case badPairs of
+    [] -> Right ()
+    (left, right, actual, threshold) : _ ->
+      Left $
+        "Nonbonded atoms "
+          ++ showAtomId left
+          ++ " and "
+          ++ showAtomId right
+          ++ " are too close at "
+          ++ printf "%.3f" actual
+          ++ " A; threshold "
+          ++ printf "%.3f" threshold
+          ++ " A"
+  where
+    bonded = allEdges molecule
+    badPairs =
+      [ (leftId, rightId, actual, threshold)
+      | (leftId, rightId) <- atomIdPairs molecule
+      , let edge = mkEdge leftId rightId
+      , edge `S.notMember` bonded
+      , let actual = edgeDistance molecule edge
+            threshold =
+              nonbondedClearanceFraction
+                * ( vdwRadius (symbolOf (atoms molecule M.! leftId))
+                    + vdwRadius (symbolOf (atoms molecule M.! rightId))
+                  )
+      , actual < threshold
+      ]
+
+ensureMinimumLocalAngles :: Molecule -> Either String ()
+ensureMinimumLocalAngles molecule =
+  case badAngles of
+    [] -> Right ()
+    (left, center, right, angleValue) : _ ->
+      Left $
+        "Bond angle "
+          ++ showAtomId left
+          ++ "-"
+          ++ showAtomId center
+          ++ "-"
+          ++ showAtomId right
+          ++ " is too acute at "
+          ++ printf "%.2f" angleValue
+          ++ " degrees"
+  where
+    badAngles =
+      [ (left, center, right, angleValue)
+      | (center, atom) <- M.toAscList (atoms molecule)
+      , symbolOf atom /= H
+      , (left, right) <- neighborPairs (sort (neighborsSigma molecule center))
+      , let angleValue = angleBetweenAtoms molecule left center right
+      , angleValue < minLocalBondAngleDegrees
+      ]
 
 unlessEither :: Bool -> String -> Either String ()
 unlessEither True _ = Right ()
@@ -1125,10 +1331,10 @@ seedMolecule SeedMethane =
     { atoms =
         M.fromList
           [ (AtomId 1, seedAtom 1 C 0.00 0.00 0.00)
-          , (AtomId 2, seedAtom 2 H 1.09 0.00 0.00)
-          , (AtomId 3, seedAtom 3 H (-1.09) 0.00 0.00)
-          , (AtomId 4, seedAtom 4 H 0.00 1.09 0.00)
-          , (AtomId 5, seedAtom 5 H 0.00 (-1.09) 0.00)
+          , (AtomId 2, seedAtom 2 H 0.63 0.63 0.63)
+          , (AtomId 3, seedAtom 3 H (-0.63) (-0.63) 0.63)
+          , (AtomId 4, seedAtom 4 H (-0.63) 0.63 (-0.63))
+          , (AtomId 5, seedAtom 5 H 0.63 (-0.63) (-0.63))
           ]
     , localBonds =
         S.fromList
@@ -1155,23 +1361,118 @@ seedAtom atomNumber atomSymbol xValue yValue zValue =
     , formalCharge = 0
     }
 
-newAtom :: AtomId -> AtomicSymbol -> Atom -> Atom
-newAtom atomId atomSymbol parentAtom =
-  let n = fromIntegral (atomIdInteger atomId)
-      angle = fromIntegral (atomIdInteger atomId `mod` 6) * pi / 3.0
-      radius = 1.2 + 0.05 * fromIntegral (atomIdInteger atomId `mod` 5)
+newAtom :: AtomId -> AtomicSymbol -> AtomId -> Molecule -> Atom
+newAtom atomId atomSymbol parentId molecule =
+  let parentAtom = atoms molecule M.! parentId
+      parentSymbol = symbolOf parentAtom
+      bondLength = preferredSigmaBondLength parentSymbol atomSymbol
+      direction = attachmentDirection molecule parentId atomSymbol atomId
       Coordinate px py pz = coordinate parentAtom
+      (dx, dy, dz) = scale3 bondLength direction
   in Atom
        { atomID = atomId
        , attributes = elementAttributes atomSymbol
        , coordinate =
            Coordinate
-             (mkAngstrom (unAngstrom px + radius * cos angle))
-             (mkAngstrom (unAngstrom py + radius * sin angle))
-             (mkAngstrom (unAngstrom pz + 0.1 * fromIntegral (atomIdInteger atomId `mod` 3) + 0.001 * n))
+             (mkAngstrom (unAngstrom px + dx))
+             (mkAngstrom (unAngstrom py + dy))
+             (mkAngstrom (unAngstrom pz + dz))
        , shells = elementShells atomSymbol
        , formalCharge = 0
        }
+
+attachmentDirection :: Molecule -> AtomId -> AtomicSymbol -> AtomId -> (Double, Double, Double)
+attachmentDirection molecule parentId newSymbol newId =
+  let parentAtom = atoms molecule M.! parentId
+      existingDirections =
+        [ normalize3 (vectorFromTo parentAtom (atoms molecule M.! neighbor))
+        | neighbor <- neighborsSigma molecule parentId
+        , vectorNorm (vectorFromTo parentAtom (atoms molecule M.! neighbor)) > 1e-9
+        ]
+      shiftedDirections = rotateList (fromIntegral (atomIdInteger newId `mod` fromIntegral (length candidateDirections))) candidateDirections
+      scored =
+        [ (attachmentScore molecule parentId newSymbol direction existingDirections, direction)
+        | direction <- shiftedDirections
+        ]
+  in snd (maximum scored)
+
+attachmentScore
+  :: Molecule
+  -> AtomId
+  -> AtomicSymbol
+  -> (Double, Double, Double)
+  -> [(Double, Double, Double)]
+  -> Double
+attachmentScore molecule parentId newSymbol direction existingDirections =
+  let parentAtom = atoms molecule M.! parentId
+      parentSymbol = symbolOf parentAtom
+      bondLength = preferredSigmaBondLength parentSymbol newSymbol
+      Coordinate px py pz = coordinate parentAtom
+      (dx, dy, dz) = scale3 bondLength direction
+      candidateCoordinate =
+        Coordinate
+          (mkAngstrom (unAngstrom px + dx))
+          (mkAngstrom (unAngstrom py + dy))
+          (mkAngstrom (unAngstrom pz + dz))
+      candidateAtom =
+        Atom
+          { atomID = AtomId (-1)
+          , attributes = elementAttributes newSymbol
+          , coordinate = candidateCoordinate
+          , shells = elementShells newSymbol
+          , formalCharge = 0
+          }
+      angleScore =
+        case existingDirections of
+          [] -> 140.0
+          directions ->
+            minimum
+              [ acos (clamp (-1.0) 1.0 (dot3 direction existing)) * 180.0 / pi
+              | existing <- directions
+              ]
+      clearanceScore =
+        minimum
+          ( 10.0
+              : [ let actual = distance candidateAtom atom
+                      threshold = nonbondedClearanceFraction * (vdwRadius newSymbol + vdwRadius (symbolOf atom))
+                  in actual - threshold
+                | (atomId, atom) <- M.toAscList (atoms molecule)
+                , atomId /= parentId
+                ]
+          )
+  in angleScore + 20.0 * clearanceScore
+
+candidateDirections :: [(Double, Double, Double)]
+candidateDirections =
+  map normalize3
+    [ (1, 1, 1)
+    , (-1, -1, 1)
+    , (-1, 1, -1)
+    , (1, -1, -1)
+    , (1, 0, 0)
+    , (-1, 0, 0)
+    , (0, 1, 0)
+    , (0, -1, 0)
+    , (0, 0, 1)
+    , (0, 0, -1)
+    , (1, 1, 0)
+    , (-1, 1, 0)
+    , (1, 0, 1)
+    , (0, 1, 1)
+    ]
+
+normalize3 :: (Double, Double, Double) -> (Double, Double, Double)
+normalize3 vector =
+  let norm = vectorNorm vector
+  in if norm <= 1e-12 then (1, 0, 0) else scale3 (1.0 / norm) vector
+
+rotateList :: Int -> [a] -> [a]
+rotateList _ [] = []
+rotateList offset values =
+  let n = length values
+      splitAtIndex = offset `mod` n
+      (prefix, suffix) = splitAt splitAtIndex values
+  in suffix ++ prefix
 
 completeTerminalHydrogens :: Molecule -> Molecule
 completeTerminalHydrogens molecule =
@@ -1203,7 +1504,7 @@ completeTerminalHydrogens molecule =
           in foldl'
                (\(nextValue, acc) _ ->
                   let hydrogenId = AtomId nextValue
-                      hydrogen = newAtom hydrogenId H atom
+                      hydrogen = newAtom hydrogenId H atomId acc
                   in ( nextValue + 1
                      , acc
                          { atoms = M.insert hydrogenId hydrogen (atoms acc)
@@ -1606,17 +1907,7 @@ printInverseDesignPlan predictor config target proposalBudget = do
     "  search budget: " ++ show seedCount
       ++ " seed chains x " ++ show stepsPerSeed
       ++ " proposals = " ++ show proposalBudget
-  putStrLn $ "  runtime expectation: " ++ inverseRuntimeExpectation trainCount proposalBudget
   hFlush stdout
-
-inverseRuntimeExpectation :: Int -> Int -> String
-inverseRuntimeExpectation trainCount proposalBudget
-  | proposalBudget <= 2500 =
-      "usually under a minute; each valid unique molecule is scored against the GP posterior."
-  | trainCount <= 600 && proposalBudget <= 10000 =
-      "expect seconds to a few minutes; runtime depends on how many proposals validate into unique molecules."
-  | otherwise =
-      "expect several minutes or more; increase comes from proposal count, validation, and GP scoring."
 
 formatSeconds :: Double -> String
 formatSeconds seconds = printf "%.2fs" seconds
@@ -2074,6 +2365,24 @@ safeRate :: Int -> Int -> Double
 safeRate _ 0 = 0.0
 safeRate numerator denominator = fromIntegral numerator / fromIntegral denominator
 
+minAtomDistanceAngstrom :: Double
+minAtomDistanceAngstrom = 0.45
+
+minBondLengthRatio :: Double
+minBondLengthRatio = 0.70
+
+maxBondLengthRatio :: Double
+maxBondLengthRatio = 1.40
+
+nonbondedClearanceFraction :: Double
+nonbondedClearanceFraction = 0.62
+
+minLocalBondAngleDegrees :: Double
+minLocalBondAngleDegrees = 90.0
+
+piRingCarbonCarbonBondLength :: Double
+piRingCarbonCarbonBondLength = 1.40
+
 growthMaxValence :: AtomicSymbol -> Double
 growthMaxValence H = 1.0
 growthMaxValence C = 4.0
@@ -2086,6 +2395,107 @@ growthMaxValence other =
 
 supportedSymbols :: [AtomicSymbol]
 supportedSymbols = [H, C, N, O, F, Cl]
+
+preferredSigmaBondLength :: AtomicSymbol -> AtomicSymbol -> Double
+preferredSigmaBondLength left right =
+  fromMaybe (covalentRadius left + covalentRadius right) (lookup (orderedSymbols left right) table)
+  where
+    table =
+      [ ((H, C), 1.09)
+      , ((H, N), 1.01)
+      , ((H, O), 0.96)
+      , ((H, F), 0.92)
+      , ((H, Cl), 1.27)
+      , ((C, C), 1.54)
+      , ((C, N), 1.47)
+      , ((C, O), 1.43)
+      , ((C, F), 1.35)
+      , ((C, Cl), 1.77)
+      , ((N, N), 1.45)
+      , ((N, O), 1.40)
+      , ((N, F), 1.36)
+      , ((N, Cl), 1.75)
+      , ((O, O), 1.48)
+      , ((O, F), 1.42)
+      , ((O, Cl), 1.70)
+      ]
+
+covalentRadius :: AtomicSymbol -> Double
+covalentRadius H = 0.31
+covalentRadius C = 0.76
+covalentRadius N = 0.71
+covalentRadius O = 0.66
+covalentRadius F = 0.57
+covalentRadius Cl = 1.02
+covalentRadius symbolValue = 0.75 + 0.02 * fromIntegral (symbolIndex symbolValue)
+
+vdwRadius :: AtomicSymbol -> Double
+vdwRadius H = 1.20
+vdwRadius C = 1.70
+vdwRadius N = 1.55
+vdwRadius O = 1.52
+vdwRadius F = 1.47
+vdwRadius Cl = 1.75
+vdwRadius symbolValue = 1.70 + 0.03 * fromIntegral (symbolIndex symbolValue)
+
+expectedLocalBondLength :: Molecule -> Edge -> Double
+expectedLocalBondLength molecule edge@(Edge left right)
+  | isPiRingCarbonEdge molecule edge = piRingCarbonCarbonBondLength
+  | otherwise =
+      preferredSigmaBondLength
+        (symbolOf (atoms molecule M.! left))
+        (symbolOf (atoms molecule M.! right))
+
+isPiRingCarbonEdge :: Molecule -> Edge -> Bool
+isPiRingCarbonEdge molecule edge@(Edge left right) =
+  symbolOf (atoms molecule M.! left) == C
+    && symbolOf (atoms molecule M.! right) == C
+    && any
+      (\(_, system) -> tag system == Just "pi_ring" && edge `S.member` memberEdges system)
+      (systems molecule)
+
+atomIdPairs :: Molecule -> [(AtomId, AtomId)]
+atomIdPairs molecule =
+  [ (left, right)
+  | (index, left) <- zip [0 :: Int ..] atomIds
+  , right <- drop (index + 1) atomIds
+  ]
+  where
+    atomIds = M.keys (atoms molecule)
+
+angleBetweenAtoms :: Molecule -> AtomId -> AtomId -> AtomId -> Double
+angleBetweenAtoms molecule left center right =
+  let centerAtom = atoms molecule M.! center
+      leftAtom = atoms molecule M.! left
+      rightAtom = atoms molecule M.! right
+      leftVector = vectorFromTo centerAtom leftAtom
+      rightVector = vectorFromTo centerAtom rightAtom
+      leftNorm = vectorNorm leftVector
+      rightNorm = vectorNorm rightVector
+  in if leftNorm <= 1e-12 || rightNorm <= 1e-12
+       then 0.0
+       else
+         let cosineValue = clamp (-1.0) 1.0 (dot3 leftVector rightVector / (leftNorm * rightNorm))
+         in acos cosineValue * 180.0 / pi
+
+isGeometricallyLinkable :: Molecule -> Edge -> Bool
+isGeometricallyLinkable molecule edge =
+  let actual = edgeDistance molecule edge
+      expected = expectedLocalBondLength molecule edge
+      proposed = molecule { localBonds = S.insert edge (localBonds molecule) }
+  in actual >= minBondLengthRatio * expected
+       && actual <= maxBondLengthRatio * expected
+       && wouldKeepLocalAngles proposed edge
+
+wouldKeepLocalAngles :: Molecule -> Edge -> Bool
+wouldKeepLocalAngles molecule (Edge left right) =
+  all (localAnglesOkay molecule) [left, right]
+
+localAnglesOkay :: Molecule -> AtomId -> Bool
+localAnglesOkay molecule atomId =
+  all
+    (\(left, right) -> angleBetweenAtoms molecule left atomId right >= minLocalBondAngleDegrees)
+    (neighborPairs (sort (neighborsSigma molecule atomId)))
 
 availableValence :: Molecule -> AtomId -> Double
 availableValence molecule atomId =

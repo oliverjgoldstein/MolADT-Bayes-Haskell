@@ -9,7 +9,11 @@ import           BenchmarkModel
   )
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BL8
-import           Chem.IO.MoleculeViewer (openMoleculeViewer, writeMoleculeViewerHTML)
+import           Chem.IO.MoleculeViewer
+  ( openMoleculeViewer
+  , writeMoleculeViewerCollectionHTML
+  , writeMoleculeViewerHTML
+  )
 import           Chem.IO.SDF (readSDF)
 import           Chem.IO.MoleculeJSON (moleculeFromJSON, moleculeToJSON)
 import           Chem.IO.SMILES (moleculeToSMILES, parseSMILES)
@@ -17,6 +21,7 @@ import           Chem.IO.SDFTiming (measureSdfTiming, renderTimingReport)
 import           Chem.Molecule (Molecule, atoms, localBonds, prettyPrintMolecule, systems)
 import           Chem.Validate (validateMolecule)
 import           ExampleMolecules.Diborane (diboranePretty)
+import           ExampleMolecules.Benzene (benzenePretty)
 import           ExampleMolecules.Ferrocene (ferrocenePretty)
 import           ExampleMolecules.Morphine (morphinePretty)
 import           FreeSolvInverseDesign
@@ -33,6 +38,7 @@ import           System.Environment (getArgs, lookupEnv)
 import           System.FilePath (takeBaseName, (</>))
 import           Text.Megaparsec (errorBundlePretty)
 import           Text.Read (readMaybe)
+import           SampleMolecules (methane, water)
 
 main :: IO ()
 main = do
@@ -49,6 +55,8 @@ main = do
     "pretty-example" : name : prettyArgs -> runPrettyExample name prettyArgs
     ["view-html", "--help"] -> putStrLn usage
     "view-html" : viewArgs -> runViewHtmlCli viewArgs
+    ["view-examples", "--help"] -> putStrLn usage
+    "view-examples" : viewExampleArgs -> runViewExamplesCli viewExampleArgs
     ["to-smiles", path] -> runToSMILES path
     ["to-json", path] -> runToJSON path
     ["from-json", path] -> runFromJSON path
@@ -70,6 +78,7 @@ usage = unlines
   , "  stack run moladtbayes -- parse-sdf-timing path/to/file.sdf_or_sdf_directory 1000"
   , "  stack run moladtbayes -- pretty-example morphine"
   , "  stack run moladtbayes -- pretty-example ferrocene --viewer-output results/viewer/ferrocene.viewer.html"
+  , "  stack run moladtbayes -- view-examples --output results/viewer/haskell-examples.viewer.html --open-viewer"
   , "  stack run moladtbayes -- view-html molecules/benzene.sdf --output results/viewer/benzene.viewer.html"
   , "  stack run moladtbayes -- view-html benzene.moladt.json --format json --output results/viewer/benzene.viewer.html"
   , "  stack run moladtbayes -- to-smiles molecules/benzene.sdf"
@@ -187,6 +196,24 @@ runViewHtmlCli rawArgs =
                     validMolecule
                     (viewOpenViewer options)
 
+runViewExamplesCli :: [String] -> IO ()
+runViewExamplesCli rawArgs =
+  case parseViewExamplesArgs rawArgs of
+    Left err -> putStrLn err
+    Right options ->
+      let selectedExamples =
+            case viewExampleNames options of
+              [] -> Right defaultViewerExamples
+              names -> mapMaybeViewExamples names
+      in case selectedExamples of
+           Left err -> putStrLn err
+           Right examples ->
+             writeViewerCollectionAndMaybeOpen
+               (viewExamplesOutputPath options)
+               (viewExamplesTitle options)
+               examples
+               (viewExamplesOpenViewer options)
+
 runToSMILES :: FilePath -> IO ()
 runToSMILES path = do
   parsed <- readSDF path
@@ -228,6 +255,22 @@ writeViewerAndMaybeOpen outputPath title molecule shouldOpen = do
       ++ " sigma bonds, "
       ++ show (length (systems molecule))
       ++ " bonding systems."
+  putStrLn ("Viewer HTML: " ++ written)
+  if shouldOpen
+    then do
+      opened <- openMoleculeViewer written
+      if opened
+        then putStrLn "Viewer opened."
+        else putStrLn "Viewer open request failed; open the HTML file in a browser."
+    else pure ()
+
+writeViewerCollectionAndMaybeOpen :: FilePath -> String -> [(String, Molecule)] -> Bool -> IO ()
+writeViewerCollectionAndMaybeOpen outputPath title molecules shouldOpen = do
+  written <- writeMoleculeViewerCollectionHTML outputPath title molecules
+  putStrLn $
+    "Viewer molecules: "
+      ++ show (length molecules)
+      ++ " examples."
   putStrLn ("Viewer HTML: " ++ written)
   if shouldOpen
     then do
@@ -359,6 +402,50 @@ parseViewHtmlArgs path rawArgs = go rawArgs defaultOptions
         ++ flag
         ++ "`. Use --output, --title, --format, and/or --open-viewer."
 
+data ViewExamplesOptions = ViewExamplesOptions
+  { viewExamplesOutputPath :: FilePath
+  , viewExamplesTitle :: String
+  , viewExamplesOpenViewer :: Bool
+  , viewExampleNames :: [String]
+  }
+
+parseViewExamplesArgs :: [String] -> Either String ViewExamplesOptions
+parseViewExamplesArgs rawArgs = go rawArgs defaultOptions
+  where
+    defaultOptions =
+      ViewExamplesOptions
+        { viewExamplesOutputPath = "results" </> "viewer" </> "haskell-examples.viewer.html"
+        , viewExamplesTitle = "MolADT Haskell examples"
+        , viewExamplesOpenViewer = False
+        , viewExampleNames = []
+        }
+
+    go [] options = Right options
+    go ["--help"] _ = Left usage
+    go ("--output" : outputPath : rest) options =
+      go rest options { viewExamplesOutputPath = outputPath }
+    go ("--title" : titleText : rest) options =
+      go rest options { viewExamplesTitle = titleText }
+    go ("--open-viewer" : rest) options =
+      go rest options { viewExamplesOpenViewer = True }
+    go ("--examples" : namesText : rest) options =
+      go rest options { viewExampleNames = splitNames namesText }
+    go (flag : _) _ =
+      Left $
+        "Unknown view-examples option `"
+        ++ flag
+        ++ "`. Use --output, --title, --examples, and/or --open-viewer."
+
+splitNames :: String -> [String]
+splitNames text =
+  filter (not . null) (splitOnComma text)
+  where
+    splitOnComma [] = [""]
+    splitOnComma value =
+      case break (== ',') value of
+        (left, []) -> [left]
+        (left, _ : rest) -> left : splitOnComma rest
+
 parseViewInputFormat :: String -> Maybe ViewInputFormat
 parseViewInputFormat rawValue =
   case map Char.toLower rawValue of
@@ -435,3 +522,31 @@ lookupPrettyExample rawName =
         , morphinePretty
         )
     _ -> Nothing
+
+defaultViewerExamples :: [(String, Molecule)]
+defaultViewerExamples =
+  [ ("Benzene", benzenePretty)
+  , ("Diborane", diboranePretty)
+  , ("Ferrocene", ferrocenePretty)
+  , ("Morphine", morphinePretty)
+  , ("Water", water)
+  , ("Methane", methane)
+  ]
+
+mapMaybeViewExamples :: [String] -> Either String [(String, Molecule)]
+mapMaybeViewExamples names = traverse lookupViewerExample names
+
+lookupViewerExample :: String -> Either String (String, Molecule)
+lookupViewerExample rawName =
+  case map Char.toLower rawName of
+    "benzene" -> Right ("Benzene", benzenePretty)
+    "diborane" -> Right ("Diborane", diboranePretty)
+    "ferrocene" -> Right ("Ferrocene", ferrocenePretty)
+    "morphine" -> Right ("Morphine", morphinePretty)
+    "water" -> Right ("Water", water)
+    "methane" -> Right ("Methane", methane)
+    _ ->
+      Left $
+        "Unknown viewer example `"
+        ++ rawName
+        ++ "`. Choose from benzene, diborane, ferrocene, morphine, water, methane."
