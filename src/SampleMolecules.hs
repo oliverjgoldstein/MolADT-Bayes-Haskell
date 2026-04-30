@@ -1,6 +1,4 @@
--- | Small catalogue of manually assembled molecules used across tests and
--- examples.  These definitions avoid I/O while still exercising the data
--- structures built on top of the Dietz representation.
+-- | Small catalogue of manually assembled molecules used across tests and examples.
 module SampleMolecules
   ( hydrogen
   , oxygen
@@ -8,124 +6,99 @@ module SampleMolecules
   , methane
   ) where
 
-import Chem.Molecule
-import Chem.Molecule.Coordinate (Coordinate(..), mkAngstrom)
-import Chem.Dietz (AtomId(..), Edge(..))
-import Constants (elementAttributes, elementShells)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 
-canonicalEdge :: AtomId -> AtomId -> Edge
-canonicalEdge left right
-  | left <= right = Edge left right
-  | otherwise = Edge right left
+import Chem.Dietz
+  ( AtomId(..)
+  , Edge(..)
+  , NonNegative(..)
+  , SystemId(..)
+  , mkBondingSystem
+  )
+import Chem.Molecule
+  ( Atom(..)
+  , AtomicSymbol(..)
+  , Coordinate(..)
+  , Molecule(..)
+  , SmilesAtomStereo(..)
+  , SmilesAtomStereoClass(..)
+  , SmilesBondStereo(..)
+  , SmilesBondStereoDirection(..)
+  , SmilesStereochemistry(..)
+  , emptySmilesStereochemistry
+  , mkAngstrom
+  )
+import Constants (elementAttributes, elementShells)
 
--- | A very small molecule: H2
--- | Symmetric \(\mathrm{H_2}\) molecule positioned along the x-axis.
 hydrogen :: Molecule
 hydrogen = Molecule
-  { atoms = M.fromList
-      [ (AtomId 1, hAtom 1 (Coordinate (mkAngstrom 0)    (mkAngstrom 0) (mkAngstrom 0)))
-      , (AtomId 2, hAtom 2 (Coordinate (mkAngstrom 0.74) (mkAngstrom 0) (mkAngstrom 0)))
-      ]
-  , localBonds = S.singleton (canonicalEdge (AtomId 1) (AtomId 2))
-  , systems = []
+  { atoms =
+      M.fromList
+        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.74) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        ]
+  , localBonds =
+      S.fromList
+        [ Edge (AtomId 1) (AtomId 2)
+        ]
+  , systems =
+      []
   , smilesStereochemistry = emptySmilesStereochemistry
   }
-  where
-    hAtom i coord = Atom
-      { atomID = AtomId i
-      , attributes = elementAttributes H
-      , coordinate = coord
-      , shells = elementShells H
-      , formalCharge = 0
-      }
 
--- | Molecular oxygen: O2
--- | Molecular oxygen with an equilibrium bond length taken from the
--- constants table.
 oxygen :: Molecule
 oxygen = Molecule
-  { atoms = M.fromList
-      [ (AtomId 1, oAtom 1 (Coordinate (mkAngstrom 0)    (mkAngstrom 0) (mkAngstrom 0)))
-      , (AtomId 2, oAtom 2 (Coordinate (mkAngstrom 1.21) (mkAngstrom 0) (mkAngstrom 0)))
-      ]
-  , localBonds = S.singleton (canonicalEdge (AtomId 1) (AtomId 2))
-  , systems = []
+  { atoms =
+      M.fromList
+        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
+        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 1.21) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
+        ]
+  , localBonds =
+      S.fromList
+        [ Edge (AtomId 1) (AtomId 2)
+        ]
+  , systems =
+      []
   , smilesStereochemistry = emptySmilesStereochemistry
   }
-  where
-    oAtom i coord = Atom
-      { atomID = AtomId i
-      , attributes = elementAttributes O
-      , coordinate = coord
-      , shells = elementShells O
-      , formalCharge = 0
-      }
 
--- | Water molecule H2O
--- | Bent geometry for \(\mathrm{H_2O}\) capturing the 104.5° angle in the
--- XY plane.
 water :: Molecule
 water = Molecule
-  { atoms = M.fromList
-      [ (AtomId 1, oAtom)
-      , (AtomId 2, hAtom 2 (Coordinate (mkAngstrom 0.96)  (mkAngstrom 0)    (mkAngstrom 0)))
-      , (AtomId 3, hAtom 3 (Coordinate (mkAngstrom (-0.32)) (mkAngstrom 0.90) (mkAngstrom 0)))
-      ]
-  , localBonds = S.fromList [canonicalEdge (AtomId 1) (AtomId 2), canonicalEdge (AtomId 1) (AtomId 3)]
-  , systems = []
+  { atoms =
+      M.fromList
+        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
+        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.96) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.32)) (mkAngstrom 0.9) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        ]
+  , localBonds =
+      S.fromList
+        [ Edge (AtomId 1) (AtomId 2)
+        , Edge (AtomId 1) (AtomId 3)
+        ]
+  , systems =
+      []
   , smilesStereochemistry = emptySmilesStereochemistry
   }
-  where
-    oAtom = Atom
-      { atomID = AtomId 1
-      , attributes = elementAttributes O
-      , coordinate = Coordinate (mkAngstrom 0) (mkAngstrom 0) (mkAngstrom 0)
-      , shells = elementShells O
-      , formalCharge = 0
-      }
-    hAtom i coord = Atom
-      { atomID = AtomId i
-      , attributes = elementAttributes H
-      , coordinate = coord
-      , shells = elementShells H
-      , formalCharge = 0
-      }
 
--- | Methane molecule CH4
--- | Tetrahedral \(\mathrm{CH_4}\) arrangement with one axis aligned to each
--- coordinate plane for simplicity.
 methane :: Molecule
 methane = Molecule
-  { atoms = M.fromList
-      [ (AtomId 1, cAtom)
-      , (AtomId 2, hAtom 2 (Coordinate (mkAngstrom 1.09)  (mkAngstrom 0)    (mkAngstrom 0)))
-      , (AtomId 3, hAtom 3 (Coordinate (mkAngstrom (-1.09)) (mkAngstrom 0)    (mkAngstrom 0)))
-      , (AtomId 4, hAtom 4 (Coordinate (mkAngstrom 0) (mkAngstrom 1.09) (mkAngstrom 0)))
-      , (AtomId 5, hAtom 5 (Coordinate (mkAngstrom 0) (mkAngstrom (-1.09)) (mkAngstrom 0)))
-      ]
-  , localBonds = S.fromList
-      [ canonicalEdge (AtomId 1) (AtomId 2)
-      , canonicalEdge (AtomId 1) (AtomId 3)
-      , canonicalEdge (AtomId 1) (AtomId 4)
-      , canonicalEdge (AtomId 1) (AtomId 5)
-      ]
-  , systems = []
+  { atoms =
+      M.fromList
+        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
+        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.09) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.09)) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 1.09) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-1.09)) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        ]
+  , localBonds =
+      S.fromList
+        [ Edge (AtomId 1) (AtomId 2)
+        , Edge (AtomId 1) (AtomId 3)
+        , Edge (AtomId 1) (AtomId 4)
+        , Edge (AtomId 1) (AtomId 5)
+        ]
+  , systems =
+      []
   , smilesStereochemistry = emptySmilesStereochemistry
   }
-  where
-    cAtom = Atom
-      { atomID = AtomId 1
-      , attributes = elementAttributes C
-      , coordinate = Coordinate (mkAngstrom 0) (mkAngstrom 0) (mkAngstrom 0)
-      , shells = elementShells C
-      , formalCharge = 0
-      }
-    hAtom i coord = Atom
-      { atomID = AtomId i
-      , attributes = elementAttributes H
-      , coordinate = coord
-      , shells = elementShells H
-      , formalCharge = 0
-      }

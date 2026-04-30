@@ -19,167 +19,54 @@ import Chem.Molecule
   , AtomicSymbol(..)
   , Coordinate(..)
   , Molecule(..)
+  , SmilesAtomStereo(..)
+  , SmilesAtomStereoClass(..)
+  , SmilesBondStereo(..)
+  , SmilesBondStereoDirection(..)
+  , SmilesStereochemistry(..)
   , emptySmilesStereochemistry
   , mkAngstrom
   )
 import Constants (elementAttributes, elementShells)
-import ExampleMolecules.BenzenePretty (benzenePretty)
 
 benzene :: Molecule
 benzene = Molecule
   { atoms =
       M.fromList
-        [ (c1Id, c1)
-        , (c2Id, c2)
-        , (c3Id, c3)
-        , (c4Id, c4)
-        , (c5Id, c5)
-        , (c6Id, c6)
-        , (h7Id, h7)
-        , (h8Id, h8)
-        , (h9Id, h9)
-        , (h10Id, h10)
-        , (h11Id, h11)
-        , (h12Id, h12)
+        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-1.2131)) (mkAngstrom (-0.6884)) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
+        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-1.2028)) (mkAngstrom 0.7064) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
+        , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-1.03e-2)) (mkAngstrom (-1.3948)) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
+        , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 1.04e-2) (mkAngstrom 1.3948) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
+        , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 1.2028) (mkAngstrom (-0.7063)) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
+        , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 1.2131) (mkAngstrom 0.6884) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
+        , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-2.1577)) (mkAngstrom (-1.2244)) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-2.1393)) (mkAngstrom 1.2564) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 9, Atom { atomID = AtomId 9, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.84e-2)) (mkAngstrom (-2.4809)) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 10, Atom { atomID = AtomId 10, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.84e-2) (mkAngstrom 2.4808) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 11, Atom { atomID = AtomId 11, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 2.1394) (mkAngstrom (-1.2563)) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        , (AtomId 12, Atom { atomID = AtomId 12, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 2.1577) (mkAngstrom 1.2245) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
         ]
   , localBonds =
       S.fromList
-        [ canonicalEdge c1Id c2Id
-        , canonicalEdge c2Id c3Id
-        , canonicalEdge c3Id c4Id
-        , canonicalEdge c4Id c5Id
-        , canonicalEdge c5Id c6Id
-        , canonicalEdge c6Id c1Id
-        , canonicalEdge c1Id h7Id
-        , canonicalEdge c2Id h8Id
-        , canonicalEdge c3Id h9Id
-        , canonicalEdge c4Id h10Id
-        , canonicalEdge c5Id h11Id
-        , canonicalEdge c6Id h12Id
+        [ Edge (AtomId 1) (AtomId 2)
+        , Edge (AtomId 1) (AtomId 6)
+        , Edge (AtomId 1) (AtomId 7)
+        , Edge (AtomId 2) (AtomId 3)
+        , Edge (AtomId 2) (AtomId 8)
+        , Edge (AtomId 3) (AtomId 4)
+        , Edge (AtomId 3) (AtomId 9)
+        , Edge (AtomId 4) (AtomId 5)
+        , Edge (AtomId 4) (AtomId 10)
+        , Edge (AtomId 5) (AtomId 6)
+        , Edge (AtomId 5) (AtomId 11)
+        , Edge (AtomId 6) (AtomId 12)
         ]
   , systems =
-      [ (SystemId 1, piRingSystem)
+      [ (SystemId 1, mkBondingSystem (NonNegative 6) (S.fromList [Edge (AtomId 1) (AtomId 2), Edge (AtomId 1) (AtomId 6), Edge (AtomId 2) (AtomId 3), Edge (AtomId 3) (AtomId 4), Edge (AtomId 4) (AtomId 5), Edge (AtomId 5) (AtomId 6)]) (Just "pi_ring"))
       ]
   , smilesStereochemistry = emptySmilesStereochemistry
   }
-  where
-    c1Id = AtomId 1
-    c2Id = AtomId 2
-    c3Id = AtomId 3
-    c4Id = AtomId 4
-    c5Id = AtomId 5
-    c6Id = AtomId 6
-    h7Id = AtomId 7
-    h8Id = AtomId 8
-    h9Id = AtomId 9
-    h10Id = AtomId 10
-    h11Id = AtomId 11
-    h12Id = AtomId 12
 
-    carbonAttributes = elementAttributes C
-    hydrogenAttributes = elementAttributes H
-    carbonShells = elementShells C
-    hydrogenShells = elementShells H
 
-    c1 = Atom
-      { atomID = c1Id
-      , attributes = carbonAttributes
-      , coordinate = Coordinate (mkAngstrom (-1.2131)) (mkAngstrom (-0.6884)) (mkAngstrom 0.0)
-      , shells = carbonShells
-      , formalCharge = 0
-      }
-    c2 = Atom
-      { atomID = c2Id
-      , attributes = carbonAttributes
-      , coordinate = Coordinate (mkAngstrom (-1.2028)) (mkAngstrom 0.7064) (mkAngstrom 0.0)
-      , shells = carbonShells
-      , formalCharge = 0
-      }
-    c3 = Atom
-      { atomID = c3Id
-      , attributes = carbonAttributes
-      , coordinate = Coordinate (mkAngstrom (-0.0103)) (mkAngstrom (-1.3948)) (mkAngstrom 0.0)
-      , shells = carbonShells
-      , formalCharge = 0
-      }
-    c4 = Atom
-      { atomID = c4Id
-      , attributes = carbonAttributes
-      , coordinate = Coordinate (mkAngstrom 0.0104) (mkAngstrom 1.3948) (mkAngstrom 0.0)
-      , shells = carbonShells
-      , formalCharge = 0
-      }
-    c5 = Atom
-      { atomID = c5Id
-      , attributes = carbonAttributes
-      , coordinate = Coordinate (mkAngstrom 1.2028) (mkAngstrom (-0.7063)) (mkAngstrom 0.0)
-      , shells = carbonShells
-      , formalCharge = 0
-      }
-    c6 = Atom
-      { atomID = c6Id
-      , attributes = carbonAttributes
-      , coordinate = Coordinate (mkAngstrom 1.2131) (mkAngstrom 0.6884) (mkAngstrom 0.0)
-      , shells = carbonShells
-      , formalCharge = 0
-      }
-    h7 = Atom
-      { atomID = h7Id
-      , attributes = hydrogenAttributes
-      , coordinate = Coordinate (mkAngstrom (-2.1577)) (mkAngstrom (-1.2244)) (mkAngstrom 0.0)
-      , shells = hydrogenShells
-      , formalCharge = 0
-      }
-    h8 = Atom
-      { atomID = h8Id
-      , attributes = hydrogenAttributes
-      , coordinate = Coordinate (mkAngstrom (-2.1393)) (mkAngstrom 1.2564) (mkAngstrom 0.0)
-      , shells = hydrogenShells
-      , formalCharge = 0
-      }
-    h9 = Atom
-      { atomID = h9Id
-      , attributes = hydrogenAttributes
-      , coordinate = Coordinate (mkAngstrom (-0.0184)) (mkAngstrom (-2.4809)) (mkAngstrom 0.0)
-      , shells = hydrogenShells
-      , formalCharge = 0
-      }
-    h10 = Atom
-      { atomID = h10Id
-      , attributes = hydrogenAttributes
-      , coordinate = Coordinate (mkAngstrom 0.0184) (mkAngstrom 2.4808) (mkAngstrom 0.0)
-      , shells = hydrogenShells
-      , formalCharge = 0
-      }
-    h11 = Atom
-      { atomID = h11Id
-      , attributes = hydrogenAttributes
-      , coordinate = Coordinate (mkAngstrom 2.1394) (mkAngstrom (-1.2563)) (mkAngstrom 0.0)
-      , shells = hydrogenShells
-      , formalCharge = 0
-      }
-    h12 = Atom
-      { atomID = h12Id
-      , attributes = hydrogenAttributes
-      , coordinate = Coordinate (mkAngstrom 2.1577) (mkAngstrom 1.2245) (mkAngstrom 0.0)
-      , shells = hydrogenShells
-      , formalCharge = 0
-      }
-
-    piRingEdges =
-      S.fromList
-        [ canonicalEdge c1Id c2Id
-        , canonicalEdge c2Id c3Id
-        , canonicalEdge c3Id c4Id
-        , canonicalEdge c4Id c5Id
-        , canonicalEdge c5Id c6Id
-        , canonicalEdge c6Id c1Id
-        ]
-
-    piRingSystem =
-      mkBondingSystem (NonNegative 6) piRingEdges (Just "pi_ring")
-
-canonicalEdge :: AtomId -> AtomId -> Edge
-canonicalEdge left right
-  | left <= right = Edge left right
-  | otherwise = Edge right left
+benzenePretty :: Molecule
+benzenePretty = benzene

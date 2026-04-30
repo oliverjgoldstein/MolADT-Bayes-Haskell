@@ -32,13 +32,13 @@ This is the shape of water as a typed molecule:
 water :: Molecule
 water = Molecule
   { atoms = M.fromList
-      [ (AtomId 1, oxygen)
-      , (AtomId 2, hydrogen1)
-      , (AtomId 3, hydrogen2)
+      [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
+      , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.96) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+      , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.32)) (mkAngstrom 0.9) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
       ]
   , localBonds = S.fromList
-      [ mkEdge (AtomId 1) (AtomId 2)
-      , mkEdge (AtomId 1) (AtomId 3)
+      [ Edge (AtomId 1) (AtomId 2)
+      , Edge (AtomId 1) (AtomId 3)
       ]
   , systems = []
   , smilesStereochemistry = emptySmilesStereochemistry
@@ -78,15 +78,18 @@ piRing =
   mkBondingSystem
     (NonNegative 6)
     (S.fromList
-      [ mkEdge (AtomId 1) (AtomId 2)
-      , mkEdge (AtomId 2) (AtomId 3)
-      , mkEdge (AtomId 3) (AtomId 4)
-      , mkEdge (AtomId 4) (AtomId 5)
-      , mkEdge (AtomId 5) (AtomId 6)
-      , mkEdge (AtomId 1) (AtomId 6)
+      [ Edge (AtomId 1) (AtomId 2)
+      , Edge (AtomId 1) (AtomId 6)
+      , Edge (AtomId 2) (AtomId 3)
+      , Edge (AtomId 3) (AtomId 4)
+      , Edge (AtomId 4) (AtomId 5)
+      , Edge (AtomId 5) (AtomId 6)
       ])
     (Just "pi_ring")
 ```
+
+Checked molecules use this direct canonical form: literal atoms, normalized
+`Edge` constructors, and sorted bonding systems.
 
 ## Atoms
 

@@ -1466,10 +1466,7 @@ candidateHaskellSource rank candidate result =
     , "formula = " ++ show (molecularFormula (candidateMolecule candidate))
     , ""
     , "molecule :: Molecule"
-    , "molecule = either error id (validateMolecule rawMolecule)"
-    , ""
-    , "rawMolecule :: Molecule"
-    , "rawMolecule = Molecule"
+    , "molecule = either error id (validateMolecule (Molecule"
     , "  { atoms = M.fromList"
     , "      [ " ++ intercalate "\n      , " (atomSourceLines (candidateMolecule candidate))
     , "      ]"
@@ -1480,7 +1477,7 @@ candidateHaskellSource rank candidate result =
     , "      [ " ++ intercalate "\n      , " (systemSourceLines (candidateMolecule candidate))
     , "      ]"
     , "  , smilesStereochemistry = emptySmilesStereochemistry"
-    , "  }"
+    , "  }))"
     ]
 
 atomSourceLines :: Molecule -> [String]
@@ -1488,9 +1485,9 @@ atomSourceLines molecule =
   [ "(AtomId " ++ showAtomId atomId ++ ", Atom"
       ++ " { atomID = AtomId " ++ showAtomId atomId
       ++ ", attributes = elementAttributes " ++ show (symbolOf atom)
-      ++ ", coordinate = Coordinate (mkAngstrom " ++ show coordX
-      ++ ") (mkAngstrom " ++ show coordY
-      ++ ") (mkAngstrom " ++ show coordZ ++ ")"
+      ++ ", coordinate = Coordinate (mkAngstrom " ++ showDoubleLiteral coordX
+      ++ ") (mkAngstrom " ++ showDoubleLiteral coordY
+      ++ ") (mkAngstrom " ++ showDoubleLiteral coordZ ++ ")"
       ++ ", shells = elementShells " ++ show (symbolOf atom)
       ++ ", formalCharge = " ++ show (formalCharge atom)
       ++ " })"
@@ -1503,7 +1500,7 @@ atomSourceLines molecule =
 
 edgeSourceLines :: S.Set Edge -> [String]
 edgeSourceLines edgeSet =
-  [ "mkEdge (AtomId " ++ showAtomId left ++ ") (AtomId " ++ showAtomId right ++ ")"
+  [ "Edge (AtomId " ++ showAtomId left ++ ") (AtomId " ++ showAtomId right ++ ")"
   | Edge left right <- S.toList edgeSet
   ]
 
@@ -1513,10 +1510,18 @@ systemSourceLines molecule =
       ++ ", mkBondingSystem (NonNegative " ++ show (getNN (sharedElectrons system))
       ++ ") (S.fromList ["
       ++ intercalate ", " (edgeSourceLines (memberEdges system))
-      ++ "]) " ++ maybe "Nothing" (("Just " ++) . show) (tag system)
+      ++ "]) " ++ maybe "Nothing" (("Just " ++) . showMaybeString) (tag system)
       ++ ")"
   | (SystemId systemIdValue, system) <- systems molecule
   ]
+
+showDoubleLiteral :: Double -> String
+showDoubleLiteral value
+  | value < 0 = "(" ++ show value ++ ")"
+  | otherwise = show value
+
+showMaybeString :: String -> String
+showMaybeString value = "(" ++ show value ++ ")"
 
 printSearchResult :: SearchResult -> IO ()
 printSearchResult result = putStrLn (renderSearchResult result)
