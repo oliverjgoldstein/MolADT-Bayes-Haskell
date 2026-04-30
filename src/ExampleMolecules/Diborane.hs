@@ -1,14 +1,4 @@
--- Diborane (B2H6) with two 3c–2e bridges as Dietz pools.
---
--- Atom IDs:
---   1..2   = boron atoms
---   3..4   = bridging hydrogens
---   5..8   = terminal hydrogens
---
--- If you want PubChem 3D SDF coords, replace coordinate lists using:
---   https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/12544637/record/SDF?record_type=3d
--- (CID 12544637 is diborane on PubChem).
-
+-- | Diborane (B2H6) with two explicit 3c-2e bridge systems.
 module ExampleMolecules.Diborane (diboranePretty) where
 
 import qualified Data.Map.Strict as M
@@ -17,109 +7,138 @@ import qualified Data.Set as S
 import Chem.Dietz
   ( AtomId(..)
   , Edge(..)
-  , SystemId(..)
   , NonNegative(..)
+  , SystemId(..)
   , mkBondingSystem
   )
 import Chem.Molecule
-  ( AtomicSymbol(..)
-  , Molecule(..)
-  , Atom(..)
+  ( Atom(..)
+  , AtomicSymbol(..)
   , Coordinate(..)
-  , mkAngstrom
+  , Molecule(..)
   , emptySmilesStereochemistry
+  , mkAngstrom
   )
 import Constants (elementAttributes, elementShells)
 
 diboranePretty :: Molecule
 diboranePretty = Molecule
-  { atoms      = atomTable
-  , localBonds = sigmaFramework
-  , systems    =
+  { atoms =
+      M.fromList
+        [ (b1Id, b1)
+        , (b2Id, b2)
+        , (h3Id, h3)
+        , (h4Id, h4)
+        , (h5Id, h5)
+        , (h6Id, h6)
+        , (h7Id, h7)
+        , (h8Id, h8)
+        ]
+  , localBonds =
+      S.fromList
+        [ canonicalEdge b1Id b2Id
+        , canonicalEdge b1Id h5Id
+        , canonicalEdge b1Id h6Id
+        , canonicalEdge b2Id h7Id
+        , canonicalEdge b2Id h8Id
+        ]
+  , systems =
       [ (SystemId 1, bridgeH3System)
       , (SystemId 2, bridgeH4System)
       ]
   , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
-    -- Atom IDs
-    b1 = AtomId 1
-    b2 = AtomId 2
+    b1Id = AtomId 1
+    b2Id = AtomId 2
+    h3Id = AtomId 3
+    h4Id = AtomId 4
+    h5Id = AtomId 5
+    h6Id = AtomId 6
+    h7Id = AtomId 7
+    h8Id = AtomId 8
 
-    h3 = AtomId 3  -- bridge
-    h4 = AtomId 4  -- bridge
-
-    h5 = AtomId 5  -- terminal on b1
-    h6 = AtomId 6  -- terminal on b1
-    h7 = AtomId 7  -- terminal on b2
-    h8 = AtomId 8  -- terminal on b2
-
-    -- Shared element data
-    boronAttributes    = elementAttributes B
+    boronAttributes = elementAttributes B
     hydrogenAttributes = elementAttributes H
-
-    boronShells    = elementShells B
+    boronShells = elementShells B
     hydrogenShells = elementShells H
 
-    -- Helpers
-    coord (x,y,z) =
-      Coordinate (mkAngstrom x) (mkAngstrom y) (mkAngstrom z)
-
-    mkAtom aid attrs sh xyz = Atom
-      { atomID       = aid
-      , attributes   = attrs
-      , coordinate   = coord xyz
-      , shells       = sh
+    b1 = Atom
+      { atomID = b1Id
+      , attributes = boronAttributes
+      , coordinate = Coordinate (mkAngstrom (-0.8850)) (mkAngstrom 0.0000) (mkAngstrom 0.0000)
+      , shells = boronShells
+      , formalCharge = 0
+      }
+    b2 = Atom
+      { atomID = b2Id
+      , attributes = boronAttributes
+      , coordinate = Coordinate (mkAngstrom 0.8850) (mkAngstrom 0.0000) (mkAngstrom 0.0000)
+      , shells = boronShells
+      , formalCharge = 0
+      }
+    h3 = Atom
+      { atomID = h3Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom 0.0000) (mkAngstrom 0.0000) (mkAngstrom 0.9928)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h4 = Atom
+      { atomID = h4Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom 0.0000) (mkAngstrom 0.0000) (mkAngstrom (-0.9928))
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h5 = Atom
+      { atomID = h5Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom (-0.8850)) (mkAngstrom 1.1900) (mkAngstrom 0.0000)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h6 = Atom
+      { atomID = h6Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom (-0.8850)) (mkAngstrom (-1.1900)) (mkAngstrom 0.0000)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h7 = Atom
+      { atomID = h7Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom 0.8850) (mkAngstrom 1.1900) (mkAngstrom 0.0000)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h8 = Atom
+      { atomID = h8Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom 0.8850) (mkAngstrom (-1.1900)) (mkAngstrom 0.0000)
+      , shells = hydrogenShells
       , formalCharge = 0
       }
 
-    edgeSetFromPairs = S.fromList . map (uncurry canonicalEdge)
+    bridgeH3Edges =
+      S.fromList
+        [ canonicalEdge b1Id h3Id
+        , canonicalEdge b2Id h3Id
+        ]
 
-    canonicalEdge left right
-      | left <= right = Edge left right
-      | otherwise = Edge right left
-
-    -- Idealised D2h-like geometry (Å), chosen to make bridges explicit.
-    bCoords =
-      [ (-0.8850,  0.0000,  0.0000)  -- B1
-      , ( 0.8850,  0.0000,  0.0000)  -- B2
-      ]
-
-    hCoords =
-      [ ( 0.0000,  0.0000,  0.9928)  -- H3 bridge
-      , ( 0.0000,  0.0000, -0.9928)  -- H4 bridge
-      , (-0.8850,  1.1900,  0.0000)  -- H5 terminal (B1)
-      , (-0.8850, -1.1900,  0.0000)  -- H6 terminal (B1)
-      , ( 0.8850,  1.1900,  0.0000)  -- H7 terminal (B2)
-      , ( 0.8850, -1.1900,  0.0000)  -- H8 terminal (B2)
-      ]
-
-    boronAtoms =
-      zipWith (\aid xyz -> mkAtom aid boronAttributes boronShells xyz)
-              [b1,b2]
-              bCoords
-
-    hydrogenAtoms =
-      zipWith (\aid xyz -> mkAtom aid hydrogenAttributes hydrogenShells xyz)
-              [h3,h4,h5,h6,h7,h8]
-              hCoords
-
-    allAtoms = boronAtoms ++ hydrogenAtoms
-    atomTable = M.fromList [(atomID a, a) | a <- allAtoms]
-
-    -- σ adjacency: B–B and four terminal B–H bonds
-    sigmaFramework =
-      edgeSetFromPairs [ (b1,b2)
-                       , (b1,h5), (b1,h6)
-                       , (b2,h7), (b2,h8)
-                       ]
-
-    -- 3c–2e bridges as Dietz pools (2 electrons shared over two edges)
-    bridgeH3Edges = edgeSetFromPairs [(b1,h3), (b2,h3)]
-    bridgeH4Edges = edgeSetFromPairs [(b1,h4), (b2,h4)]
+    bridgeH4Edges =
+      S.fromList
+        [ canonicalEdge b1Id h4Id
+        , canonicalEdge b2Id h4Id
+        ]
 
     bridgeH3System =
       mkBondingSystem (NonNegative 2) bridgeH3Edges (Just "bridge_h3_3c2e")
 
     bridgeH4System =
       mkBondingSystem (NonNegative 2) bridgeH4Edges (Just "bridge_h4_3c2e")
+
+canonicalEdge :: AtomId -> AtomId -> Edge
+canonicalEdge left right
+  | left <= right = Edge left right
+  | otherwise = Edge right left

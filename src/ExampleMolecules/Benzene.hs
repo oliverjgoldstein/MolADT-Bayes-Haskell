@@ -1,82 +1,185 @@
--- | Hand-crafted description of benzene expressed with the core molecule
--- datatypes.  The module is useful both for unit tests and as a readable
--- example of how Dietz bonding systems are assembled.  The goal of this
--- module is pedagogy as much as correctness, so we deliberately trade a few
--- extra lines of code for clearer naming and a more direct mirroring of the
--- chemical structure.
+-- | Hand-crafted benzene expressed directly with the core molecule datatypes.
 module ExampleMolecules.Benzene
   ( benzene
   , benzenePretty
   ) where
 
-import Chem.Molecule
-import Chem.Dietz
-import Constants (elementAttributes, elementShells)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
+
+import Chem.Dietz
+  ( AtomId(..)
+  , Edge(..)
+  , NonNegative(..)
+  , SystemId(..)
+  , mkBondingSystem
+  )
+import Chem.Molecule
+  ( Atom(..)
+  , AtomicSymbol(..)
+  , Coordinate(..)
+  , Molecule(..)
+  , emptySmilesStereochemistry
+  , mkAngstrom
+  )
+import Constants (elementAttributes, elementShells)
 import ExampleMolecules.BenzenePretty (benzenePretty)
 
--- | Canonical benzene example consisting of six carbons and six hydrogens.
--- The ring carbons form both a sigma cycle and a delocalised \(\pi\)-system.
 benzene :: Molecule
 benzene = Molecule
   { atoms =
       M.fromList
-        [ ( atomId
-          , Atom { atomID       = atomId
-                 , attributes   = elementAttributes sym
-                 , coordinate   = Coordinate (mkAngstrom x)
-                                               (mkAngstrom y)
-                                               (mkAngstrom z)
-                 , shells       = elementShells sym
-                 , formalCharge = 0
-                 }
-          )
-        | (i, sym, x, y, z) <- atomsData
-        , let atomId = AtomId i
+        [ (c1Id, c1)
+        , (c2Id, c2)
+        , (c3Id, c3)
+        , (c4Id, c4)
+        , (c5Id, c5)
+        , (c6Id, c6)
+        , (h7Id, h7)
+        , (h8Id, h8)
+        , (h9Id, h9)
+        , (h10Id, h10)
+        , (h11Id, h11)
+        , (h12Id, h12)
         ]
   , localBonds =
-      S.fromList [edgeFromPair pair | pair <- sigmaEdges]
+      S.fromList
+        [ canonicalEdge c1Id c2Id
+        , canonicalEdge c2Id c3Id
+        , canonicalEdge c3Id c4Id
+        , canonicalEdge c4Id c5Id
+        , canonicalEdge c5Id c6Id
+        , canonicalEdge c6Id c1Id
+        , canonicalEdge c1Id h7Id
+        , canonicalEdge c2Id h8Id
+        , canonicalEdge c3Id h9Id
+        , canonicalEdge c4Id h10Id
+        , canonicalEdge c5Id h11Id
+        , canonicalEdge c6Id h12Id
+        ]
   , systems =
-      [(SystemId 1, piSystem)]
+      [ (SystemId 1, piRingSystem)
+      ]
   , smilesStereochemistry = emptySmilesStereochemistry
   }
   where
-    piSystem =
-      mkBondingSystem
-        (NonNegative (length ringCarbonIds))
-        (S.fromList [edgeFromPair pair | pair <- ringEdges])
-        (Just "pi_ring")
+    c1Id = AtomId 1
+    c2Id = AtomId 2
+    c3Id = AtomId 3
+    c4Id = AtomId 4
+    c5Id = AtomId 5
+    c6Id = AtomId 6
+    h7Id = AtomId 7
+    h8Id = AtomId 8
+    h9Id = AtomId 9
+    h10Id = AtomId 10
+    h11Id = AtomId 11
+    h12Id = AtomId 12
 
-    edgeFromPair (a, b) = canonicalEdge (AtomId a) (AtomId b)
+    carbonAttributes = elementAttributes C
+    hydrogenAttributes = elementAttributes H
+    carbonShells = elementShells C
+    hydrogenShells = elementShells H
 
-    canonicalEdge left right
-      | left <= right = Edge left right
-      | otherwise = Edge right left
+    c1 = Atom
+      { atomID = c1Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom (-1.2131)) (mkAngstrom (-0.6884)) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c2 = Atom
+      { atomID = c2Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom (-1.2028)) (mkAngstrom 0.7064) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c3 = Atom
+      { atomID = c3Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom (-0.0103)) (mkAngstrom (-1.3948)) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c4 = Atom
+      { atomID = c4Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 0.0104) (mkAngstrom 1.3948) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c5 = Atom
+      { atomID = c5Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 1.2028) (mkAngstrom (-0.7063)) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c6 = Atom
+      { atomID = c6Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 1.2131) (mkAngstrom 0.6884) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    h7 = Atom
+      { atomID = h7Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom (-2.1577)) (mkAngstrom (-1.2244)) (mkAngstrom 0.0)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h8 = Atom
+      { atomID = h8Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom (-2.1393)) (mkAngstrom 1.2564) (mkAngstrom 0.0)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h9 = Atom
+      { atomID = h9Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom (-0.0184)) (mkAngstrom (-2.4809)) (mkAngstrom 0.0)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h10 = Atom
+      { atomID = h10Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom 0.0184) (mkAngstrom 2.4808) (mkAngstrom 0.0)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h11 = Atom
+      { atomID = h11Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom 2.1394) (mkAngstrom (-1.2563)) (mkAngstrom 0.0)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
+    h12 = Atom
+      { atomID = h12Id
+      , attributes = hydrogenAttributes
+      , coordinate = Coordinate (mkAngstrom 2.1577) (mkAngstrom 1.2245) (mkAngstrom 0.0)
+      , shells = hydrogenShells
+      , formalCharge = 0
+      }
 
-    -- Carbon atoms occupy indices 1–6, hydrogens 7–12.
-    ringCarbonIds = [1 .. 6]
-    hydrogenIds   = [7 .. 12]
+    piRingEdges =
+      S.fromList
+        [ canonicalEdge c1Id c2Id
+        , canonicalEdge c2Id c3Id
+        , canonicalEdge c3Id c4Id
+        , canonicalEdge c4Id c5Id
+        , canonicalEdge c5Id c6Id
+        , canonicalEdge c6Id c1Id
+        ]
 
-    ringEdges = zip ringCarbonIds (rotate ringCarbonIds)
-    carbonHydrogenEdges = zip ringCarbonIds hydrogenIds
-    sigmaEdges = ringEdges ++ carbonHydrogenEdges
+    piRingSystem =
+      mkBondingSystem (NonNegative 6) piRingEdges (Just "pi_ring")
 
-    rotate [] = []
-    rotate (x:xs) = xs ++ [x]
-
--- | Experimental geometry for the carbon ring (C1–C6) and hydrogens (H7–H12).
-atomsData :: [(Integer, AtomicSymbol, Double, Double, Double)]
-atomsData =
-  [ ( 1, C, -1.2131, -0.6884, 0.0)
-  , ( 2, C, -1.2028,  0.7064, 0.0)
-  , ( 3, C, -0.0103, -1.3948, 0.0)
-  , ( 4, C,  0.0104,  1.3948, 0.0)
-  , ( 5, C,  1.2028, -0.7063, 0.0)
-  , ( 6, C,  1.2131,  0.6884, 0.0)
-  , ( 7, H, -2.1577, -1.2244, 0.0)
-  , ( 8, H, -2.1393,  1.2564, 0.0)
-  , ( 9, H, -0.0184, -2.4809, 0.0)
-  , (10, H,  0.0184,  2.4808, 0.0)
-  , (11, H,  2.1394, -1.2563, 0.0)
-  , (12, H,  2.1577,  1.2245, 0.0)]
+canonicalEdge :: AtomId -> AtomId -> Edge
+canonicalEdge left right
+  | left <= right = Edge left right
+  | otherwise = Edge right left

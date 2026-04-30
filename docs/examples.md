@@ -39,13 +39,39 @@ available to code.
 For example, diborane is represented with named bridge systems:
 
 ```haskell
-systems =
-  [ (SystemId 1, mkBondingSystem (NonNegative 2) bridgeH3Edges (Just "bridge_h3_3c2e"))
-  , (SystemId 2, mkBondingSystem (NonNegative 2) bridgeH4Edges (Just "bridge_h4_3c2e"))
-  ]
+diboranePretty :: Molecule
+diboranePretty = Molecule
+  { atoms =
+      M.fromList
+        [ (AtomId 1, b1)
+        , (AtomId 2, b2)
+        , (AtomId 3, h3)
+        , (AtomId 4, h4)
+        , (AtomId 5, h5)
+        , (AtomId 6, h6)
+        , (AtomId 7, h7)
+        , (AtomId 8, h8)
+        ]
+  , localBonds =
+      S.fromList
+        [ canonicalEdge (AtomId 1) (AtomId 2)
+        , canonicalEdge (AtomId 1) (AtomId 5)
+        , canonicalEdge (AtomId 1) (AtomId 6)
+        , canonicalEdge (AtomId 2) (AtomId 7)
+        , canonicalEdge (AtomId 2) (AtomId 8)
+        ]
+  , systems =
+      [ (SystemId 1, bridgeH3System)
+      , (SystemId 2, bridgeH4System)
+      ]
+  , smilesStereochemistry = emptySmilesStereochemistry
+  }
 ```
 
-That is the kind of structure a Bayesian proposal kernel can edit directly.
+The checked examples are intentionally expanded like this. They do not hide
+atoms, sigma edges, or bonding-system edges behind ranges, zips, or generated
+tables. That is the kind of structure a Bayesian proposal kernel can edit
+directly.
 
 Viewer version:
 

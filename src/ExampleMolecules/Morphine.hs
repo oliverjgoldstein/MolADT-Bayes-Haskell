@@ -11,13 +11,6 @@
 --   3 -> (7, 18)
 --   4 -> (9, 21)
 --   5 -> (10, 16)
---
--- The constitutional point is explicit in the ADT:
---   - localBonds stores the sigma framework directly
---   - one 2e system marks the alkene bridge
---   - one 6e system marks the phenyl pi ring
---
--- Coordinates are schematic rather than experimental.
 module ExampleMolecules.Morphine
   ( morphinePretty
   , morphineRingClosureSmiles
@@ -50,8 +43,58 @@ morphineRingClosureSmiles = "CN1CC[C@]23C4=C5C=CC(O)=C4O[C@H]2[C@@H](O)C=C[C@H]3
 
 morphinePretty :: Molecule
 morphinePretty = Molecule
-  { atoms = atomTable
-  , localBonds = S.fromList [edgeFromPair pair | pair <- sigmaEdges]
+  { atoms =
+      M.fromList
+        [ (o1Id, o1)
+        , (c2Id, c2)
+        , (c3Id, c3)
+        , (o4Id, o4)
+        , (c5Id, c5)
+        , (c6Id, c6)
+        , (c7Id, c7)
+        , (c8Id, c8)
+        , (c9Id, c9)
+        , (c10Id, c10)
+        , (c11Id, c11)
+        , (c12Id, c12)
+        , (o13Id, o13)
+        , (c14Id, c14)
+        , (c15Id, c15)
+        , (c16Id, c16)
+        , (c17Id, c17)
+        , (c18Id, c18)
+        , (n19Id, n19)
+        , (c20Id, c20)
+        , (c21Id, c21)
+        ]
+  , localBonds =
+      S.fromList
+        [ canonicalEdge o1Id c2Id
+        , canonicalEdge o1Id c11Id
+        , canonicalEdge c2Id c3Id
+        , canonicalEdge c2Id c8Id
+        , canonicalEdge c3Id o4Id
+        , canonicalEdge c3Id c5Id
+        , canonicalEdge c5Id c6Id
+        , canonicalEdge c6Id c7Id
+        , canonicalEdge c7Id c8Id
+        , canonicalEdge c7Id c18Id
+        , canonicalEdge c8Id c9Id
+        , canonicalEdge c8Id c10Id
+        , canonicalEdge c9Id c21Id
+        , canonicalEdge c10Id c11Id
+        , canonicalEdge c10Id c16Id
+        , canonicalEdge c11Id c12Id
+        , canonicalEdge c12Id o13Id
+        , canonicalEdge c12Id c14Id
+        , canonicalEdge c14Id c15Id
+        , canonicalEdge c15Id c16Id
+        , canonicalEdge c16Id c17Id
+        , canonicalEdge c17Id c18Id
+        , canonicalEdge c18Id n19Id
+        , canonicalEdge n19Id c20Id
+        , canonicalEdge n19Id c21Id
+        ]
   , systems =
       [ (SystemId 1, alkeneBridgeSystem)
       , (SystemId 2, phenylPiRingSystem)
@@ -59,110 +102,215 @@ morphinePretty = Molecule
   , smilesStereochemistry =
       SmilesStereochemistry
         { atomStereoAnnotations =
-            [ SmilesAtomStereo (AtomId 2) StereoTetrahedral 1 "@"
-            , SmilesAtomStereo (AtomId 3) StereoTetrahedral 2 "@@"
-            , SmilesAtomStereo (AtomId 7) StereoTetrahedral 1 "@"
-            , SmilesAtomStereo (AtomId 8) StereoTetrahedral 1 "@"
-            , SmilesAtomStereo (AtomId 18) StereoTetrahedral 1 "@"
+            [ SmilesAtomStereo c2Id StereoTetrahedral 1 "@"
+            , SmilesAtomStereo c3Id StereoTetrahedral 2 "@@"
+            , SmilesAtomStereo c7Id StereoTetrahedral 1 "@"
+            , SmilesAtomStereo c8Id StereoTetrahedral 1 "@"
+            , SmilesAtomStereo c18Id StereoTetrahedral 1 "@"
             ]
         , bondStereoAnnotations = []
         }
   }
   where
-    atomTable =
-      M.fromList
-        [ ( aid
-          , Atom
-              { atomID = aid
-              , attributes = elementAttributes sym
-              , coordinate = Coordinate (mkAngstrom x) (mkAngstrom y) (mkAngstrom z)
-              , shells = elementShells sym
-              , formalCharge = 0
-              }
-          )
-        | (i, sym, x, y, z) <- atomsData
-        , let aid = AtomId i
+    o1Id = AtomId 1
+    c2Id = AtomId 2
+    c3Id = AtomId 3
+    o4Id = AtomId 4
+    c5Id = AtomId 5
+    c6Id = AtomId 6
+    c7Id = AtomId 7
+    c8Id = AtomId 8
+    c9Id = AtomId 9
+    c10Id = AtomId 10
+    c11Id = AtomId 11
+    c12Id = AtomId 12
+    o13Id = AtomId 13
+    c14Id = AtomId 14
+    c15Id = AtomId 15
+    c16Id = AtomId 16
+    c17Id = AtomId 17
+    c18Id = AtomId 18
+    n19Id = AtomId 19
+    c20Id = AtomId 20
+    c21Id = AtomId 21
+
+    oxygenAttributes = elementAttributes O
+    carbonAttributes = elementAttributes C
+    nitrogenAttributes = elementAttributes N
+    oxygenShells = elementShells O
+    carbonShells = elementShells C
+    nitrogenShells = elementShells N
+
+    o1 = Atom
+      { atomID = o1Id
+      , attributes = oxygenAttributes
+      , coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0)
+      , shells = oxygenShells
+      , formalCharge = 0
+      }
+    c2 = Atom
+      { atomID = c2Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 1.0) (mkAngstrom 0.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c3 = Atom
+      { atomID = c3Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 2.0) (mkAngstrom 0.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    o4 = Atom
+      { atomID = o4Id
+      , attributes = oxygenAttributes
+      , coordinate = Coordinate (mkAngstrom 2.0) (mkAngstrom (-0.4)) (mkAngstrom 0.0)
+      , shells = oxygenShells
+      , formalCharge = 0
+      }
+    c5 = Atom
+      { atomID = c5Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 3.0) (mkAngstrom 0.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c6 = Atom
+      { atomID = c6Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 4.0) (mkAngstrom 0.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c7 = Atom
+      { atomID = c7Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 5.0) (mkAngstrom 0.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c8 = Atom
+      { atomID = c8Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 1.8) (mkAngstrom 2.0) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c9 = Atom
+      { atomID = c9Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 2.8) (mkAngstrom 2.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c10 = Atom
+      { atomID = c10Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 3.8) (mkAngstrom 2.0) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c11 = Atom
+      { atomID = c11Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 0.8) (mkAngstrom 2.0) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c12 = Atom
+      { atomID = c12Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 1.2) (mkAngstrom 3.2) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    o13 = Atom
+      { atomID = o13Id
+      , attributes = oxygenAttributes
+      , coordinate = Coordinate (mkAngstrom 0.4) (mkAngstrom 4.0) (mkAngstrom 0.0)
+      , shells = oxygenShells
+      , formalCharge = 0
+      }
+    c14 = Atom
+      { atomID = c14Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 2.4) (mkAngstrom 3.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c15 = Atom
+      { atomID = c15Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 3.6) (mkAngstrom 3.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c16 = Atom
+      { atomID = c16Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 4.2) (mkAngstrom 2.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c17 = Atom
+      { atomID = c17Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 5.4) (mkAngstrom 2.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c18 = Atom
+      { atomID = c18Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 6.2) (mkAngstrom 1.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    n19 = Atom
+      { atomID = n19Id
+      , attributes = nitrogenAttributes
+      , coordinate = Coordinate (mkAngstrom 7.2) (mkAngstrom 1.8) (mkAngstrom 0.0)
+      , shells = nitrogenShells
+      , formalCharge = 0
+      }
+    c20 = Atom
+      { atomID = c20Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 8.2) (mkAngstrom 2.4) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+    c21 = Atom
+      { atomID = c21Id
+      , attributes = carbonAttributes
+      , coordinate = Coordinate (mkAngstrom 6.0) (mkAngstrom 2.8) (mkAngstrom 0.0)
+      , shells = carbonShells
+      , formalCharge = 0
+      }
+
+    alkeneBridgeEdges =
+      S.fromList
+        [ canonicalEdge c5Id c6Id
         ]
 
-    atomsData =
-      [ ( 1, O, 0.0, 0.0, 0.0)
-      , ( 2, C, 1.0, 0.8, 0.0)
-      , ( 3, C, 2.0, 0.8, 0.0)
-      , ( 4, O, 2.0, -0.4, 0.0)
-      , ( 5, C, 3.0, 0.8, 0.0)
-      , ( 6, C, 4.0, 0.8, 0.0)
-      , ( 7, C, 5.0, 0.8, 0.0)
-      , ( 8, C, 1.8, 2.0, 0.0)
-      , ( 9, C, 2.8, 2.8, 0.0)
-      , (10, C, 3.8, 2.0, 0.0)
-      , (11, C, 0.8, 2.0, 0.0)
-      , (12, C, 1.2, 3.2, 0.0)
-      , (13, O, 0.4, 4.0, 0.0)
-      , (14, C, 2.4, 3.8, 0.0)
-      , (15, C, 3.6, 3.8, 0.0)
-      , (16, C, 4.2, 2.8, 0.0)
-      , (17, C, 5.4, 2.8, 0.0)
-      , (18, C, 6.2, 1.8, 0.0)
-      , (19, N, 7.2, 1.8, 0.0)
-      , (20, C, 8.2, 2.4, 0.0)
-      , (21, C, 6.0, 2.8, 0.0)
-      ]
-
-    sigmaEdges =
-      [ (1, 2)
-      , (1, 11)
-      , (2, 3)
-      , (2, 8)
-      , (3, 4)
-      , (3, 5)
-      , (5, 6)
-      , (6, 7)
-      , (7, 8)
-      , (7, 18)
-      , (8, 9)
-      , (8, 10)
-      , (9, 21)
-      , (10, 11)
-      , (10, 16)
-      , (11, 12)
-      , (12, 13)
-      , (12, 14)
-      , (14, 15)
-      , (15, 16)
-      , (16, 17)
-      , (17, 18)
-      , (18, 19)
-      , (19, 20)
-      , (19, 21)
-      ]
-
-    alkeneEdges =
-      [ (5, 6)
-      ]
-
     phenylPiRingEdges =
-      [ (10, 11)
-      , (11, 12)
-      , (12, 14)
-      , (14, 15)
-      , (15, 16)
-      , (10, 16)
-      ]
-
-    edgeFromPair (a, b) = canonicalEdge (AtomId a) (AtomId b)
-
-    canonicalEdge left right
-      | left <= right = Edge left right
-      | otherwise = Edge right left
+      S.fromList
+        [ canonicalEdge c10Id c11Id
+        , canonicalEdge c11Id c12Id
+        , canonicalEdge c12Id c14Id
+        , canonicalEdge c14Id c15Id
+        , canonicalEdge c15Id c16Id
+        , canonicalEdge c10Id c16Id
+        ]
 
     alkeneBridgeSystem =
-      mkBondingSystem
-        (NonNegative 2)
-        (S.fromList [edgeFromPair pair | pair <- alkeneEdges])
-        (Just "alkene_bridge")
+      mkBondingSystem (NonNegative 2) alkeneBridgeEdges (Just "alkene_bridge")
 
     phenylPiRingSystem =
-      mkBondingSystem
-        (NonNegative 6)
-        (S.fromList [edgeFromPair pair | pair <- phenylPiRingEdges])
-        (Just "phenyl_pi_ring")
+      mkBondingSystem (NonNegative 6) phenylPiRingEdges (Just "phenyl_pi_ring")
+
+canonicalEdge :: AtomId -> AtomId -> Edge
+canonicalEdge left right
+  | left <= right = Edge left right
+  | otherwise = Edge right left
