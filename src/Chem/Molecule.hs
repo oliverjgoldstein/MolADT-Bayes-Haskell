@@ -21,6 +21,7 @@ module Chem.Molecule
   , emptySmilesStereochemistry
   , Molecule(..)
     -- * Helpers
+  , sameMolecule
   , addSigma
   , distanceAngstrom
   , neighborsSigma
@@ -114,6 +115,71 @@ data Molecule = Molecule
   } deriving (Eq, Show, Read, Generic, NFData)
 
 -- ===== Small helpers =====
+
+type CanonicalBondingSystem =
+  ( NonNegative
+  , [AtomId]
+  , [(AtomId, AtomId)]
+  , Maybe String
+  )
+
+type CanonicalStereochemistry =
+  ( [(AtomId, SmilesAtomStereoClass, Int, String)]
+  , [(AtomId, AtomId, SmilesBondStereoDirection)]
+  )
+
+type CanonicalMolecule =
+  ( [(AtomId, Atom)]
+  , [(AtomId, AtomId)]
+  , [(SystemId, CanonicalBondingSystem)]
+  , CanonicalStereochemistry
+  )
+
+-- | Order-insensitive molecule equality for the MolADT containers.
+--
+-- This preserves the meaning of atom and system identifiers, but ignores
+-- incidental ordering of maps, sets, bonding-system lists, and stereochemistry
+-- annotation lists.
+sameMolecule :: Molecule -> Molecule -> Bool
+sameMolecule left right = canonicalMoleculeKey left == canonicalMoleculeKey right
+
+canonicalMoleculeKey :: Molecule -> CanonicalMolecule
+canonicalMoleculeKey molecule =
+  ( M.toAscList (atoms molecule)
+  , canonicalEdges (localBonds molecule)
+  , sort [ (systemId, canonicalBondingSystem system)
+         | (systemId, system) <- systems molecule
+         ]
+  , canonicalStereochemistry (smilesStereochemistry molecule)
+  )
+
+canonicalBondingSystem :: BondingSystem -> CanonicalBondingSystem
+canonicalBondingSystem system =
+  ( sharedElectrons system
+  , S.toAscList (memberAtoms system)
+  , canonicalEdges (memberEdges system)
+  , tag system
+  )
+
+canonicalEdges :: Set Edge -> [(AtomId, AtomId)]
+canonicalEdges = sort . map canonicalEdge . S.toList
+
+canonicalEdge :: Edge -> (AtomId, AtomId)
+canonicalEdge (Edge left right)
+  | left <= right = (left, right)
+  | otherwise     = (right, left)
+
+canonicalStereochemistry :: SmilesStereochemistry -> CanonicalStereochemistry
+canonicalStereochemistry stereo =
+  ( sort
+      [ (stereoCenter item, stereoClass item, stereoConfiguration item, stereoToken item)
+      | item <- atomStereoAnnotations stereo
+      ]
+  , sort
+      [ (bondStereoStart item, bondStereoEnd item, bondStereoDirection item)
+      | item <- bondStereoAnnotations stereo
+      ]
+  )
 
 -- | Insert a \963 bond between two atoms (undirected).
 addSigma :: AtomId -> AtomId -> Molecule -> Molecule

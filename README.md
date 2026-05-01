@@ -13,8 +13,8 @@ Molecule = atoms + sigma edges + bonding systems + stereochemistry
 
 [Quickstart](docs/quickstart.md) | [ADT](docs/data-model.md) |
 [Representation](docs/representation.md) | [Examples](docs/examples.md) |
-[CLI](docs/cli-and-demo.md) | [Viewer](docs/parsing.md#viewer) |
-[Inference](docs/inference.md)
+[Equality](docs/molecule-equality.md) | [CLI](docs/cli-and-demo.md) |
+[Viewer](docs/parsing.md#viewer) | [Inference](docs/inference.md)
 
 ## Why MolADT
 
@@ -49,6 +49,10 @@ data Molecule = Molecule
   , smilesStereochemistry :: SmilesStereochemistry
   }
 ```
+
+Use [`sameMolecule`](docs/molecule-equality.md) when you want equality modulo
+container ordering, such as maps, edge sets, system lists, and annotation lists.
+It keeps atom and system identifiers meaningful.
 
 The point is not to replace SMILES or SDF. The point is to parse them into a
 typed structure where the chemistry is available as data.
@@ -113,6 +117,7 @@ For the full first-run path, use [Quickstart](docs/quickstart.md).
 | Understand the ADT | [ADT Representation](docs/data-model.md) |
 | See why MolADT is not just a graph | [Representation](docs/representation.md) |
 | Inspect benzene, morphine, diborane, or ferrocene | [Examples](docs/examples.md) |
+| Compare reordered molecules | [Molecule Equality](docs/molecule-equality.md) |
 | Parse SDF, SMILES, or MolADT JSON | [CLI and Demo](docs/cli-and-demo.md) |
 | Export a standalone HTML viewer | [Parsing and Rendering](docs/parsing.md#viewer) |
 | Check parser scope and validation rules | [SMILES Scope and Validation](docs/smiles-scope-and-validation.md) |
