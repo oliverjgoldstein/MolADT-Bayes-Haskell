@@ -3,8 +3,8 @@
 
 -- | Molecule ADT built on Dietz constitution:
 --   - atoms      : Map AtomId Atom (element data, charge, coordinates)
---   - localBonds : \963 adjacency as undirected edges (2e -> 1e per endpoint)
---   - systems    : Dietz bonding systems (delocalized/multicenter pools)
+--   - localBonds : derived edge index for traversal/legacy callers
+--   - systems    : Dietz bonding systems, including one-edge 2/4/6e bonds
 --   Distances/coordinates are stored in Angstroms.
 
 module Chem.Molecule
@@ -22,6 +22,8 @@ module Chem.Molecule
   , Molecule(..)
     -- * Helpers
   , sameMolecule
+  , allSystems
+  , withLocalBondsAsSystems
   , addSigma
   , distanceAngstrom
   , neighborsSigma
@@ -57,11 +59,12 @@ data ElementAttributes = ElementAttributes
   { symbol       :: AtomicSymbol
   , atomicNumber :: Int
   , atomicWeight :: Double
+  , defaultShells :: Shells
   } deriving (Eq, Show, Read, Generic, NFData)
 
 -- | Electronic shell structure for an atom.
 --   Re-exported from "Orbital" to integrate with the molecular types.
-type Shells = Orb.Shells
+type Shells = Maybe Orb.Shells
 
 -- ===== Atoms =====
 
@@ -109,7 +112,7 @@ emptySmilesStereochemistry = SmilesStereochemistry [] []
 
 data Molecule = Molecule
   { atoms      :: Map AtomId Atom             -- ^ V
-  , localBonds :: Set Edge                    -- ^ \963 adjacency (2e bonds)
+  , localBonds :: Set Edge                    -- ^ compatibility edge index
   , systems    :: [(SystemId, BondingSystem)] -- ^ B (each system is (s, E))
   , smilesStereochemistry :: SmilesStereochemistry
   } deriving (Eq, Show, Read, Generic, NFData)
@@ -148,7 +151,7 @@ canonicalMoleculeKey molecule =
   ( M.toAscList (atoms molecule)
   , canonicalEdges (localBonds molecule)
   , sort [ (systemId, canonicalBondingSystem system)
-         | (systemId, system) <- systems molecule
+         | (systemId, system) <- allSystems molecule
          ]
   , canonicalStereochemistry (smilesStereochemistry molecule)
   )
@@ -169,6 +172,17 @@ canonicalEdge (Edge left right)
   | left <= right = (left, right)
   | otherwise     = (right, left)
 
+systemIdInt :: SystemId -> Int
+systemIdInt (SystemId value) = value
+
+safeNonEmpty :: [a] -> Maybe [a]
+safeNonEmpty [] = Nothing
+safeNonEmpty xs = Just xs
+
+nextSystemId :: Molecule -> SystemId
+nextSystemId molecule =
+  SystemId (maybe 1 ((+ 1) . systemIdInt . maximum) (safeNonEmpty [ sid | (sid, _) <- systems molecule ]))
+
 canonicalStereochemistry :: SmilesStereochemistry -> CanonicalStereochemistry
 canonicalStereochemistry stereo =
   ( sort
@@ -181,9 +195,45 @@ canonicalStereochemistry stereo =
       ]
   )
 
--- | Insert a \963 bond between two atoms (undirected).
+-- | Bonding systems with legacy local edge-only input lifted to 2e singleton
+-- systems. The explicit Dietz layer is the source of electron counts; the
+-- local edge set is retained as a graph/index compatibility field.
+allSystems :: Molecule -> [(SystemId, BondingSystem)]
+allSystems molecule = sortOn fst (systems molecule ++ missingSystems)
+  where
+    coveredConventionalEdges =
+      S.fromList
+        [ edge
+        | (_, system) <- systems molecule
+        , S.size (memberEdges system) == 1
+        , getNN (sharedElectrons system) `elem` [2, 4, 6]
+        , edge <- S.toList (memberEdges system)
+        ]
+    missingEdges = S.toAscList (localBonds molecule `S.difference` coveredConventionalEdges)
+    nextId = maybe 1 ((+ 1) . systemIdInt . maximum) (safeNonEmpty [ sid | (sid, _) <- systems molecule ])
+    missingSystems =
+      [ (SystemId (nextId + offset), mkBondingSystem (NonNegative 2) (S.singleton edge) (Just "single"))
+      | (offset, edge) <- zip [0 ..] missingEdges
+      ]
+
+withLocalBondsAsSystems :: Molecule -> Molecule
+withLocalBondsAsSystems molecule =
+  molecule
+    { localBonds = S.unions (localBonds molecule : [ memberEdges system | (_, system) <- allSystems molecule ])
+    , systems = allSystems molecule
+    }
+
+-- | Insert a 2e single-edge bonding system between two atoms (undirected).
 addSigma :: AtomId -> AtomId -> Molecule -> Molecule
-addSigma i j m = m { localBonds = S.insert (mkEdge i j) (localBonds m) }
+addSigma i j m
+  | edge `S.member` localBonds m = m
+  | otherwise =
+      m
+        { localBonds = S.insert edge (localBonds m)
+        , systems = systems m ++ [(nextSystemId m, mkBondingSystem (NonNegative 2) (S.singleton edge) (Just "single"))]
+        }
+  where
+    edge = mkEdge i j
 
 -- | Euclidean distance between two atoms, returned in Angstroms.
 distanceAngstrom :: Atom -> Atom -> Angstrom
@@ -206,18 +256,17 @@ neighborsSigma m i =
 edgeSystems :: Molecule -> Edge -> [SystemId]
 edgeSystems m e =
   [ sid
-  | (sid, bs) <- systems m
+  | (sid, bs) <- allSystems m
   , e `S.member` memberEdges bs ]
 
--- | Effective bond order for an edge, combining \963 and delocalised systems.
+-- | Effective bond order for an edge, derived only from Dietz systems.
 effectiveOrder :: Molecule -> Edge -> Double
-effectiveOrder m e = sigma + piContribution
+effectiveOrder m e = contribution
   where
-    sigma = if e `S.member` localBonds m then 1.0 else 0.0
-    piContribution =
+    contribution =
       sum [ fromIntegral (getNN (sharedElectrons bs))
               / (2.0 * fromIntegral (S.size (memberEdges bs)))
-          | (_, bs) <- systems m
+          | (_, bs) <- allSystems m
           , e `S.member` memberEdges bs
           ]
 
@@ -226,13 +275,13 @@ prettyPrintMolecule :: Molecule -> String
 prettyPrintMolecule m =
   renderLines $
     ["Molecule Report", "==============="]
-      ++ summarySection atomList sigmaEdges systemList atomStereoList bondStereoList
+      ++ summarySection atomList edgeList systemList atomStereoList bondStereoList
       ++ [""]
       ++ sectionHeader "Atoms"
       ++ joinBlocks (map (formatAtomBlock m) atomList)
       ++ [""]
-      ++ sectionHeader "Sigma Network"
-      ++ sigmaSection
+      ++ sectionHeader "Edge Network"
+      ++ edgeSection
       ++ [""]
       ++ sectionHeader "Bonding Systems"
       ++ joinBlocks (map (formatSystemBlock m) systemList)
@@ -241,15 +290,15 @@ prettyPrintMolecule m =
       ++ stereoSection
   where
     atomList   = M.toAscList (atoms m)
-    sigmaEdges = sort (S.toList (localBonds m))
-    systemList = sortOn fst (systems m)
+    systemList = sortOn fst (allSystems m)
+    edgeList = edgeNetworkEdges systemList
     atomStereoList = sortOn stereoCenter (atomStereoAnnotations (smilesStereochemistry m))
     bondStereoList = sortOn (\item -> (bondStereoStart item, bondStereoEnd item, bondStereoDirection item)) (bondStereoAnnotations (smilesStereochemistry m))
 
-    sigmaSection =
-      case sigmaEdges of
+    edgeSection =
+      case edgeList of
         [] -> ["none"]
-        _  -> [printf "%02d. %s" idx (formatBondLine m edge) | (idx, edge) <- zip [1 :: Int ..] sigmaEdges]
+        _  -> [printf "%02d. %s" idx (formatBondLine m edge) | (idx, edge) <- zip [1 :: Int ..] edgeList]
 
     stereoSection
       | null atomStereoList && null bondStereoList = ["none"]
@@ -291,7 +340,7 @@ summarySection
   -> [String]
 summarySection atomList sigmaEdges systemList atomStereoList bondStereoList =
   [ summaryLine "atoms" (show (length atomList))
-  , summaryLine "sigma bonds" (show (length sigmaEdges))
+  , summaryLine "edges" (show (length sigmaEdges))
   , summaryLine "bonding systems" (show (length systemList))
   , summaryLine "net charge" (printf "%+d" (sum (map (formalCharge . snd) atomList)))
   , summaryLine "composition" (molecularFormula atomList)
@@ -321,6 +370,10 @@ joinBlocks blocks = concat (zipWith addSpacer [0 :: Int ..] blocks)
       | idx == 0 = block
       | otherwise = "" : block
 
+edgeNetworkEdges :: [(SystemId, BondingSystem)] -> [Edge]
+edgeNetworkEdges systemList =
+  sort (S.toList (S.unions [ memberEdges system | (_, system) <- systemList ]))
+
 molecularFormula :: [(AtomId, Atom)] -> String
 molecularFormula atomList =
   case counts of
@@ -347,24 +400,42 @@ indentBlock :: Int -> [String] -> [String]
 indentBlock n = map (replicate n ' ' ++)
 
 formatAtomBlock :: Molecule -> (AtomId, Atom) -> [String]
-formatAtomBlock m (aid, atom) = atomLines atom neighbourLine
+formatAtomBlock m (aid, atom) = atomLines atom (neighbourLine ++ systemLine)
   where
     atomsMap = atoms m
-    neighbourIds = sort (neighborsSigma m aid)
+    systemList = allSystems m
+    neighbourIds =
+      sort $
+        S.toList $
+          S.fromList
+            [ if left == aid then right else left
+            | Edge left right <- edgeNetworkEdges systemList
+            , left == aid || right == aid
+            ]
     neighbourRefs = [ renderAtomRef (atomsMap M.! nid) | nid <- neighbourIds ]
     neighbourValue
       | null neighbourRefs = "none"
       | otherwise          = intercalate ", " neighbourRefs
-    neighbourLine = [detailLine "sigma:" neighbourValue]
+    neighbourLine = [detailLine "edges:" neighbourValue]
+    systemRefs =
+      [ formatSystemLabel sid bs ++ ":" ++ formatElectrons (fromIntegral (getNN (sharedElectrons bs)) :: Double)
+      | (sid, bs) <- systemList
+      , aid `S.member` memberAtoms bs
+      ]
+    systemValue
+      | null systemRefs = "none"
+      | otherwise       = intercalate ", " systemRefs
+    systemLine = [detailLine "systems:" systemValue]
 
 formatBondLine :: Molecule -> Edge -> String
 formatBondLine m e =
   let atomsMap   = atoms m
-      systemsList = systems m
+      systemsList = allSystems m
       pair       = formatEdgeShort atomsMap e
+      sharedStr  = "shared=" ++ formatElectrons (edgeSharedElectrons systemsList e)
       orderStr   = printf "order=%.2f" (effectiveOrder m e)
       systemRefs =
-        [ formatSystemLabel sid bs
+        [ formatEdgeSystemRef sid bs
         | (sid, bs) <- sortOn fst systemsList
         , e `S.member` memberEdges bs
         ]
@@ -372,7 +443,7 @@ formatBondLine m e =
         case systemRefs of
           [] -> ""
           _  -> "  systems=" ++ intercalate ", " systemRefs
-  in pair ++ "  " ++ orderStr ++ systemSuffix
+  in pair ++ "  " ++ sharedStr ++ "  " ++ orderStr ++ systemSuffix
 
 formatSystemBlock :: Molecule -> (SystemId, BondingSystem) -> [String]
 formatSystemBlock m (sid, bs) = title : body
@@ -381,6 +452,12 @@ formatSystemBlock m (sid, bs) = title : body
     SystemId sidNum = sid
     electrons = getNN (sharedElectrons bs)
     title = maybe (printf "[#%d]" sidNum) (\lbl -> printf "[#%d] %s" sidNum lbl) (tag bs)
+    edgesList = sort (S.toList (memberEdges bs))
+
+    baseDetails =
+      [ "  shared electrons: " ++ formatElectrons (fromIntegral electrons :: Double) ++ " pool"
+      , printf "  member edges:     %d" (length edgesList)
+      ]
 
     atomRefs = [ renderAtomRef (atomsMap M.! aid)
                | aid <- S.toList (memberAtoms bs) ]
@@ -388,24 +465,26 @@ formatSystemBlock m (sid, bs) = title : body
       | null atomRefs = []
       | otherwise     = [printf "  member atoms:     %s" (intercalate ", " atomRefs)]
 
-    edgesList = sort (S.toList (memberEdges bs))
-    perEdgeContribution
+    edgeElectrons
       | null edgesList = Nothing
       | otherwise =
           let eCount = fromIntegral electrons :: Double
               eEdges = fromIntegral (length edgesList) :: Double
-          in Just (eCount / (2 * eEdges))
+          in Just (eCount / eEdges)
     edgesSection =
       case edgesList of
-        [] -> ["  member edges:     none"]
+        [] -> ["  edge list:        none"]
         _  ->
-          let headerLine = case perEdgeContribution of
-                              Nothing      -> "  member edges:"
-                              Just contrib -> printf "  edge bonus:       +%.2f to each listed edge" contrib
-              edgeLines  = "  member edges:" : indentBlock 4 (map (\edge -> "- " ++ formatEdgeShort atomsMap edge) edgesList)
-          in headerLine : edgeLines
+          let share = maybe 0 id edgeElectrons
+              headerLines =
+                [ "  edge share:       " ++ formatElectrons share ++ " per listed edge"
+                , printf "  bond-order part:  %.2f per listed edge" (share / 2.0)
+                , "  edge list:"
+                ]
+              edgeLines = indentBlock 4 (map (\edge -> "- " ++ formatEdgeShort atomsMap edge ++ "  shares " ++ formatElectrons share) edgesList)
+          in headerLines ++ edgeLines
 
-    body = atomsLine ++ edgesSection
+    body = baseDetails ++ atomsLine ++ edgesSection
 
 atomLines :: Atom -> [String] -> [String]
 atomLines atom extraDetail = header : indentBlock 2 detailLines
@@ -451,6 +530,40 @@ formatSystemLabel sid bs =
       base = "#" ++ show sidNum
   in maybe base (\lbl -> base ++ "[" ++ lbl ++ "]") (tag bs)
 
+formatEdgeSystemRef :: SystemId -> BondingSystem -> String
+formatEdgeSystemRef sid bs
+  | S.size (memberEdges bs) == 1 && getNN (sharedElectrons bs) `elem` [2, 4, 6] =
+      label ++ ":" ++ formatElectrons edgeElectrons
+  | otherwise =
+      label ++ ":" ++ formatElectrons edgeElectrons
+        ++ "/edge from "
+        ++ formatElectrons (fromIntegral (getNN (sharedElectrons bs)) :: Double)
+  where
+    label = formatSystemLabel sid bs
+    edgeElectrons = systemElectronsPerEdge bs
+
+systemElectronsPerEdge :: BondingSystem -> Double
+systemElectronsPerEdge bs
+  | S.null (memberEdges bs) = 0
+  | otherwise =
+      fromIntegral (getNN (sharedElectrons bs))
+        / fromIntegral (S.size (memberEdges bs))
+
+edgeSharedElectrons :: [(SystemId, BondingSystem)] -> Edge -> Double
+edgeSharedElectrons systemList edge =
+  sum [ systemElectronsPerEdge bs
+      | (_, bs) <- systemList
+      , edge `S.member` memberEdges bs
+      ]
+
+formatElectrons :: Double -> String
+formatElectrons value
+  | abs (value - roundedValue) <= 1e-9 = show roundedInt ++ "e"
+  | otherwise = printf "%.2fe" value
+  where
+    roundedInt = round value :: Int
+    roundedValue = fromIntegral roundedInt :: Double
+
 formatAtomStereo :: SmilesAtomStereo -> String
 formatAtomStereo stereo =
   let AtomId center = stereoCenter stereo
@@ -479,7 +592,8 @@ smilesBondStereoDirectionCode BondUp = "/"
 smilesBondStereoDirectionCode BondDown = "\\"
 
 prettyShellLines :: Shells -> [String]
-prettyShellLines = concatMap formatShell
+prettyShellLines Nothing = []
+prettyShellLines (Just shellList) = concatMap formatShell shellList
   where
     formatShell sh =
       let n = Orb.principalQuantumNumber sh

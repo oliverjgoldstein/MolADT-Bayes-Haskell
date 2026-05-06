@@ -34,23 +34,23 @@ available to code.
 | --- | --- | --- |
 | Diborane | bridge bonding is compressed | explicit `3c-2e` systems |
 | Ferrocene | often split into ionic fragments | explicit sandwich-style bonding systems |
-| Morphine | ring closures are digit bookkeeping | direct sigma edges plus stereo layer |
+| Morphine | ring closures are digit bookkeeping | every edge as a bonding system plus stereo layer |
 
 For example, diborane is represented with named bridge systems:
 
 ```haskell
 diboranePretty :: Molecule
-diboranePretty = Molecule
+diboranePretty = withLocalBondsAsSystems $ Molecule
   { atoms =
       M.fromList
-        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes B, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells B, formalCharge = 0 })
-        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes B, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells B, formalCharge = 0 })
-        , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.9928), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom (-0.9928)), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom 1.19) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom (-1.19)) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom 1.19) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom (-1.19)) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes B, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = defaultShells (elementAttributes B), formalCharge = 0 })
+        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes B, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = defaultShells (elementAttributes B), formalCharge = 0 })
+        , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.9928), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom (-0.9928)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom 1.19) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom (-1.19)) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom 1.19) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom (-1.19)) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
         ]
   , localBonds =
       S.fromList
@@ -70,8 +70,9 @@ diboranePretty = Molecule
 
 The checked examples use this canonical normal form: atoms sorted by `AtomId`,
 edges written directly as normalized `Edge (AtomId a) (AtomId b)` values, and
-systems sorted by `SystemId`. They do not hide atoms, sigma edges, or
-bonding-system edges behind ranges, zips, helpers, or generated tables. That is
+systems sorted by `SystemId`. They do not hide atoms, edge systems, or
+bonding-system edges behind ranges, zips, helpers, or generated tables. Legacy
+edge entries are normalized into one-edge `single` systems. That is
 the kind of structure a Bayesian proposal kernel can edit directly.
 
 Viewer version:

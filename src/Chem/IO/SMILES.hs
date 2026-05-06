@@ -16,7 +16,7 @@ import qualified Data.Set as S
 import           Chem.Dietz
 import           Chem.Molecule
 import           Chem.Molecule.Coordinate (Coordinate(..), mkAngstrom, unAngstrom)
-import           Constants (elementAttributes, elementShells)
+import           Constants (elementAttributes)
 
 data BondKind = BondSingle | BondDouble | BondTriple | BondAromatic
   deriving (Eq, Show)
@@ -105,15 +105,17 @@ parseSMILES rawText = do
                       normalizedSystems
                       (psImplicitHydrogenHosts st)
                   assignedSystems = zipWith (\idx sys -> (SystemId idx, sys)) [1 ..] normalizedSystems
-              in Right Molecule
-                   { atoms = enrichedAtoms
-                   , localBonds = enrichedBonds
-                   , systems = assignedSystems
-                   , smilesStereochemistry = SmilesStereochemistry
-                       { atomStereoAnnotations = reverse (psAtomStereo st)
-                       , bondStereoAnnotations = reverse (psBondStereo st)
-                       }
-                   }
+              in Right $
+                   withLocalBondsAsSystems
+                     (Molecule
+                        { atoms = enrichedAtoms
+                        , localBonds = enrichedBonds
+                        , systems = assignedSystems
+                        , smilesStereochemistry = SmilesStereochemistry
+                            { atomStereoAnnotations = reverse (psAtomStereo st)
+                            , bondStereoAnnotations = reverse (psBondStereo st)
+                            }
+                        })
 
 parseLoop :: Maybe AtomRef -> Maybe BondSpec -> ParserM ()
 parseLoop current pendingBond = do
@@ -271,11 +273,12 @@ newAtom symbol charge = do
   let atomIdx = psNextAtomIndex st
       aid = AtomId atomIdx
       coord = Coordinate (mkAngstrom (fromIntegral atomIdx - 1.0)) (mkAngstrom 0.0) (mkAngstrom 0.0)
+      attrs = elementAttributes symbol
       atom = Atom
         { atomID = aid
-        , attributes = elementAttributes symbol
+        , attributes = attrs
         , coordinate = coord
-        , shells = elementShells symbol
+        , shells = defaultShells attrs
         , formalCharge = charge
         }
   modify' $ \s ->
@@ -343,15 +346,20 @@ addBond left right bondKind = do
   let edge = mkEdge left right
   modify' $ \st -> st { psLocalBonds = S.insert edge (psLocalBonds st) }
   case bondKind of
-    BondSingle -> pure ()
+    BondSingle ->
+      modify' $ \st -> st
+        { psSystems = mkBondingSystem (NonNegative 2) (S.singleton edge) (Just "single") : psSystems st }
     BondDouble ->
       modify' $ \st -> st
-        { psSystems = mkBondingSystem (NonNegative 2) (S.singleton edge) Nothing : psSystems st }
+        { psSystems = mkBondingSystem (NonNegative 4) (S.singleton edge) (Just "double") : psSystems st }
     BondTriple ->
       modify' $ \st -> st
-        { psSystems = mkBondingSystem (NonNegative 4) (S.singleton edge) Nothing : psSystems st }
+        { psSystems = mkBondingSystem (NonNegative 6) (S.singleton edge) (Just "triple") : psSystems st }
     BondAromatic ->
-      modify' $ \st -> st { psAromaticEdges = S.insert edge (psAromaticEdges st) }
+      modify' $ \st -> st
+        { psSystems = mkBondingSystem (NonNegative 2) (S.singleton edge) (Just "single") : psSystems st
+        , psAromaticEdges = S.insert edge (psAromaticEdges st)
+        }
 
 currentChar :: ParserM (Maybe Char)
 currentChar = do
@@ -482,15 +490,7 @@ normalizeSMILESSystems localBonds' systems' aromaticCandidateEdges aromaticAtoms
     piRings = S.unions [aromaticRings, lowercaseAromaticRings]
     ringEdges = S.unions (S.toList piRings)
 
-    retainedSystems =
-      [ system
-      | system <- systems'
-      , not
-          ( S.size (memberEdges system) == 1
-            && getNN (sharedElectrons system) == 2
-            && head (S.toAscList (memberEdges system)) `S.member` ringEdges
-          )
-      ]
+    retainedSystems = systems'
     aromaticSystems =
       [ mkBondingSystem (NonNegative 6) ring (Just "pi_ring")
       | ring <- S.toAscList piRings
@@ -564,13 +564,6 @@ inferImplicitHydrogens :: M.Map AtomId Atom -> S.Set Edge -> [BondingSystem] -> 
 inferImplicitHydrogens atomMap sigmaEdges systems' hosts =
   (enrichedAtoms, enrichedBonds)
   where
-    sigmaCounts =
-      M.fromListWith (+)
-        [ (aid, 1 :: Int)
-        | Edge a b <- S.toAscList sigmaEdges
-        , aid <- [a, b]
-        ]
-
     systemContributions =
       M.fromListWith (+)
         [ (aid, contribution)
@@ -593,9 +586,7 @@ inferImplicitHydrogens atomMap sigmaEdges systems' hosts =
         , Just atom <- [M.lookup host atomMap]
         , symbol (attributes atom) /= H
         , formalCharge atom == 0
-        , let currentUsed =
-                fromIntegral (M.findWithDefault 0 host sigmaCounts)
-                  + M.findWithDefault 0.0 host systemContributions
+        , let currentUsed = M.findWithDefault 0.0 host systemContributions
         , let missing = implicitHydrogenCount (implicitHydrogenValence (symbol (attributes atom)) - currentUsed)
         , missing > 0
         ]
@@ -645,13 +636,20 @@ implicitHydrogenValence symbol =
     Si -> 4.0
     _  -> 0.0
 
+isConventionalSingleEdgeSystem :: BondingSystem -> Bool
+isConventionalSingleEdgeSystem system =
+  S.size (memberEdges system) == 1
+    && getNN (sharedElectrons system) `elem` [2, 4, 6]
+
 inferredHydrogenAtom :: AtomId -> Atom -> Int -> Atom
 inferredHydrogenAtom hydrogenId hostAtom offset =
+  let attrs = elementAttributes H
+  in
   Atom
     { atomID = hydrogenId
-    , attributes = elementAttributes H
+    , attributes = attrs
     , coordinate = inferredHydrogenCoordinate (coordinate hostAtom) offset
-    , shells = elementShells H
+    , shells = defaultShells attrs
     , formalCharge = 0
     }
 
@@ -686,7 +684,12 @@ collapseTerminalHydrogens molecule =
   )
   where
     zeroCounts = M.fromList [ (aid, 0) | aid <- M.keys (atoms molecule) ]
-    systemAtoms = S.fromList [ aid | (_, system) <- systems molecule, aid <- S.toList (memberAtoms system) ]
+    systemAtoms = S.fromList
+      [ aid
+      | (_, system) <- allSystems molecule
+      , not (isConventionalSingleEdgeSystem system)
+      , aid <- S.toList (memberAtoms system)
+      ]
     suppressed = S.fromList
       [ aid
       | (aid, atom) <- M.toAscList (atoms molecule)
@@ -715,7 +718,7 @@ renderBondOrders molecule renderedIds = do
         , a `S.member` renderedIds
         , b `S.member` renderedIds
         ]
-  foldM applySystem initialBondOrders (systems molecule)
+  foldM applySystem initialBondOrders (allSystems molecule)
   where
     applySystem acc (_, system)
       | tag system == Just "pi_ring"
@@ -732,11 +735,11 @@ renderBondOrders molecule renderedIds = do
               acc
               [0 .. 5]
       | S.size (memberEdges system) == 1
-      , getNN (sharedElectrons system) `elem` [2, 4] =
+      , getNN (sharedElectrons system) `elem` [2, 4, 6] =
           let edge = head (S.toAscList (memberEdges system))
           in if edge `M.member` acc
-               then pure (M.insert edge (1 + getNN (sharedElectrons system) `div` 2) acc)
-               else Left "SMILES rendering requires all bonded atoms to remain in the output graph"
+               then pure (M.insert edge (getNN (sharedElectrons system) `div` 2) acc)
+               else pure acc
       | otherwise = Left "SMILES rendering only supports localized double/triple bonds and six-edge pi rings"
 
 orderedCycle :: S.Set Edge -> Either String [AtomId]

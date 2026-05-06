@@ -16,6 +16,7 @@ import Chem.Dietz
 import Chem.Molecule
   ( Atom(..)
   , AtomicSymbol(..)
+  , ElementAttributes(..)
   , Coordinate(..)
   , Molecule(..)
   , SmilesAtomStereo(..)
@@ -25,21 +26,22 @@ import Chem.Molecule
   , SmilesStereochemistry(..)
   , emptySmilesStereochemistry
   , mkAngstrom
+  , withLocalBondsAsSystems
   )
-import Constants (elementAttributes, elementShells)
+import Constants (elementAttributes)
 
 diboranePretty :: Molecule
-diboranePretty = Molecule
+diboranePretty = withLocalBondsAsSystems $ Molecule
   { atoms =
       M.fromList
-        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes B, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells B, formalCharge = 0 })
-        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes B, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells B, formalCharge = 0 })
-        , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.9928), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom (-0.9928)), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom 1.19) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom (-1.19)) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom 1.19) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom (-1.19)) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes B, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = defaultShells (elementAttributes B), formalCharge = 0 })
+        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes B, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = defaultShells (elementAttributes B), formalCharge = 0 })
+        , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.9928), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom (-0.9928)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom 1.19) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.885)) (mkAngstrom (-1.19)) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom 1.19) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.885) (mkAngstrom (-1.19)) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
         ]
   , localBonds =
       S.fromList

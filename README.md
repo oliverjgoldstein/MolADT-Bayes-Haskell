@@ -8,7 +8,7 @@ inspected, validated, serialized, and scored by probabilistic models.
 Boundary formats stay at the edge. The molecule stays in the ADT.
 
 ```text
-Molecule = atoms + sigma edges + bonding systems + stereochemistry
+Molecule = atoms + bonding systems + stereochemistry
 ```
 
 [Quickstart](docs/quickstart.md) | [ADT](docs/data-model.md) |
@@ -25,8 +25,9 @@ about.
 MolADT keeps the important structure explicit:
 
 - atoms with element data, coordinates, formal charge, shells, and orbitals
-- localized sigma bonds as ordinary undirected edges
-- Dietz bonding systems for delocalized and multicentre chemistry
+- every edge represented as a Dietz bonding system
+- an edge index for traversal and legacy sigma-style code
+- delocalized and multicentre chemistry in the same bonding-system layer
 - SMILES stereochemistry annotations as their own typed layer
 - shared JSON serialization for Haskell and the sibling Python repo
 - Haskell type classes for attaching laws and algebraic structure
@@ -49,6 +50,19 @@ data Molecule = Molecule
   , smilesStereochemistry :: SmilesStereochemistry
   }
 ```
+
+`systems` is the canonical bonding layer. A conventional single, double, or
+triple bond is a one-edge `BondingSystem` with `2`, `4`, or `6` shared
+electrons, tagged `single`, `double`, or `triple`. `localBonds` is kept as a
+derived edge index for graph traversal and older callers; `withLocalBondsAsSystems`
+lifts legacy edge-only molecules into explicit two-electron `single` systems.
+Pretty printing derives display edges from the bonding systems and reports the
+total electrons shared over each edge. For benzene, a C-C edge is shown as
+`shared=3e` and `order=1.50`: `2e` from the one-edge `single` system plus
+`1e/edge` from the six-electron `pi_ring`. The viewer lists the same explicit
+bonding systems.
+Shells are optional on atoms, and `elementAttributes` now carries the default
+shell data used by simple constructors.
 
 Use [`sameMolecule`](docs/molecule-equality.md) when you want equality modulo
 container ordering, such as maps, edge sets, system lists, and annotation lists.
@@ -73,9 +87,9 @@ around the molecule without hiding the molecule fields.
 - **Better model inputs**: the Haskell benchmark consumer works from
   Python-exported MolADT feature matrices rather than raw notation.
 - **Editable structure**: inverse-design experiments can operate on atoms,
-  bonds, hydrogens, and bonding systems as separate concepts.
-- **Inspectable outputs**: the standalone viewer shows atoms, sigma edges, and
-  explicit bonding systems from the same typed payload.
+  edge-index entries, hydrogens, and bonding systems as separate concepts.
+- **Inspectable outputs**: the standalone viewer shows atoms, every edge, and
+  explicit electron-sharing systems from the same typed payload.
 - **Algebraic contracts**: rotations, atom relabelings, or other transforms can
   be expressed with type classes as groups acting on molecules, giving
   geometric models a clear place to state invariance and equivariance.

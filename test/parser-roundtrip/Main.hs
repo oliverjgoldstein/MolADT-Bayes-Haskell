@@ -94,7 +94,10 @@ spec = do
       parsed <- readSDF "molecules/benzene.sdf"
       case parsed of
         Left err -> expectationFailure (errorBundlePretty err)
-        Right mol -> length (systems mol) `shouldBe` 1
+        Right mol -> do
+          length (systems mol) `shouldBe` 13
+          countTag (Just "single") mol `shouldBe` 12
+          countTag (Just "pi_ring") mol `shouldBe` 1
 
     it "parses the core V3000 atom and bond blocks" $
       case parseSDF v3000Water of
@@ -125,7 +128,9 @@ spec = do
           countSymbol C mol `shouldBe` 6
           countSymbol H mol `shouldBe` 6
           S.size (localBonds mol) `shouldBe` 12
-          length (systems mol) `shouldBe` 1
+          length (systems mol) `shouldBe` 13
+          countTag (Just "single") mol `shouldBe` 12
+          countTag (Just "pi_ring") mol `shouldBe` 1
 
     it "infers terminal hydrogens for bare methane and water SMILES" $ do
       case parseSMILES "C" of
@@ -186,8 +191,9 @@ spec = do
                   countSymbol C mol' `shouldBe` 6
                   countSymbol H mol' `shouldBe` 6
                   S.size (localBonds mol') `shouldBe` 12
-                  length (systems mol') `shouldBe` 3
-                  map (tag . snd) (systems mol') `shouldBe` [Nothing, Nothing, Nothing]
+                  length (systems mol') `shouldBe` 12
+                  countTag (Just "single") mol' `shouldBe` 9
+                  countTag (Just "double") mol' `shouldBe` 3
 
     it "records atom-centered stereochemistry from chiral bracket atoms" $ do
       case parseSMILES "N[C@](Br)(O)C" of
@@ -237,9 +243,11 @@ spec = do
         Right mol -> do
           let rendered = prettyPrintMolecule mol
           rendered `shouldContain` "Molecule Report"
-          rendered `shouldContain` "Sigma Network"
+          rendered `shouldContain` "Edge Network"
           rendered `shouldContain` "Bonding Systems"
-          rendered `shouldContain` "[#1] pi_ring"
+          rendered `shouldContain` "pi_ring"
+          rendered `shouldContain` "shared=3e  order=1.50"
+          rendered `shouldContain` "edge share:       1e per listed edge"
           rendered `shouldContain` "SMILES Stereochemistry"
 
     it "accepts silicon-containing SMILES used in the ZINC slice" $ do
@@ -257,7 +265,9 @@ spec = do
           countSymbol N mol `shouldBe` 1
           countSymbol O mol `shouldBe` 3
           S.size (localBonds mol) `shouldBe` 44
-          map (tag . snd) (systems mol) `shouldBe` [Nothing, Nothing, Nothing, Nothing]
+          length (systems mol) `shouldBe` 44
+          countTag (Just "single") mol `shouldBe` 40
+          countTag (Just "double") mol `shouldBe` 4
           map
             (\item -> (stereoCenter item, stereoClass item, stereoConfiguration item, stereoToken item))
             (atomStereoAnnotations (smilesStereochemistry mol))
@@ -317,7 +327,8 @@ spec = do
         Left err -> expectationFailure err
         Right mol -> do
           S.size (localBonds mol) `shouldBe` 25
-          map (tag . snd) (systems mol) `shouldBe` [Just "alkene_bridge", Just "phenyl_pi_ring"]
+          map (tag . snd) (take 2 (systems mol)) `shouldBe` [Just "alkene_bridge", Just "phenyl_pi_ring"]
+          countTag (Just "single") mol `shouldBe` 24
           map
             (\item -> (stereoCenter item, stereoClass item, stereoConfiguration item, stereoToken item))
             (atomStereoAnnotations (smilesStereochemistry mol))
@@ -351,4 +362,12 @@ countSymbol sym mol =
     [ ()
     | atom <- M.elems (atoms mol)
     , symbol (attributes atom) == sym
+    ]
+
+countTag :: Maybe String -> Molecule -> Int
+countTag expected mol =
+  length
+    [ ()
+    | (_, system) <- systems mol
+    , tag system == expected
     ]

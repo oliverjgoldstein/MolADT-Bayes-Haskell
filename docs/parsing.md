@@ -21,6 +21,8 @@ Supported SDF input is intentionally practical:
 - atom-local formal charges
 
 This is a parser for ordinary structure exports, not a full MDL query toolkit.
+Single, double, and triple bond table entries are lifted into one-edge bonding
+systems with 2, 4, and 6 shared electrons.
 
 Programmatic version:
 
@@ -101,8 +103,9 @@ main = do
       pure ()
 ```
 
-The viewer panel lists explicit bonding systems, so molecules like diborane and
-ferrocene are inspectable as ADTs rather than flattened bond tables.
+The viewer panel lists explicit bonding systems, including the one-edge systems
+for ordinary bonds, so molecules like diborane and ferrocene are inspectable as
+ADTs rather than flattened bond tables.
 
 ## SMILES To MolADT
 
@@ -111,7 +114,8 @@ stack run moladtbayes -- parse-smiles "c1ccccc1"
 ```
 
 The parser supports a conservative chemistry subset and lifts it into MolADT.
-Aromatic six-membered rings can become explicit `pi_ring` Dietz systems.
+Aromatic six-membered rings can become explicit `pi_ring` Dietz systems, while
+ordinary single/double/triple SMILES bonds become 2/4/6-electron edge systems.
 
 ## MolADT To SMILES
 

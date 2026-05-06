@@ -15,13 +15,12 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set        as S
 import           Control.Monad   (foldM)
 
--- | Total electrons used at an atom, combining σ bonds and Dietz pools.
+-- | Total electrons used at an atom from explicit Dietz pools.
 -- Uses the Dietz pool formula: e_S(v) = s * deg_S(v) / (2*|E_S|).
 usedElectronsAt :: Molecule -> AtomId -> Double
-usedElectronsAt m v = sigma + system
+usedElectronsAt m v = system
   where
-    sigma = fromIntegral (length (neighborsSigma m v))
-    system = sum [ ePart v bs | (_, bs) <- systems m ]
+    system = sum [ ePart v bs | (_, bs) <- allSystems m ]
 
     ePart :: AtomId -> BondingSystem -> Double
     ePart a bs =
@@ -38,15 +37,15 @@ type BondMap = M.Map (AtomId, AtomId) Double
 -- | Validate a molecule according to Dietz bonding rules.
 validateMolecule :: Molecule -> Either String Molecule
 validateMolecule m = do
-  let atomIDsList = M.keys (atoms m)
+  let normalized = withLocalBondsAsSystems m
+      atomIDsList = M.keys (atoms normalized)
       atomSet     = S.fromList atomIDsList
 
-  sigmaMap <- foldM (accumulateBond atomSet 2.0) M.empty (S.toList (localBonds m))
   let addSystem acc (_, bs) = addSystemBonds atomSet bs acc
-  fullMap <- foldM addSystem sigmaMap (systems m)
+  fullMap <- foldM addSystem M.empty (systems normalized)
   ensureSymmetric fullMap
-  ensureValence m atomSet fullMap
-  pure m
+  ensureValence normalized atomSet fullMap
+  pure normalized
 
 -- | Insert a bond contribution into the directed bond map, performing the
 -- endpoint and self-bond checks mandated by the validator specification.

@@ -33,17 +33,17 @@ formula = "C2H5ClO3"
 molecule :: Molecule
 molecule = either error id (validateMolecule (Molecule
   { atoms = M.fromList
-      [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
-      , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-1.43)) (mkAngstrom 0.0), shells = elementShells C, formalCharge = 0 })
-      , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-3.2)) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
-      , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom (-1.43)) (mkAngstrom (-1.43)) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
-      , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes Cl, coordinate = Coordinate (mkAngstrom (-2.8499999999999996)) (mkAngstrom (-1.43)) (mkAngstrom 0.0), shells = elementShells Cl, formalCharge = 0 })
-      , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-3.2)) (mkAngstrom (-1.54)), shells = elementShells C, formalCharge = 0 })
-      , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.96) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.09) (mkAngstrom (-1.43)) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 9, Atom { atomID = AtomId 9, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-3.2)) (mkAngstrom (-2.63)), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 10, Atom { atomID = AtomId 10, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.09) (mkAngstrom (-3.2)) (mkAngstrom (-1.54)), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 11, Atom { atomID = AtomId 11, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.7707463914933368)) (mkAngstrom (-2.4292536085066634)) (mkAngstrom (-1.54)), shells = elementShells H, formalCharge = 0 })
+      [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = defaultShells (elementAttributes O), formalCharge = 0 })
+      , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-1.43)) (mkAngstrom 0.0), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+      , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-3.2)) (mkAngstrom 0.0), shells = defaultShells (elementAttributes O), formalCharge = 0 })
+      , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom (-1.43)) (mkAngstrom (-1.43)) (mkAngstrom 0.0), shells = defaultShells (elementAttributes O), formalCharge = 0 })
+      , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes Cl, coordinate = Coordinate (mkAngstrom (-2.8499999999999996)) (mkAngstrom (-1.43)) (mkAngstrom 0.0), shells = defaultShells (elementAttributes Cl), formalCharge = 0 })
+      , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-3.2)) (mkAngstrom (-1.54)), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+      , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.96) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+      , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.09) (mkAngstrom (-1.43)) (mkAngstrom 0.0), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+      , (AtomId 9, Atom { atomID = AtomId 9, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom (-3.2)) (mkAngstrom (-2.63)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+      , (AtomId 10, Atom { atomID = AtomId 10, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.09) (mkAngstrom (-3.2)) (mkAngstrom (-1.54)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+      , (AtomId 11, Atom { atomID = AtomId 11, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.7707463914933368)) (mkAngstrom (-2.4292536085066634)) (mkAngstrom (-1.54)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
       ]
   , localBonds = S.fromList
       [ Edge (AtomId 1) (AtomId 2)
@@ -58,7 +58,16 @@ molecule = either error id (validateMolecule (Molecule
       , Edge (AtomId 6) (AtomId 11)
       ]
   , systems =
-      [ 
+      [ (SystemId 1, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 1) (AtomId 2)]) Just ("single"))
+      , (SystemId 2, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 2) (AtomId 3)]) Just ("single"))
+      , (SystemId 3, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 2) (AtomId 4)]) Just ("single"))
+      , (SystemId 4, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 4) (AtomId 5)]) Just ("single"))
+      , (SystemId 5, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 3) (AtomId 6)]) Just ("single"))
+      , (SystemId 6, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 1) (AtomId 7)]) Just ("single"))
+      , (SystemId 7, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 2) (AtomId 8)]) Just ("single"))
+      , (SystemId 8, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 6) (AtomId 9)]) Just ("single"))
+      , (SystemId 9, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 6) (AtomId 10)]) Just ("single"))
+      , (SystemId 10, mkBondingSystem (NonNegative 2) (S.fromList [Edge (AtomId 6) (AtomId 11)]) Just ("single"))
       ]
   , smilesStereochemistry = emptySmilesStereochemistry
   }))

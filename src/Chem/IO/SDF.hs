@@ -23,7 +23,7 @@ import           Text.Read (readMaybe)
 import           Chem.Molecule
 import           Chem.Molecule.Coordinate (Coordinate(..), mkAngstrom)
 import           Chem.Dietz
-import           Constants (elementAttributes, elementShells)
+import           Constants (elementAttributes)
 
 -- | Parser type on String input.
 type Parser = Parsec Void String
@@ -132,12 +132,14 @@ parseV2000Atom idx line =
     (xs : ys : zs : sym : _) ->
       case (readMaybe xs, readMaybe ys, readMaybe zs, readMaybe sym) of
         (Just x, Just y, Just z, Just symbol) ->
+          let attrs = elementAttributes symbol
+          in
           Right
             Atom
               { atomID = AtomId (fromIntegral idx)
-              , attributes = elementAttributes symbol
+              , attributes = attrs
               , coordinate = Coordinate (mkAngstrom x) (mkAngstrom y) (mkAngstrom z)
-              , shells = elementShells symbol
+              , shells = defaultShells attrs
               , formalCharge = 0
               }
         _ -> Left ("Invalid V2000 atom line: " ++ line)
@@ -261,12 +263,13 @@ parseV3000Atom line =
       case (readMaybe indexText, readMaybe xs, readMaybe ys, readMaybe zs, readMaybe sym) of
         (Just atomIndex, Just x, Just y, Just z, Just symbol) ->
           let atomCharge = maybe 0 id (firstTaggedInt "CHG=" rest)
+              attrs = elementAttributes symbol
           in Right
                Atom
                  { atomID = AtomId atomIndex
-                 , attributes = elementAttributes symbol
+                 , attributes = attrs
                  , coordinate = Coordinate (mkAngstrom x) (mkAngstrom y) (mkAngstrom z)
-                 , shells = elementShells symbol
+                 , shells = defaultShells attrs
                  , formalCharge = atomCharge
                  }
         _ -> Left ("Invalid V3000 atom line: " ++ line)
@@ -297,11 +300,28 @@ buildMolecule atomList bonds =
   let atomMap = M.fromList [(atomID atom, atom) | atom <- atomList]
       local = S.fromList [edge | (edge, _) <- bonds]
       rings = detectSixRings bonds
-      sysList =
-        [ (SystemId idx, mkBondingSystem (NonNegative 6) ring (Just "pi_ring"))
-        | (idx, ring) <- zip [1 ..] rings
+      aromaticRingEdges = S.unions rings
+      edgeSystems =
+        [ (SystemId idx, mkBondingSystem (NonNegative electrons) (S.singleton edge) (Just label))
+        | (idx, (edge, order)) <- zip [1 ..] bonds
+        , let (electrons, label) = bondElectronSystem order (edge `S.member` aromaticRingEdges)
         ]
-  in Molecule atomMap local sysList emptySmilesStereochemistry
+      ringOffset = length edgeSystems
+      ringSystems =
+        [ (SystemId idx, mkBondingSystem (NonNegative 6) ring (Just "pi_ring"))
+        | (idx, ring) <- zip [ringOffset + 1 ..] rings
+        ]
+      sysList = edgeSystems ++ ringSystems
+  in withLocalBondsAsSystems (Molecule atomMap local sysList emptySmilesStereochemistry)
+
+bondElectronSystem :: Int -> Bool -> (Int, String)
+bondElectronSystem order inAromaticRing
+  | inAromaticRing && order `elem` [1, 2, 4] = (2, "single")
+  | order == 1 = (2, "single")
+  | order == 2 = (4, "double")
+  | order == 3 = (6, "triple")
+  | order == 4 = (2, "aromatic_edge")
+  | otherwise = (2, "sdf_bond_type_" ++ show order)
 
 
 chunksOf :: Int -> [a] -> [[a]]

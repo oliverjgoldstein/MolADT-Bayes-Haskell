@@ -1,6 +1,7 @@
 # Orbitals
 
-Orbital information lives on each atom as Haskell ADTs.
+Orbital information can live on each atom as Haskell ADTs. Atom shells are
+optional, and default shells are stored on `ElementAttributes`.
 
 That matters because MolADT is not only a graph of element labels. It can carry
 the typed chemical structure that later descriptors or models may inspect.
@@ -37,14 +38,14 @@ data Shell = Shell
   , fSubShell              :: Maybe (SubShell F)
   }
 
-type Shells = [Shell]
+type Shells = Maybe Orb.Shells
 ```
 
-An atom points to `Shells`. A shell points to typed subshells. A subshell points
-to orbitals.
+An atom points to optional `Shells`. A shell points to typed subshells. A
+subshell points to orbitals.
 
 ```text
-Molecule -> Atom -> Shells -> Shell -> SubShell -> Orbital
+Molecule -> Atom -> Shells? -> Shell -> SubShell -> Orbital
 ```
 
 ## What An Orbital Stores

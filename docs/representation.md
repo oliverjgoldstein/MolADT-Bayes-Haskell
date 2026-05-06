@@ -26,10 +26,14 @@ The fields stay separate because they mean different things.
 
 | Field | Meaning |
 | --- | --- |
-| `atoms` | element data, coordinates, formal charge, shells, orbitals |
-| `localBonds` | localized two-atom sigma framework |
-| `systems` | Dietz electron-sharing systems over atoms and edges |
+| `atoms` | element data, coordinates, formal charge, optional shells, orbitals |
+| `systems` | canonical Dietz electron-sharing systems over atoms and edges |
+| `localBonds` | derived edge index for traversal and legacy callers |
 | `smilesStereochemistry` | stereo annotations preserved from notation |
+
+Every edge is represented by a bonding system. Conventional single, double, and
+triple bonds are one-edge systems with `2`, `4`, and `6` shared electrons,
+tagged `single`, `double`, and `triple`.
 
 ## Why This Matters
 
@@ -49,13 +53,12 @@ inference and inverse design:
 
 ## Not Just A Graph
 
-The local bond network is an ordinary set of undirected `Edge` values.
-
-The non-local chemistry is stored separately:
+The edge index is an ordinary set of undirected `Edge` values. The electron
+sharing is stored in bonding systems:
 
 ```text
-localBonds = sigma framework
-systems    = electron-sharing systems over atoms and edges
+localBonds = derived edge index
+systems    = canonical electron-sharing systems over atoms and edges
 ```
 
 This is closer to a layered molecule object than to a single flattened graph.
@@ -64,10 +67,10 @@ Examples:
 
 | Molecule | Boundary notation hides | MolADT keeps |
 | --- | --- | --- |
-| Benzene | aromatic shorthand | an explicit `pi_ring` system |
-| Diborane | bridge bonding | two `3c-2e` systems |
-| Ferrocene | sandwich bonding | Cp pi systems and Fe-centred bonding pool |
-| Morphine | fused ring bookkeeping | direct sigma edges plus stereo annotations |
+| Benzene | aromatic shorthand | one-edge `single` systems plus an explicit `pi_ring` system |
+| Diborane | bridge bonding | terminal `single` systems plus two `3c-2e` systems |
+| Ferrocene | sandwich bonding | Cp/C-H edge systems plus Cp pi systems and Fe-centred bonding pool |
+| Morphine | fused ring bookkeeping | every edge as a system plus stereo annotations |
 
 ## Explicit Haskell Examples
 
@@ -80,8 +83,9 @@ stack run moladtbayes -- pretty-example diborane
 stack run moladtbayes -- pretty-example morphine
 ```
 
-The ferrocene source uses one atom table, one sigma network, and three explicit
-Dietz systems. The bonding systems are direct `S.fromList` values:
+The ferrocene source uses one atom table, an edge index, and explicit Dietz
+systems. Legacy edge-index entries are normalized into one-edge `single`
+systems; the named bonding systems are direct `S.fromList` values:
 
 ```haskell
 systems =

@@ -24,7 +24,7 @@ import           Chem.Dietz
 import           Chem.Molecule
 import           Chem.Molecule.Coordinate (Coordinate(..), mkAngstrom, unAngstrom)
 import           Chem.Validate (usedElectronsAt, validateMolecule)
-import           Constants (elementAttributes, elementShells)
+import           Constants (elementAttributes)
 import           Control.Exception (evaluate)
 import           Control.Monad (forM, unless)
 import           Control.Monad.ST (ST, runST)
@@ -709,10 +709,10 @@ baseMoladtDescriptors molecule =
     , ("abs_formal_charge_sum", fromIntegral (sum (map (abs . formalCharge) (M.elems (atoms molecule)))))
     , ("positive_charge_count", fromIntegral (length (filter ((> 0) . formalCharge) (M.elems (atoms molecule)))))
     , ("negative_charge_count", fromIntegral (length (filter ((< 0) . formalCharge) (M.elems (atoms molecule)))))
-    , ("bonding_system_count", fromIntegral (length (systems molecule)))
-    , ("multicentre_system_count", fromIntegral (length [() | (_, system) <- systems molecule, S.size (memberEdges system) > 1]))
+    , ("bonding_system_count", fromIntegral (length legacySystems))
+    , ("multicentre_system_count", fromIntegral (length [() | system <- legacySystems, S.size (memberEdges system) > 1]))
     , ("pi_ring_system_count", aromaticRingCount molecule)
-    , ("zero_electron_system_count", fromIntegral (length [() | (_, system) <- systems molecule, getNN (sharedElectrons system) == 0]))
+    , ("zero_electron_system_count", fromIntegral (length [() | system <- legacySystems, getNN (sharedElectrons system) == 0]))
     , ("sigma_edge_count", fromIntegral (S.size (localBonds molecule)))
     , ("effective_bond_order_sum", sum edgeOrders)
     , ("effective_bond_order_mean", if null edgeOrders then 0.0 else mean edgeOrders)
@@ -726,6 +726,7 @@ baseMoladtDescriptors molecule =
     , ("heavy_atom_degree_max", if null heavyDegrees then 0.0 else maximum heavyDegrees)
     ]
   where
+    legacySystems = legacyBondingSystems molecule
     uniqueEdges = allEdges molecule
     edgeOrders = map (effectiveOrder molecule) (S.toList uniqueEdges)
     aromaticAtoms =
@@ -780,9 +781,10 @@ typedSystemFeatures molecule =
     , ("system_shared_electrons_max", if null shared then 0.0 else maximum shared)
     ]
   where
-    atomSizes = [fromIntegral (S.size (memberAtoms system)) | (_, system) <- systems molecule]
-    edgeSizes = [fromIntegral (S.size (memberEdges system)) | (_, system) <- systems molecule]
-    shared = [fromIntegral (getNN (sharedElectrons system)) | (_, system) <- systems molecule]
+    legacySystems = legacyBondingSystems molecule
+    atomSizes = [fromIntegral (S.size (memberAtoms system)) | system <- legacySystems]
+    edgeSizes = [fromIntegral (S.size (memberEdges system)) | system <- legacySystems]
+    shared = [legacySystemSharedElectrons system | system <- legacySystems]
 
 typedEdgeOrderBucketFeatures :: Molecule -> M.Map String Double
 typedEdgeOrderBucketFeatures molecule =
@@ -820,7 +822,7 @@ typedRadialFeatures molecule =
       | (index, (_, atomA)) <- zip [0 :: Int ..] orderedAtoms
       , (_, atomB) <- drop (index + 1) orderedAtoms
       ]
-    systemEdges = S.unions [memberEdges system | (_, system) <- systems molecule]
+    systemEdges = S.unions [memberEdges system | system <- legacyBondingSystems molecule]
     addCenter acc center =
       let atomContribution =
             sum
@@ -937,6 +939,36 @@ typedTorsionFeatures molecule =
                   acc
                   torsionCenters
 
+legacyBondingSystems :: Molecule -> [BondingSystem]
+legacyBondingSystems molecule =
+  [ system
+  | (_, system) <- systems molecule
+  , not (sigmaSingletonSystem system)
+  ]
+
+conventionalOneEdgeSystem :: BondingSystem -> Bool
+conventionalOneEdgeSystem system =
+  S.size (memberEdges system) == 1
+    && case tag system of
+      Just "single" -> getNN (sharedElectrons system) == 2
+      Just "double" -> getNN (sharedElectrons system) == 4
+      Just "triple" -> getNN (sharedElectrons system) == 6
+      _ -> False
+
+sigmaSingletonSystem :: BondingSystem -> Bool
+sigmaSingletonSystem system =
+  conventionalOneEdgeSystem system
+    && tag system == Just "single"
+
+legacySystemSharedElectrons :: BondingSystem -> Double
+legacySystemSharedElectrons system =
+  case tag system of
+    Just "double"
+      | conventionalOneEdgeSystem system -> fromIntegral (getNN (sharedElectrons system) - 2)
+    Just "triple"
+      | conventionalOneEdgeSystem system -> fromIntegral (getNN (sharedElectrons system) - 2)
+    _ -> fromIntegral (getNN (sharedElectrons system))
+
 proposeMolecule :: Molecule -> StdGen -> (Maybe Molecule, StdGen)
 proposeMolecule molecule gen =
   let (moveName, gen1) = weightedChoice moveWeights gen
@@ -1032,10 +1064,11 @@ mutateAtom molecule gen =
           atom = atoms molecule M.! atomId
           alternatives = filter (/= symbolOf atom) [C, N, O, F, Cl]
           (newSymbol, gen2) = chooseOne alternatives gen1
+          newAttributes = elementAttributes newSymbol
           mutatedAtom =
             atom
-              { attributes = elementAttributes newSymbol
-              , shells = elementShells newSymbol
+              { attributes = newAttributes
+              , shells = defaultShells newAttributes
               }
           proposal = molecule { atoms = M.insert atomId mutatedAtom (atoms molecule) }
       in (tryValidCandidate proposal, gen2)
@@ -1169,7 +1202,12 @@ ensureTerminalAtomRules molecule =
     [] -> Right ()
     (atomId, reason) : _ -> Left ("Terminal atom " ++ showAtomId atomId ++ " " ++ reason)
   where
-    systemAtoms = S.unions [memberAtoms system | (_, system) <- systems molecule]
+    systemAtoms =
+      S.unions
+        [ memberAtoms system
+        | (_, system) <- systems molecule
+        , S.size (memberEdges system) > 1
+        ]
     terminalSymbols = [H, F, Cl]
     badAtoms =
       [ (atomId, reason)
@@ -1315,49 +1353,53 @@ unlessEither False err = Left err
 
 seedMolecule :: SeedMoleculeName -> Molecule
 seedMolecule SeedWater =
-  Molecule
-    { atoms =
-        M.fromList
-          [ (AtomId 1, seedAtom 1 O 0.00 0.00 0.00)
-          , (AtomId 2, seedAtom 2 H 0.96 0.00 0.00)
-          , (AtomId 3, seedAtom 3 H (-0.32) 0.90 0.00)
-          ]
-    , localBonds = S.fromList [mkEdge (AtomId 1) (AtomId 2), mkEdge (AtomId 1) (AtomId 3)]
-    , systems = []
-    , smilesStereochemistry = emptySmilesStereochemistry
-    }
+  withLocalBondsAsSystems
+    (Molecule
+       { atoms =
+           M.fromList
+             [ (AtomId 1, seedAtom 1 O 0.00 0.00 0.00)
+             , (AtomId 2, seedAtom 2 H 0.96 0.00 0.00)
+             , (AtomId 3, seedAtom 3 H (-0.32) 0.90 0.00)
+             ]
+       , localBonds = S.fromList [mkEdge (AtomId 1) (AtomId 2), mkEdge (AtomId 1) (AtomId 3)]
+       , systems = []
+       , smilesStereochemistry = emptySmilesStereochemistry
+       })
 seedMolecule SeedMethane =
-  Molecule
-    { atoms =
-        M.fromList
-          [ (AtomId 1, seedAtom 1 C 0.00 0.00 0.00)
-          , (AtomId 2, seedAtom 2 H 0.63 0.63 0.63)
-          , (AtomId 3, seedAtom 3 H (-0.63) (-0.63) 0.63)
-          , (AtomId 4, seedAtom 4 H (-0.63) 0.63 (-0.63))
-          , (AtomId 5, seedAtom 5 H 0.63 (-0.63) (-0.63))
-          ]
-    , localBonds =
-        S.fromList
-          [ mkEdge (AtomId 1) (AtomId 2)
-          , mkEdge (AtomId 1) (AtomId 3)
-          , mkEdge (AtomId 1) (AtomId 4)
-          , mkEdge (AtomId 1) (AtomId 5)
-          ]
-    , systems = []
-    , smilesStereochemistry = emptySmilesStereochemistry
-    }
+  withLocalBondsAsSystems
+    (Molecule
+       { atoms =
+           M.fromList
+             [ (AtomId 1, seedAtom 1 C 0.00 0.00 0.00)
+             , (AtomId 2, seedAtom 2 H 0.63 0.63 0.63)
+             , (AtomId 3, seedAtom 3 H (-0.63) (-0.63) 0.63)
+             , (AtomId 4, seedAtom 4 H (-0.63) 0.63 (-0.63))
+             , (AtomId 5, seedAtom 5 H 0.63 (-0.63) (-0.63))
+             ]
+       , localBonds =
+           S.fromList
+             [ mkEdge (AtomId 1) (AtomId 2)
+             , mkEdge (AtomId 1) (AtomId 3)
+             , mkEdge (AtomId 1) (AtomId 4)
+             , mkEdge (AtomId 1) (AtomId 5)
+             ]
+       , systems = []
+       , smilesStereochemistry = emptySmilesStereochemistry
+       })
 
 seedAtom :: Integer -> AtomicSymbol -> Double -> Double -> Double -> Atom
 seedAtom atomNumber atomSymbol xValue yValue zValue =
+  let attrs = elementAttributes atomSymbol
+  in
   Atom
     { atomID = AtomId atomNumber
-    , attributes = elementAttributes atomSymbol
+    , attributes = attrs
     , coordinate =
         Coordinate
           (mkAngstrom xValue)
           (mkAngstrom yValue)
           (mkAngstrom zValue)
-    , shells = elementShells atomSymbol
+    , shells = defaultShells attrs
     , formalCharge = 0
     }
 
@@ -1369,15 +1411,16 @@ newAtom atomId atomSymbol parentId molecule =
       direction = attachmentDirection molecule parentId atomSymbol atomId
       Coordinate px py pz = coordinate parentAtom
       (dx, dy, dz) = scale3 bondLength direction
+      attrs = elementAttributes atomSymbol
   in Atom
        { atomID = atomId
-       , attributes = elementAttributes atomSymbol
+       , attributes = attrs
        , coordinate =
            Coordinate
              (mkAngstrom (unAngstrom px + dx))
              (mkAngstrom (unAngstrom py + dy))
              (mkAngstrom (unAngstrom pz + dz))
-       , shells = elementShells atomSymbol
+       , shells = defaultShells attrs
        , formalCharge = 0
        }
 
@@ -1410,16 +1453,17 @@ attachmentScore molecule parentId newSymbol direction existingDirections =
       Coordinate px py pz = coordinate parentAtom
       (dx, dy, dz) = scale3 bondLength direction
       candidateCoordinate =
-        Coordinate
-          (mkAngstrom (unAngstrom px + dx))
-          (mkAngstrom (unAngstrom py + dy))
-          (mkAngstrom (unAngstrom pz + dz))
+          Coordinate
+            (mkAngstrom (unAngstrom px + dx))
+            (mkAngstrom (unAngstrom py + dy))
+            (mkAngstrom (unAngstrom pz + dz))
+      attrs = elementAttributes newSymbol
       candidateAtom =
         Atom
           { atomID = AtomId (-1)
-          , attributes = elementAttributes newSymbol
+          , attributes = attrs
           , coordinate = candidateCoordinate
-          , shells = elementShells newSymbol
+          , shells = defaultShells attrs
           , formalCharge = 0
           }
       angleScore =
@@ -1486,7 +1530,12 @@ completeTerminalHydrogens molecule =
           (M.toAscList (atoms withoutHydrogens))
   in completed
   where
-    systemAtoms = S.unions [memberAtoms system | (_, system) <- systems molecule]
+    systemAtoms =
+      S.unions
+        [ memberAtoms system
+        | (_, system) <- systems molecule
+        , S.size (memberEdges system) > 1
+        ]
     removableHydrogens =
       [ atomId
       | (atomId, atom) <- M.toAscList (atoms molecule)
@@ -1579,7 +1628,12 @@ terminalHydrogensAttachedTo molecule atomId =
   , length (neighborsSigma molecule neighbor) == 1
   ]
   where
-    systemAtoms = S.unions [memberAtoms system | (_, system) <- systems molecule]
+    systemAtoms =
+      S.unions
+        [ memberAtoms system
+        | (_, system) <- systems molecule
+        , S.size (memberEdges system) > 1
+        ]
 
 removableTerminalAtoms :: Molecule -> [AtomId]
 removableTerminalAtoms molecule =
@@ -1789,7 +1843,7 @@ atomSourceLines molecule =
       ++ ", coordinate = Coordinate (mkAngstrom " ++ showDoubleLiteral coordX
       ++ ") (mkAngstrom " ++ showDoubleLiteral coordY
       ++ ") (mkAngstrom " ++ showDoubleLiteral coordZ ++ ")"
-      ++ ", shells = elementShells " ++ show (symbolOf atom)
+      ++ ", shells = defaultShells (elementAttributes " ++ show (symbolOf atom) ++ ")"
       ++ ", formalCharge = " ++ show (formalCharge atom)
       ++ " })"
   | (atomId, atom) <- M.toAscList (atoms molecule)

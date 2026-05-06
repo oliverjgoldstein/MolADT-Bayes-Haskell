@@ -4,6 +4,13 @@ This repo is the typed Haskell implementation of MolADT.
 
 Use these pages as small entry points, not a second README.
 
+Current representation rule: every edge lives in a bonding system. Conventional
+single, double, and triple bonds are one-edge systems with 2, 4, and 6 shared
+electrons; `localBonds` is the derived edge index used by traversal and legacy
+callers. Pretty printing reads from the bonding systems and shows the total
+electrons shared over each displayed edge; viewer output lists the same explicit
+bonding systems.
+
 ## Start Here
 
 - [Quickstart](quickstart.md): build, run, test.

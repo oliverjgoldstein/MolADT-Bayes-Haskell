@@ -15,15 +15,21 @@ data Molecule = Molecule
 ```
 
 ```text
-Molecule = atoms + sigma edges + bonding systems + stereochemistry
+Molecule = atoms + bonding systems + stereochemistry
 ```
 
 That gives one inspectable object with four layers:
 
 - `atoms`: atom table
-- `localBonds`: localized sigma network as undirected edges
-- `systems`: Dietz bonding systems for delocalized or multicentre chemistry
+- `systems`: canonical Dietz bonding systems
+- `localBonds`: derived edge index for traversal and legacy callers
 - `smilesStereochemistry`: stereo annotations from boundary notation
+
+Every edge belongs to a bonding system. Conventional single, double, and
+triple bonds are one-edge systems with `2`, `4`, and `6` shared electrons,
+tagged `single`, `double`, and `triple`. `localBonds` is kept as the edge index
+used by graph algorithms and legacy callers. Pretty-printing derives edge rows
+and shared-electron totals from the bonding systems.
 
 ## Haskell Shape
 
@@ -60,6 +66,7 @@ data ElementAttributes = ElementAttributes
   { symbol       :: AtomicSymbol
   , atomicNumber :: Int
   , atomicWeight :: Double
+  , defaultShells :: Shells
   }
 
 data Atom = Atom
@@ -75,6 +82,10 @@ An atom carries identity, element data, 3D coordinates, shell/orbital data, and
 formal charge. That is why downstream code can ask about the molecule directly
 instead of reparsing a notation string.
 
+`Shells` is optional (`Maybe Orb.Shells`). `elementAttributes` contains the
+default shell data for each element, and `elementShells` is retained only as a
+compatibility wrapper around `defaultShells . elementAttributes`.
+
 ## Bonding Systems
 
 ```haskell
@@ -88,8 +99,8 @@ data BondingSystem = BondingSystem
   }
 ```
 
-`localBonds` and `systems` are separate layers. A sigma edge can exist in the
-ordinary graph and also belong to a delocalized system.
+`systems` is the bonding layer. `localBonds` is the derived edge index obtained
+from the systems plus any legacy input edges lifted by `withLocalBondsAsSystems`.
 
 That is how MolADT can represent things like:
 
@@ -156,6 +167,9 @@ type Shells = [Shell]
 This is Haskell-specific: the subshell type parameter prevents an `Orbital P`
 from being silently mixed into a `SubShell D`.
 
+In the molecule layer, `Chem.Molecule.Shells` wraps this as `Maybe Orb.Shells`
+so atom shells can be omitted.
+
 For example, iodine's final valence shell is written as explicit `5s2 5p5`
 data:
 
@@ -204,23 +218,24 @@ This is the shape of water as a typed molecule:
 
 ```haskell
 water :: Molecule
-water = Molecule
-  { atoms = M.fromList
-      [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes O, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells O, formalCharge = 0 })
-      , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.96) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
-      , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.32)) (mkAngstrom 0.9) (mkAngstrom 0.0), shells = elementShells H, formalCharge = 0 })
+water = withLocalBondsAsSystems $
+  Molecule
+    { atoms = M.fromList
+      [ (AtomId 1, let attrs = elementAttributes O in Atom { atomID = AtomId 1, attributes = attrs, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = defaultShells attrs, formalCharge = 0 })
+      , (AtomId 2, let attrs = elementAttributes H in Atom { atomID = AtomId 2, attributes = attrs, coordinate = Coordinate (mkAngstrom 0.96) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = defaultShells attrs, formalCharge = 0 })
+      , (AtomId 3, let attrs = elementAttributes H in Atom { atomID = AtomId 3, attributes = attrs, coordinate = Coordinate (mkAngstrom (-0.32)) (mkAngstrom 0.9) (mkAngstrom 0.0), shells = defaultShells attrs, formalCharge = 0 })
       ]
-  , localBonds = S.fromList
+    , localBonds = S.fromList
       [ Edge (AtomId 1) (AtomId 2)
       , Edge (AtomId 1) (AtomId 3)
       ]
-  , systems = []
-  , smilesStereochemistry = emptySmilesStereochemistry
-  }
+    , systems = []
+    , smilesStereochemistry = emptySmilesStereochemistry
+    }
 ```
 
-The important part is the separation between atoms, local bonds, bonding
-systems, and stereo.
+The important part is that callers may still provide legacy edges, but the
+normalized molecule has two one-edge `single` systems for the O-H bonds.
 
 ## Canonical Normal Form
 

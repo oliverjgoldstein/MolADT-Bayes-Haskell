@@ -33,12 +33,12 @@ moleculeViewerPayload title molecule =
     , "title" .= T.pack title
     , "atoms" .= map atomPayload (M.toAscList (atoms molecule))
     , "bonds" .= map bondPayload (S.toAscList allEdges)
-    , "systems" .= map systemPayload (systems molecule)
+    , "systems" .= map systemPayload (allSystems molecule)
     , "angles" .= anglePayloads molecule
     ]
   where
     allEdges =
-      S.unions (localBonds molecule : map (memberEdges . snd) (systems molecule))
+      S.unions (localBonds molecule : map (memberEdges . snd) (allSystems molecule))
 
     atomPayload :: (AtomId, Atom) -> A.Value
     atomPayload (AtomId rawId, atom) =
@@ -117,7 +117,7 @@ anglePayloads molecule =
   ]
   where
     geometryEdges =
-      S.unions (localBonds molecule : [memberEdges system | (_, system) <- systems molecule])
+      S.unions (localBonds molecule : [memberEdges system | (_, system) <- allSystems molecule])
     adjacency =
       M.map S.toAscList $
         S.foldl'
@@ -147,7 +147,7 @@ atomAngle molecule left center right = do
       in Just (acos cosineValue * 180.0 / pi)
 
 shellsPayload :: Shells -> [A.Value]
-shellsPayload = map shellPayload
+shellsPayload = maybe [] (map shellPayload)
 
 shellPayload :: Orb.Shell -> A.Value
 shellPayload shell =

@@ -18,7 +18,7 @@ import qualified Data.Text as T
 import           Chem.Dietz
 import           Chem.Molecule
 import           Chem.Molecule.Coordinate
-import           Constants (elementShells)
+import           Constants (elementAttributes)
 import qualified Orbital as Orb
 
 moleculeToJSON :: Molecule -> BL.ByteString
@@ -45,7 +45,7 @@ moleculeToValue molecule =
             [ "system_id" .= systemIdValue systemId
             , "bonding_system" .= bondingSystemValue bondingSystem
             ]
-        | (systemId, bondingSystem) <- systems molecule
+        | (systemId, bondingSystem) <- allSystems molecule
         ]
     , "smiles_stereochemistry" .= smilesStereochemistryValue (smilesStereochemistry molecule)
     ]
@@ -100,7 +100,7 @@ atomValue atom =
     [ "atom_id" .= atomIdValue (atomID atom)
     , "attributes" .= elementAttributesValue (attributes atom)
     , "coordinate" .= coordinateValue (coordinate atom)
-    , "shells" .= map shellValue (shells atom)
+    , "shells" .= maybe A.Null (A.toJSON . map shellValue) (shells atom)
     , "formal_charge" .= formalCharge atom
     ]
 
@@ -274,19 +274,22 @@ parseMoleculeValue = A.withObject "Molecule" $ \obj -> do
   let atomMap = M.fromList atomEntries
   when (length atomEntries /= M.size atomMap) $
     fail "Duplicate atom_id entries in molecule atoms"
-  localBondValues <- obj .: "local_bonds" :: Parser [A.Value]
+  localBondValues <- obj .:? "local_bonds" .!= [] :: Parser [A.Value]
   localBondList <- mapM parseEdgeValue localBondValues
   systemValues <- obj .: "systems" :: Parser [A.Value]
   systemList <- mapM parseSystemEntryValue systemValues
+  let systemEdges = S.unions [memberEdges system | (_, system) <- systemList]
+      legacyLocalBonds = S.fromList localBondList `S.difference` systemEdges
   smilesStereoValue <- obj .:? "smiles_stereochemistry" :: Parser (Maybe A.Value)
   smilesStereo <- maybe (pure emptySmilesStereochemistry) parseSmilesStereochemistryValue smilesStereoValue
-  pure
-    Molecule
-      { atoms = atomMap
-      , localBonds = S.fromList localBondList
-      , systems = systemList
-      , smilesStereochemistry = smilesStereo
-      }
+  pure $
+    withLocalBondsAsSystems
+      (Molecule
+         { atoms = atomMap
+         , localBonds = legacyLocalBonds
+         , systems = systemList
+         , smilesStereochemistry = smilesStereo
+         })
 
 parseAtomEntryValue :: A.Value -> Parser (AtomId, Atom)
 parseAtomEntryValue = A.withObject "AtomEntry" $ \obj -> do
@@ -358,10 +361,10 @@ parseElementAttributesValue = A.withObject "ElementAttributes" $ \obj -> do
   atomicNumber' <- parseIntValue "atomic_number" atomicNumberValue
   atomicWeightValue <- obj .: "atomic_weight" :: Parser A.Value
   atomicWeight' <- parseDoubleValue "atomic_weight" atomicWeightValue
+  let defaults = elementAttributes atomicSymbol
   pure
-    ElementAttributes
-      { symbol = atomicSymbol
-      , atomicNumber = atomicNumber'
+    defaults
+      { atomicNumber = atomicNumber'
       , atomicWeight = atomicWeight'
       }
 
@@ -391,8 +394,8 @@ parseAtomValue = A.withObject "Atom" $ \obj -> do
   shellsValue <- obj .:? "shells" :: Parser (Maybe [A.Value])
   shells' <-
     case shellsValue of
-      Nothing -> pure (elementShells (symbol attributes'))
-      Just shellValues -> mapM parseShellValue shellValues
+      Nothing -> pure (defaultShells attributes')
+      Just shellValues -> Just <$> mapM parseShellValue shellValues
   formalChargeValue <- obj .:? "formal_charge" :: Parser (Maybe A.Value)
   formalCharge' <-
     case formalChargeValue of

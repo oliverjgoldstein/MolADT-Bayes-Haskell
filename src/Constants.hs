@@ -4,7 +4,7 @@
 -- modules can focus on behaviour.
 module Constants where
 
-import Chem.Molecule (AtomicSymbol(..), ElementAttributes(..), Angstrom(..), mkAngstrom)
+import Chem.Molecule (AtomicSymbol(..), ElementAttributes(..), Angstrom(..), Shells, mkAngstrom)
 import Chem.Dietz ()
 import qualified Orbital as Orb
 import qualified Data.Map.Strict as M
@@ -129,36 +129,24 @@ getMaxBondsSymbol sym =
     let (_, maxElectrons) = nominalValence sym
     in fromIntegral maxElectrons / 2.0
 
--- | Tabulate atomic numbers and atomic weights for the supported elements.
-elementAttributes O = ElementAttributes O 8 15.999
-elementAttributes H = ElementAttributes H 1 1.008
-elementAttributes N = ElementAttributes N 7 14.007
-elementAttributes C = ElementAttributes C 6 12.011
-elementAttributes B = ElementAttributes B 5 10.811
-elementAttributes Fe = ElementAttributes Fe 26 55.845
-elementAttributes F = ElementAttributes F 9 18.998
-elementAttributes Cl = ElementAttributes Cl 17 35.453
-elementAttributes S = ElementAttributes S 16 32.065
-elementAttributes Br = ElementAttributes Br 35 79.904
-elementAttributes P = ElementAttributes P 15 30.974
-elementAttributes Si = ElementAttributes Si 14 28.085
-elementAttributes I = ElementAttributes I 53 126.904
-elementAttributes Na = ElementAttributes Na 11 22.990
+-- | Tabulate atomic numbers, atomic weights, and default shell data for the
+-- supported elements.
+elementAttributes O = ElementAttributes O 8 15.999 (Just Orb.oxygen)
+elementAttributes H = ElementAttributes H 1 1.008 (Just Orb.hydrogen)
+elementAttributes N = ElementAttributes N 7 14.007 (Just Orb.nitrogen)
+elementAttributes C = ElementAttributes C 6 12.011 (Just Orb.carbon)
+elementAttributes B = ElementAttributes B 5 10.811 (Just Orb.boron)
+elementAttributes Fe = ElementAttributes Fe 26 55.845 (Just Orb.iron)
+elementAttributes F = ElementAttributes F 9 18.998 (Just Orb.fluorine)
+elementAttributes Cl = ElementAttributes Cl 17 35.453 (Just Orb.chlorine)
+elementAttributes S = ElementAttributes S 16 32.065 (Just Orb.sulfur)
+elementAttributes Br = ElementAttributes Br 35 79.904 (Just Orb.bromine)
+elementAttributes P = ElementAttributes P 15 30.974 (Just Orb.phosphorus)
+elementAttributes Si = ElementAttributes Si 14 28.085 (Just Orb.silicon)
+elementAttributes I = ElementAttributes I 53 126.904 (Just Orb.iodine)
+elementAttributes Na = ElementAttributes Na 11 22.990 (Just Orb.sodium)
 
--- | Electron shell descriptions for each supported element.  These are
--- imported from "Orbital" to keep the construction logic in one module.
-elementShells :: AtomicSymbol -> Orb.Shells
-elementShells O = Orb.oxygen
-elementShells H = Orb.hydrogen
-elementShells N = Orb.nitrogen
-elementShells C = Orb.carbon
-elementShells B = Orb.boron
-elementShells Fe = Orb.iron
-elementShells F = Orb.fluorine
-elementShells Cl = Orb.chlorine
-elementShells S = Orb.sulfur
-elementShells Br = Orb.bromine
-elementShells P = Orb.phosphorus
-elementShells Si = Orb.silicon
-elementShells I = Orb.iodine
-elementShells Na = Orb.sodium
+-- | Compatibility accessor for older code. New atom construction can take
+-- shells from 'defaultShells' on 'elementAttributes'.
+elementShells :: AtomicSymbol -> Shells
+elementShells = defaultShells . elementAttributes

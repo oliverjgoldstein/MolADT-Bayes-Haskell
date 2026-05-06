@@ -16,6 +16,7 @@ import Chem.Dietz
 import Chem.Molecule
   ( Atom(..)
   , AtomicSymbol(..)
+  , ElementAttributes(..)
   , Coordinate(..)
   , Molecule(..)
   , SmilesAtomStereo(..)
@@ -25,34 +26,35 @@ import Chem.Molecule
   , SmilesStereochemistry(..)
   , emptySmilesStereochemistry
   , mkAngstrom
+  , withLocalBondsAsSystems
   )
-import Constants (elementAttributes, elementShells)
+import Constants (elementAttributes)
 
 ferrocenePretty :: Molecule
-ferrocenePretty = Molecule
+ferrocenePretty = withLocalBondsAsSystems $ Molecule
   { atoms =
       M.fromList
-        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes Fe, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = elementShells Fe, formalCharge = 0 })
-        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 1.18) (mkAngstrom 0.0) (mkAngstrom 1.66), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.3647) (mkAngstrom 1.122) (mkAngstrom 1.66), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-0.9547)) (mkAngstrom 0.6935) (mkAngstrom 1.66), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-0.9547)) (mkAngstrom (-0.6935)) (mkAngstrom 1.66), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.3647) (mkAngstrom (-1.122)) (mkAngstrom 1.66), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.9547) (mkAngstrom 0.6935) (mkAngstrom (-1.66)), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-0.3647)) (mkAngstrom 1.122) (mkAngstrom (-1.66)), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 9, Atom { atomID = AtomId 9, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-1.18)) (mkAngstrom 0.0) (mkAngstrom (-1.66)), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 10, Atom { atomID = AtomId 10, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-0.3647)) (mkAngstrom (-1.122)) (mkAngstrom (-1.66)), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 11, Atom { atomID = AtomId 11, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.9547) (mkAngstrom (-0.6935)) (mkAngstrom (-1.66)), shells = elementShells C, formalCharge = 0 })
-        , (AtomId 12, Atom { atomID = AtomId 12, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 2.27) (mkAngstrom 0.0) (mkAngstrom 1.66), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 13, Atom { atomID = AtomId 13, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.7016) (mkAngstrom 2.1582) (mkAngstrom 1.66), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 14, Atom { atomID = AtomId 14, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.8364)) (mkAngstrom 1.3338) (mkAngstrom 1.66), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 15, Atom { atomID = AtomId 15, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.8364)) (mkAngstrom (-1.3338)) (mkAngstrom 1.66), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 16, Atom { atomID = AtomId 16, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.7016) (mkAngstrom (-2.1582)) (mkAngstrom 1.66), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 17, Atom { atomID = AtomId 17, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.8364) (mkAngstrom 1.3338) (mkAngstrom (-1.66)), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 18, Atom { atomID = AtomId 18, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.7016)) (mkAngstrom 2.1582) (mkAngstrom (-1.66)), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 19, Atom { atomID = AtomId 19, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-2.27)) (mkAngstrom 0.0) (mkAngstrom (-1.66)), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 20, Atom { atomID = AtomId 20, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.7016)) (mkAngstrom (-2.1582)) (mkAngstrom (-1.66)), shells = elementShells H, formalCharge = 0 })
-        , (AtomId 21, Atom { atomID = AtomId 21, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.8364) (mkAngstrom (-1.3338)) (mkAngstrom (-1.66)), shells = elementShells H, formalCharge = 0 })
+        [ (AtomId 1, Atom { atomID = AtomId 1, attributes = elementAttributes Fe, coordinate = Coordinate (mkAngstrom 0.0) (mkAngstrom 0.0) (mkAngstrom 0.0), shells = defaultShells (elementAttributes Fe), formalCharge = 0 })
+        , (AtomId 2, Atom { atomID = AtomId 2, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 1.18) (mkAngstrom 0.0) (mkAngstrom 1.66), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 3, Atom { atomID = AtomId 3, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.3647) (mkAngstrom 1.122) (mkAngstrom 1.66), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 4, Atom { atomID = AtomId 4, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-0.9547)) (mkAngstrom 0.6935) (mkAngstrom 1.66), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 5, Atom { atomID = AtomId 5, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-0.9547)) (mkAngstrom (-0.6935)) (mkAngstrom 1.66), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 6, Atom { atomID = AtomId 6, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.3647) (mkAngstrom (-1.122)) (mkAngstrom 1.66), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 7, Atom { atomID = AtomId 7, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.9547) (mkAngstrom 0.6935) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 8, Atom { atomID = AtomId 8, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-0.3647)) (mkAngstrom 1.122) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 9, Atom { atomID = AtomId 9, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-1.18)) (mkAngstrom 0.0) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 10, Atom { atomID = AtomId 10, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom (-0.3647)) (mkAngstrom (-1.122)) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 11, Atom { atomID = AtomId 11, attributes = elementAttributes C, coordinate = Coordinate (mkAngstrom 0.9547) (mkAngstrom (-0.6935)) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes C), formalCharge = 0 })
+        , (AtomId 12, Atom { atomID = AtomId 12, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 2.27) (mkAngstrom 0.0) (mkAngstrom 1.66), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 13, Atom { atomID = AtomId 13, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.7016) (mkAngstrom 2.1582) (mkAngstrom 1.66), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 14, Atom { atomID = AtomId 14, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.8364)) (mkAngstrom 1.3338) (mkAngstrom 1.66), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 15, Atom { atomID = AtomId 15, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-1.8364)) (mkAngstrom (-1.3338)) (mkAngstrom 1.66), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 16, Atom { atomID = AtomId 16, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 0.7016) (mkAngstrom (-2.1582)) (mkAngstrom 1.66), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 17, Atom { atomID = AtomId 17, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.8364) (mkAngstrom 1.3338) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 18, Atom { atomID = AtomId 18, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.7016)) (mkAngstrom 2.1582) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 19, Atom { atomID = AtomId 19, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-2.27)) (mkAngstrom 0.0) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 20, Atom { atomID = AtomId 20, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom (-0.7016)) (mkAngstrom (-2.1582)) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
+        , (AtomId 21, Atom { atomID = AtomId 21, attributes = elementAttributes H, coordinate = Coordinate (mkAngstrom 1.8364) (mkAngstrom (-1.3338)) (mkAngstrom (-1.66)), shells = defaultShells (elementAttributes H), formalCharge = 0 })
         ]
   , localBonds =
       S.fromList
